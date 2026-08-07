@@ -1,0 +1,11 @@
+{
+  "name": "Gloomveil.MapGeneration.Editor",
+  "rootNamespace": "Gloomveil.MapGeneration.Editor",
+  "references": [
+    "Gloomveil.MapGeneration"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "autoReferenced": true
+}
