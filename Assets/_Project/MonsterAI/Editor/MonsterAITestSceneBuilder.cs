@@ -10,10 +10,12 @@ using UnityEngine.SceneManagement;
 namespace Game.MonsterAI.Editor
 {
     /// <summary>
-    /// One-click graybox test scene for the monster AI: a ring corridor around a central room,
-    /// with spurs to a start alcove, a dead end and a safe zone (TGD section 40, 54). Builds and
-    /// wires every MonoBehaviour via Bind(...) calls instead of reflection, then bakes a NavMesh
-    /// and saves the scene. Run again any time to rebuild from scratch.
+    /// One-click graybox test scene for the Bracken-style monster AI: a ring corridor around a
+    /// central room, with spurs to a start alcove, a dead end and a safe zone. The monster no longer
+    /// needs hand-placed StalkPoints (removed — see chat, full AI rewrite) since it now patrols and
+    /// flees via random NavMesh sampling instead of a scored candidate list. Builds and wires every
+    /// MonoBehaviour via Bind(...) calls instead of reflection, then bakes a NavMesh and saves the
+    /// scene. Run again any time to rebuild from scratch.
     ///
     /// Actors (player/monster) are built while inactive and only SetActive(true) once every Bind()
     /// call has run — MonsterBrain.OnEnable and MonsterVisualDriver.OnEnable both touch bound
@@ -26,7 +28,6 @@ namespace Game.MonsterAI.Editor
         private const string DataFolder = RootFolder + "/Data";
         private const string ScenePath = ScenesFolder + "/MonsterAI_TestScene.unity";
         private const string ConfigAssetPath = DataFolder + "/MonsterConfig_Default.asset";
-        private const string StalkSetAssetPath = DataFolder + "/StalkPointRuntimeSet.asset";
         private const string SafeSetAssetPath = DataFolder + "/SafeZoneRuntimeSet.asset";
 
         // Single place to retune the graybox before regenerating (Tools > Gloomveil > Build Monster AI Test Scene).
@@ -54,7 +55,6 @@ namespace Game.MonsterAI.Editor
             EnsureFolders();
 
             MonsterConfig config = GetOrCreateAsset<MonsterConfig>(ConfigAssetPath);
-            StalkPointRuntimeSet stalkSet = GetOrCreateAsset<StalkPointRuntimeSet>(StalkSetAssetPath);
             SafeZoneRuntimeSet safeSet = GetOrCreateAsset<SafeZoneRuntimeSet>(SafeSetAssetPath);
 
             Scene scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
@@ -89,10 +89,6 @@ namespace Game.MonsterAI.Editor
 
             BuildSafeZone(level.transform, safeMat, safeSet);
 
-            GameObject stalkRoot = new GameObject("StalkPoints");
-            stalkRoot.transform.SetParent(level.transform, false);
-            BuildStalkPoints(stalkRoot.transform, stalkSet);
-
             GameObject debugRoot = new GameObject("Debug");
             LightZoneTestToggler toggler = debugRoot.AddComponent<LightZoneTestToggler>();
             toggler.Bind(new[] { zoneRing, zoneStart, zoneDeadEnd, zoneSafe });
@@ -100,15 +96,18 @@ namespace Game.MonsterAI.Editor
             // NavMesh must be baked before the agent (monster) is enabled and tries to path on it.
             surface.BuildNavMesh();
 
+            // Player spawns in the Start room; the monster spawns in the far Dead-End room instead of
+            // the central room (30m apart vs. the previous 15m) so Patrol has real breathing room
+            // before Interested can trigger — at 15m the monster's own 10m patrol wander could already
+            // land within its 12m detection radius of the player almost immediately (see chat).
             GameObject player = BuildPlayer(new Vector3(8f, 1f, -7f));
             TestPlayerController playerController = player.GetComponent<TestPlayerController>();
             Camera playerCamera = player.GetComponentInChildren<Camera>(true);
-            PlayerVisionModel visionModel = playerCamera.gameObject.AddComponent<PlayerVisionModel>();
             PlayerGazeDetector gazeDetector = playerCamera.gameObject.AddComponent<PlayerGazeDetector>();
             gazeDetector.Bind(playerCamera, config);
 
-            GameObject monster = BuildMonster(new Vector3(8f, 1f, 8f), monsterMat, config, stalkSet, safeSet,
-                player.transform, visionModel, gazeDetector);
+            GameObject monster = BuildMonster(new Vector3(8f, 1f, 23f), monsterMat, config, safeSet,
+                player.transform, gazeDetector);
 
             MonsterBrain brain = monster.GetComponent<MonsterBrain>();
             MonsterDebugGizmos gizmos = monster.AddComponent<MonsterDebugGizmos>();
@@ -124,10 +123,8 @@ namespace Game.MonsterAI.Editor
             Debug.Log($"Monster AI test scene built at {ScenePath}. Enter Play Mode to test: WASD to move, mouse to look, " +
                       "Shift to sprint, F for flashlight, 1-4 to kill light zones.");
 
-            // Sanity check: if either count is 0 after a build, the Bind()/OnEnable registration
-            // path is broken again — the monster silently has no destinations to navigate to.
-            Debug.Log($"[Sanity] StalkPointRuntimeSet.Items = {stalkSet.Items.Count}, " +
-                      $"SafeZoneRuntimeSet.Items = {safeSet.Items.Count}.");
+            // Sanity check: 0 here means the Bind()/OnEnable registration path is broken again.
+            Debug.Log($"[Sanity] SafeZoneRuntimeSet.Items = {safeSet.Items.Count}.");
         }
 
         // ---------- folders & assets ----------
@@ -338,33 +335,6 @@ namespace Game.MonsterAI.Editor
             safeZone.Bind(set);
         }
 
-        private static void BuildStalkPoints(Transform parent, StalkPointRuntimeSet set)
-        {
-            AddStalkPoint(parent, set, "SP_RingCorner_SW", new Vector3(2, 0.1f, 2), true, false, false, false, 1f);
-            AddStalkPoint(parent, set, "SP_RingCorner_SE", new Vector3(14, 0.1f, 2), true, false, false, false, 1f);
-            AddStalkPoint(parent, set, "SP_RingCorner_NW", new Vector3(2, 0.1f, 14), true, false, false, false, 1f);
-            AddStalkPoint(parent, set, "SP_RingCorner_NE", new Vector3(14, 0.1f, 14), true, false, false, false, 1f);
-            AddStalkPoint(parent, set, "SP_Junction_StartSpur", new Vector3(8, 0.1f, 2), false, true, false, false, 0.9f);
-            AddStalkPoint(parent, set, "SP_Junction_DeadEndSpur", new Vector3(8, 0.1f, 14), false, true, false, false, 0.9f);
-            AddStalkPoint(parent, set, "SP_Junction_SafeZoneSpur", new Vector3(2, 0.1f, 8), false, true, false, true, 0.9f);
-            AddStalkPoint(parent, set, "SP_CentralRoom", new Vector3(8, 0.1f, 8), false, false, false, false, 0.5f);
-            AddStalkPoint(parent, set, "SP_StartSpurMid", new Vector3(8, 0.1f, -2), false, false, false, false, 0.8f);
-            AddStalkPoint(parent, set, "SP_DeadEndRoom", new Vector3(8, 0.1f, 23), false, false, true, false, 0.85f);
-            AddStalkPoint(parent, set, "SP_NearSafeZoneMouth", new Vector3(-3, 0.1f, 8), false, false, false, true, 0.7f);
-            AddStalkPoint(parent, set, "SP_RingEastMid", new Vector3(14, 0.1f, 8), false, false, false, false, 0.9f);
-        }
-
-        private static void AddStalkPoint(Transform parent, StalkPointRuntimeSet set, string name, Vector3 position,
-            bool nearCorner, bool junction, bool deadEnd, bool safeZoneAdjacent, float darkness)
-        {
-            GameObject go = new GameObject(name);
-            go.transform.SetParent(parent, false);
-            go.transform.position = position;
-            StalkPoint point = go.AddComponent<StalkPoint>();
-            point.Configure(nearCorner, junction, deadEnd, safeZoneAdjacent, darkness);
-            point.Bind(set);
-        }
-
         // ---------- actors ----------
 
         private static GameObject BuildPlayer(Vector3 spawnPosition)
@@ -406,8 +376,7 @@ namespace Game.MonsterAI.Editor
         }
 
         private static GameObject BuildMonster(Vector3 spawnPosition, Material material, MonsterConfig config,
-            StalkPointRuntimeSet stalkSet, SafeZoneRuntimeSet safeSet, Transform player,
-            PlayerVisionModel visionModel, PlayerGazeDetector gazeDetector)
+            SafeZoneRuntimeSet safeSet, Transform player, PlayerGazeDetector gazeDetector)
         {
             GameObject monster = new GameObject("Monster");
             monster.SetActive(false); // stay inactive until every Bind() below has run — see class summary
@@ -427,21 +396,24 @@ namespace Game.MonsterAI.Editor
             bodyCollider.height = 2.2f;
             bodyCollider.radius = 0.35f;
 
-            // Pushed clearly forward of the capsule's own silhouette (radius maxes at 0.35 near the
-            // neck) so player gaze/flashlight rays reach the eyes without clipping the monster's own
-            // body collider first — that self-occlusion was why gaze looked "broken" (see chat).
-            GameObject eyesGO = new GameObject("Eyes");
-            eyesGO.transform.SetParent(monster.transform, false);
-            eyesGO.transform.localPosition = new Vector3(0f, 1.9f, 0.5f);
-            SphereCollider eyeCollider = eyesGO.AddComponent<SphereCollider>();
-            eyeCollider.radius = 0.2f;
-            eyeCollider.isTrigger = true;
+            // Gaze hitbox is a large sphere centered on the body — big and roughly omnidirectional
+            // so the player can "spot" the monster from any angle it happens to be facing. A small
+            // forward-offset point (the original design) only worked when the monster's front was
+            // toward the player; since it wanders and turns freely, that made the raycast hit/miss
+            // flicker frame to frame and cascade into constant state thrashing (see chat).
+            GameObject gazeVolumeGO = new GameObject("GazeVolume");
+            gazeVolumeGO.transform.SetParent(monster.transform, false);
+            gazeVolumeGO.transform.localPosition = new Vector3(0f, 1.2f, 0f);
+            SphereCollider gazeCollider = gazeVolumeGO.AddComponent<SphereCollider>();
+            gazeCollider.radius = 0.7f;
+            gazeCollider.isTrigger = true;
 
-            // Small visible marker so the player can actually see where to aim (bare capsule had none).
+            // Small visible marker purely for flavor — no collider, plays no role in gaze detection.
             Material eyeVisualMat = CreateEmissiveMaterial("MonsterEyeMaterial_Debug", new Color(1f, 0.9f, 0.1f));
             GameObject eyeVisual = GameObject.CreatePrimitive(PrimitiveType.Sphere);
             eyeVisual.name = "EyeVisual";
-            eyeVisual.transform.SetParent(eyesGO.transform, false);
+            eyeVisual.transform.SetParent(monster.transform, false);
+            eyeVisual.transform.localPosition = new Vector3(0f, 1.9f, 0.5f);
             eyeVisual.transform.localScale = Vector3.one * 0.16f;
             Object.DestroyImmediate(eyeVisual.GetComponent<Collider>());
             eyeVisual.GetComponent<MeshRenderer>().sharedMaterial = eyeVisualMat;
@@ -455,19 +427,18 @@ namespace Game.MonsterAI.Editor
             agent.stoppingDistance = 0.3f;
 
             MonsterNavigator navigator = monster.AddComponent<MonsterNavigator>();
-            MonsterPerception perception = monster.AddComponent<MonsterPerception>();
-            perception.Bind(player, visionModel);
+            navigator.Bind(safeSet);
 
-            MonsterPositionEvaluator evaluator = monster.AddComponent<MonsterPositionEvaluator>();
-            evaluator.Bind(stalkSet, safeSet, perception, player, monster.transform);
+            MonsterPerception perception = monster.AddComponent<MonsterPerception>();
+            perception.Bind(player);
 
             MonsterAngerController angerController = monster.AddComponent<MonsterAngerController>();
             angerController.Bind(config);
 
-            MonsterGazeReceiver gazeReceiver = eyesGO.AddComponent<MonsterGazeReceiver>();
+            MonsterGazeReceiver gazeReceiver = gazeVolumeGO.AddComponent<MonsterGazeReceiver>();
 
             MonsterBrain brain = monster.AddComponent<MonsterBrain>();
-            brain.Bind(config, perception, evaluator, angerController, navigator, gazeDetector, gazeReceiver, player);
+            brain.Bind(config, perception, angerController, navigator, gazeDetector, gazeReceiver, player);
             gazeReceiver.Bind(brain);
 
             MonsterVisualDriver visualDriver = bodyGO.AddComponent<MonsterVisualDriver>();

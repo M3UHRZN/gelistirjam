@@ -2,23 +2,19 @@ using UnityEngine;
 
 namespace Game.MonsterAI
 {
-    /// <summary>Reads the player's position and vision model on the monster's behalf (TGD section 13).</summary>
+    /// <summary>
+    /// Distance-only player awareness — Bracken is explicitly omniscient about player positions
+    /// ("fully aware of the locations of every single employee"), no FOV/line-of-sight gating here.
+    /// Gaze detection (whether the *player* is looking back at the monster) is a separate concern
+    /// handled by PlayerGazeDetector/MonsterGazeReceiver.
+    /// </summary>
     public class MonsterPerception : MonoBehaviour
     {
         [SerializeField] private Transform player;
-        [SerializeField] private PlayerVisionModel playerVision;
 
-        public float DistanceToPlayer => player != null
-            ? Vector3.Distance(transform.position, player.position)
-            : Mathf.Infinity;
+        public float DistanceToPlayer => player != null ? Vector3.Distance(transform.position, player.position) : Mathf.Infinity;
+        public bool IsPlayerWithinRadius(float radius) => DistanceToPlayer <= radius;
 
-        public void Bind(Transform playerTransform, PlayerVisionModel visionModel)
-        {
-            player = playerTransform;
-            playerVision = visionModel;
-        }
-
-        public bool IsPointActuallyVisibleToPlayer(Vector3 point) =>
-            playerVision != null && playerVision.IsActuallyVisible(point);
+        public void Bind(Transform playerTransform) => player = playerTransform;
     }
 }

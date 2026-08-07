@@ -3,9 +3,8 @@ using UnityEngine;
 namespace Game.MonsterAI
 {
     /// <summary>
-    /// Placeholder visual feedback until real art/animations exist (TGD section 57: minimum viable
-    /// Walk/Observed/Attack). Tints the body via a MaterialPropertyBlock so the shared material is
-    /// never instanced (MASTER_PROMPT.md section 22).
+    /// Placeholder visual feedback until real art/animations exist. Tints the body via a
+    /// MaterialPropertyBlock so the shared material is never instanced (MASTER_PROMPT.md section 22).
     /// </summary>
     public class MonsterVisualDriver : MonoBehaviour
     {
@@ -41,10 +40,10 @@ namespace Game.MonsterAI
             // scene's near-black ambient (a flat albedo tint was invisible in the dark — see chat).
             (Color baseColor, Color emission) = stateName switch
             {
-                nameof(StalkState) => (new Color(0.12f, 0.12f, 0.16f), new Color(0.05f, 0.05f, 0.08f)),
-                nameof(ObservedState) => (Color.yellow, new Color(1.2f, 1f, 0f)),
-                nameof(RetreatState) => (new Color(0.2f, 0.4f, 1f), new Color(0.25f, 0.5f, 1.4f)),
-                nameof(CommitState) => (Color.red, new Color(1.6f, 0f, 0f)),
+                nameof(PatrolState) => (new Color(0.12f, 0.12f, 0.16f), new Color(0.05f, 0.05f, 0.08f)),
+                nameof(InterestedState) => (Color.yellow, new Color(1.2f, 1f, 0f)),
+                nameof(ShyState) => (new Color(0.2f, 0.4f, 1f), new Color(0.25f, 0.5f, 1.4f)),
+                nameof(AggressiveState) => (Color.red, new Color(1.6f, 0f, 0f)),
                 nameof(KillState) => (Color.black, Color.black),
                 _ => (Color.gray, new Color(0.2f, 0.2f, 0.2f)),
             };

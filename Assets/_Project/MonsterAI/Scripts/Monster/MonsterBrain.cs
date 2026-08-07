@@ -4,16 +4,16 @@ using UnityEngine;
 namespace Game.MonsterAI
 {
     /// <summary>
-    /// Composition root and P0 state owner for the monster. Wires perception, positioning, anger and
-    /// navigation together and runs the state machine (TGD sections 11-12, priority P0 per section 55).
-    /// The flashlight has no effect here on purpose — TGD section 8 is explicit that it does not
-    /// influence the monster AI; it only helps the player see (FlashlightController.cs).
+    /// Composition root and state owner for the Bracken-style monster AI (see chat: full rewrite
+    /// based on Lethal Company's Bracken). States: Patrol -> Interested -> Shy / Aggressive -> Kill.
+    /// Contact-range kill is checked globally every frame in any state except Kill itself — Bracken
+    /// snaps your neck on physical contact regardless of what phase it's in.
+    /// The flashlight has no effect here on purpose (TGD section 8 / prior chat decision).
     /// </summary>
     public class MonsterBrain : MonoBehaviour
     {
         [SerializeField] private MonsterConfig config;
         [SerializeField] private MonsterPerception perception;
-        [SerializeField] private MonsterPositionEvaluator positionEvaluator;
         [SerializeField] private MonsterAngerController anger;
         [SerializeField] private MonsterNavigator navigator;
         [SerializeField] private PlayerGazeDetector gazeDetector;
@@ -22,38 +22,32 @@ namespace Game.MonsterAI
 
         public MonsterConfig Config => config;
         public MonsterPerception Perception => perception;
-        public MonsterPositionEvaluator PositionEvaluator => positionEvaluator;
         public MonsterAngerController Anger => anger;
         public MonsterNavigator Navigator => navigator;
         public Transform Player => player;
+        public Vector3 PatrolAnchor { get; private set; }
         public string CurrentStateName => fsm?.Current?.GetType().Name ?? "-";
 
         /// <summary>True while the player is currently aiming at this monster's eyes (TGD section 22-24).</summary>
         public bool IsGazedAtNow => gazeDetector != null && ReferenceEquals(gazeDetector.CurrentTarget, gazeReceiver);
 
-        /// <summary>True once inside Critical Distance — Commit overrides everything, gaze included (TGD section 25).</summary>
-        public bool IsPastCriticalDistance => perception != null && config != null && perception.DistanceToPlayer <= config.CriticalDistance;
-
         public event Action<string> OnStateChanged;
         public event Action OnKill;
 
-        public IMonsterState HiddenState { get; private set; }
-        public IMonsterState StalkState { get; private set; }
-        public IMonsterState ObservedState { get; private set; }
-        public IMonsterState RetreatState { get; private set; }
-        public IMonsterState CommitState { get; private set; }
+        public IMonsterState PatrolState { get; private set; }
+        public IMonsterState InterestedState { get; private set; }
+        public IMonsterState ShyState { get; private set; }
+        public IMonsterState AggressiveState { get; private set; }
         public IMonsterState KillState { get; private set; }
 
         private MonsterStateMachine fsm;
 
         public void Bind(MonsterConfig monsterConfig, MonsterPerception monsterPerception,
-            MonsterPositionEvaluator evaluator, MonsterAngerController angerController,
-            MonsterNavigator monsterNavigator, PlayerGazeDetector detector,
-            MonsterGazeReceiver receiver, Transform playerTransform)
+            MonsterAngerController angerController, MonsterNavigator monsterNavigator,
+            PlayerGazeDetector detector, MonsterGazeReceiver receiver, Transform playerTransform)
         {
             config = monsterConfig;
             perception = monsterPerception;
-            positionEvaluator = evaluator;
             anger = angerController;
             navigator = monsterNavigator;
             gazeDetector = detector;
@@ -63,33 +57,25 @@ namespace Game.MonsterAI
 
         private void Awake()
         {
+            PatrolAnchor = transform.position;
             fsm = new MonsterStateMachine();
-            HiddenState = new HiddenState(this);
-            StalkState = new StalkState(this);
-            ObservedState = new ObservedState(this);
-            RetreatState = new RetreatState(this);
-            CommitState = new CommitState(this);
+            PatrolState = new PatrolState(this);
+            InterestedState = new InterestedState(this);
+            ShyState = new ShyState(this);
+            AggressiveState = new AggressiveState(this);
             KillState = new KillState(this);
         }
 
         private void OnEnable()
         {
-            if (gazeDetector != null) gazeDetector.OnGazeConfirmed += HandleGazeConfirmed;
-            ChangeState(StalkState);
-        }
-
-        private void OnDisable()
-        {
-            if (gazeDetector != null) gazeDetector.OnGazeConfirmed -= HandleGazeConfirmed;
+            ChangeState(PatrolState);
         }
 
         private void Update()
         {
-            bool alreadyCommitting = fsm.Current == CommitState || fsm.Current == KillState;
-
-            if (IsPastCriticalDistance && !alreadyCommitting)
+            if (fsm.Current != KillState && perception != null && perception.DistanceToPlayer <= config.ContactKillRange)
             {
-                ChangeState(CommitState);
+                ChangeState(KillState);
             }
 
             fsm.Tick(Time.deltaTime);
@@ -103,14 +89,5 @@ namespace Game.MonsterAI
         }
 
         public void RaiseKill() => OnKill?.Invoke();
-
-        private void HandleGazeConfirmed(MonsterGazeReceiver receiver)
-        {
-            if (receiver != gazeReceiver) return;
-            if (fsm.Current == CommitState || fsm.Current == KillState) return; // gaze no longer works past critical distance
-
-            anger.AddAnger(1); // every successful eye contact makes it permanently more dangerous (TGD section 2.2, 19)
-            ChangeState(ObservedState);
-        }
     }
 }

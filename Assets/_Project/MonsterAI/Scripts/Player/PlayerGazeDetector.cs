@@ -1,10 +1,15 @@
-using System;
 using UnityEngine;
 
 namespace Game.MonsterAI
 {
     /// <summary>
-    /// Detects sustained player gaze on a MonsterGazeReceiver via a small raycast cluster (TGD section 22-24).
+    /// Detects whether the player is currently aiming at a MonsterGazeReceiver via a small raycast
+    /// cluster around screen center. Reacts instantly on first hit (no minimum duration) — Bracken
+    /// "as soon as you look at it" registers the glance immediately. A short loss-grace window keeps
+    /// CurrentTarget from flickering false for a single missed frame (rotation jitter, raycast noise
+    /// at a collider's silhouette edge) — without it, every 1-frame miss read as "gaze broken" and
+    /// caused constant state-machine thrashing (see chat). The monster states poll CurrentTarget
+    /// every frame themselves instead of subscribing to a debounced event.
     /// Attach to the player camera.
     /// </summary>
     public class PlayerGazeDetector : MonoBehaviour
@@ -12,20 +17,20 @@ namespace Game.MonsterAI
         [SerializeField] private Camera playerCamera;
         [SerializeField] private MonsterConfig config;
         [SerializeField] private LayerMask gazeHitMask = ~0;
+        [SerializeField, Tooltip("Seconds a lost hit is still reported as gazed before CurrentTarget actually clears.")]
+        private float gazeLossGraceSeconds = 0.15f;
 
-        // Fixed 5-point cluster around the viewport center (TGD section 23); scaled by the config's cone angle.
+        // Fixed 5-point cluster around the viewport center; scaled by the config's cone angle.
         private static readonly Vector2[] ClusterOffsets =
         {
             Vector2.zero, Vector2.up, Vector2.down, Vector2.left, Vector2.right
         };
 
-        private float continuousGazeSeconds;
-        private MonsterGazeReceiver currentTarget;
+        private MonsterGazeReceiver lastConfirmedTarget;
+        private float secondsSinceLastHit;
 
-        public event Action<MonsterGazeReceiver> OnGazeConfirmed;
-
-        /// <summary>The receiver currently under the ray cluster this frame, or null. Updated every Update().</summary>
-        public MonsterGazeReceiver CurrentTarget => currentTarget;
+        /// <summary>The receiver currently under the ray cluster (with a small loss-grace window), or null.</summary>
+        public MonsterGazeReceiver CurrentTarget { get; private set; }
 
         public void Bind(Camera camera, MonsterConfig monsterConfig)
         {
@@ -37,24 +42,20 @@ namespace Game.MonsterAI
 
         private void Update()
         {
-            if (PlayerCamera == null || config == null) return;
+            MonsterGazeReceiver hitNow = (PlayerCamera != null && config != null) ? DetectTarget() : null;
 
-            MonsterGazeReceiver target = DetectTarget();
-            if (target != null)
+            if (hitNow != null)
             {
-                currentTarget = target;
-                continuousGazeSeconds += Time.deltaTime;
-                if (continuousGazeSeconds >= config.GazeConfirmDuration)
-                {
-                    OnGazeConfirmed?.Invoke(currentTarget);
-                    continuousGazeSeconds = 0f;
-                }
+                lastConfirmedTarget = hitNow;
+                secondsSinceLastHit = 0f;
             }
             else
             {
-                currentTarget = null;
-                continuousGazeSeconds = 0f;
+                secondsSinceLastHit += Time.deltaTime;
+                if (secondsSinceLastHit > gazeLossGraceSeconds) lastConfirmedTarget = null;
             }
+
+            CurrentTarget = lastConfirmedTarget;
         }
 
         private MonsterGazeReceiver DetectTarget()
