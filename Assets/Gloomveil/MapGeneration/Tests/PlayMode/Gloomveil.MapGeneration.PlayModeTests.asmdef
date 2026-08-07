@@ -1,0 +1,10 @@
+{
+  "name": "Gloomveil.MapGeneration.PlayModeTests",
+  "rootNamespace": "Gloomveil.MapGeneration.Tests",
+  "references": [
+    "Gloomveil.MapGeneration"
+  ],
+  "optionalUnityReferences": [
+    "TestAssemblies"
+  ]
+}
