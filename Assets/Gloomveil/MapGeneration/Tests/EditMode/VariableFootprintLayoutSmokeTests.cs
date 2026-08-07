@@ -29,5 +29,18 @@ namespace Gloomveil.MapGeneration.Tests
             Assert.That(left.Overlaps(touching), Is.False);
             Assert.That(left.Overlaps(overlapping), Is.True);
         }
+
+        [Test]
+        public void Rotate_NorthSocketOnTwoByThreeClockwise_BecomesSecondEastSocket()
+        {
+            var socket = new SocketKey(CardinalDirection.North, 0, 0);
+
+            SocketKey rotated = socket.Rotate(new GridSize2(2, 3), 1);
+
+            Assert.That(
+                rotated,
+                Is.EqualTo(new SocketKey(CardinalDirection.East, 1, 0)));
+        }
+
     }
 }
