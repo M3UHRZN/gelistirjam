@@ -1,0 +1,59 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f9feff9822ba1ca428f455b8570e1a02, type: 3}
+  m_Name: DefaultMapGenerationConfig
+  m_EditorClassIdentifier: Gloomveil.MapGeneration::Gloomveil.MapGeneration.MapGenerationConfig
+  unitSize: 4
+  floorHeight: 4
+  moduleCatalog: {fileID: 11400000, guid: 9386987e85e35184ca6cca74bd012df1, type: 2}
+  widthUnits: 16
+  depthUnits: 16
+  floorCount: 2
+  minRoomsPerFloor: 7
+  maxRoomsPerFloor: 9
+  roomClearanceUnits: 1
+  extraRoomLinksPerFloor: 2
+  verticalLinksPerFloorPair: 2
+  minimumStairCenterSeparationUnits: 5
+  verticalTraversalCostUnits: 4
+  fuseCount: 3
+  safeZoneCount: 2
+  maxLayoutAttempts: 12
+  maxPlacementAttemptsPerArea: 64
+  roomFootprints:
+  - id: 1x2
+    widthUnits: 1
+    depthUnits: 2
+    weight: 4
+    requiredPerFloor: 1
+  - id: 2x2
+    widthUnits: 2
+    depthUnits: 2
+    weight: 3
+    requiredPerFloor: 1
+  - id: 2x3
+    widthUnits: 2
+    depthUnits: 3
+    weight: 2
+    requiredPerFloor: 1
+  stairFootprints:
+  - id: STA_1x2
+    widthUnits: 1
+    depthUnits: 2
+    weight: 3
+    requiredPerFloor: 0
+  - id: STA_2x2
+    widthUnits: 2
+    depthUnits: 2
+    weight: 1
+    requiredPerFloor: 0
+  corridorRunLengths: 010000000200000003000000

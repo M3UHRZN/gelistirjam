@@ -102,8 +102,24 @@ Merdivenlerde ayrıca `Landing_Bottom` ve `Landing_Top` bulunur.
 
 - Basit BoxCollider bileşimleri tercih edilir; komşu footprint'e taşma olmaz.
 - Duvar, zemin ve tavan collider'larında görünmez boşluk veya üst üste binme olmaz.
-- Root adı, pivot, socket/anchor transformları ve collider kapsamı graybox sözleşmesiyle aynı kalır.
+- Root adı, footprint, pivot, socket/anchor transformları, layer, collider kapsamı ve mevcut `CatalogEntryId` graybox sözleşmesiyle aynı kalır.
 - P1 `_02`/`_03` görsel varyantları aynı `FamilyId` altında, benzersiz `CatalogEntryId` ile gelir.
-- Önce graybox koridorlar, sonra odalar, sonra merdivenler teslim edilir; her batch Unity'de dört rotasyonda kontrol edilir.
+
+## Graybox Replacement Batch Kabulü
+
+Graybox'lar tek seferde değil, aşağıdaki sırayla ve ayrı batch'ler halinde değiştirilir:
+
+| Batch | Manuel kabul konfigürasyonu | Bu batch'te kontrol edilecekler |
+|---|---|---|
+| 1. Koridorlar | seed `1042`, 2 kat | 4/8/12 m straight çeşitliliği, corner/junction/door transition birleşimleri, portal ve wall-cap kapanışı |
+| 2. Odalar | seed `2718`, 3 kat | `1×2`, `2×2`, `2×3` ve görünür `3×2` rotasyonu, role anchor'ları, odalar arası negative space |
+| 3. Merdivenler | seed `9001`, 4 kat | Her komşu kat çifti için iki ayrı stair, landing anchor'ları, player ve monster boyutunda kesintisiz NavMesh traversal |
+
+Her batch için:
+
+1. Yalnızca o batch'in graybox prefab'ları değiştirilir; diğer iki grup sabit bırakılır.
+2. `Tools/Gloomveil/Map/Validate Module Catalog` çalıştırılır ve hata kalmadan tamamlanır.
+3. Tablodaki seed ve kat sayısı üretilir; modüller Unity'de 0°, 90°, 180° ve 270° dönüşleriyle görsel olarak kontrol edilir.
+4. Gap, overlap, z-fighting, collider taşması, socket/anchor kayması veya NavMesh kopması varsa batch kabul edilmez.
 
 Kabul için tüm P0 modüller snap etmeli, 90° rotasyonlarda boşluk/çakışma oluşturmamalı, socket adları eksiksiz olmalı ve NavMesh oyuncu/monster boyutunda merdivenleri kesintisiz geçebilmelidir.

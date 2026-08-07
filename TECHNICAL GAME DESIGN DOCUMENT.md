@@ -1022,13 +1022,17 @@ oyuncu run boyunca monster'a ne kadar çok baktıysa final o kadar zordur.
 
 # 39. LEVEL DESIGN
 
-İlk sürüm:
+İlk oynanabilir sürüm:
 
-**handcrafted single map**
+**seeded procedural modular maze**
 
-olacaktır.
+kullanacaktır.
 
-Procedural generation ana geliştirme scope'una dahil değildir.
+- Kat sayısı Inspector'dan ayarlanır; desteklenen aralık `2+` kattır.
+- Sistem yerleşim hesabında gizli 4 × 4 m lattice kullanır; oyuncuya görünen odalar ve koridorlar değişken boyutlu modüllerdir.
+- `1×2`, `2×2` ve `2×3/3×2` oda footprint'leri zorunludur.
+- Düz koridorlar 4, 8 ve 12 m varyasyonlarını; tüm modüller 0°, 90°, 180° ve 270° yönlerini destekler.
+- Her komşu kat çifti iki ayrı merdivenle bağlanır.
 
 ---
 
@@ -1036,14 +1040,16 @@ Procedural generation ana geliştirme scope'una dahil değildir.
 
 Map'te bulunmalı:
 
-- long corridors
-- short corridors
+- 4, 8 ve 12 m düz corridor run'ları
+- değişken boyutlu ve farklı yönlere döndürülmüş odalar
 - T junction
 - cross junction
 - blind corners
 - loops
 - dead ends
-- small technical rooms
+- small ve large technical rooms
+- unrelated odalar arasında boş negative space
+- her komşu kat çifti için iki separated stair
 - safe zones
 - fuse rooms
 - exit room
@@ -1064,7 +1070,7 @@ Uzun tek yönlü corridor'lar sınırlı kullanılmalıdır.
 
 # 42. STALK POINT PLACEMENT
 
-Handcrafted map içerisinde StalkPoint'ler özellikle:
+Üretilen modüllerde neutral StalkPoint anchor'ları özellikle:
 
 - blind corners,
 - behind pillars,
@@ -1075,45 +1081,47 @@ Handcrafted map içerisinde StalkPoint'ler özellikle:
 
 üzerinde konumlandırılır.
 
+Map sistemi bu noktaları AI davranışına yorumlamaz; doğrulanmış metadata olarak yayınlar.
+
 ---
 
-# 43. RANDOMIZATION WITHOUT PROCEDURAL MAP
+# 43. SEEDED RUN RANDOMIZATION
 
-Procedural generation olmasa bile her run randomize edilebilir.
+Her run'ın map topology'si ve gameplay yerleşimleri aynı seed üzerinden deterministik olarak üretilebilir.
 
 Random:
 
-- fuse positions,
+- floor'lara dağıtılmış fuse positions,
 - initial monster position,
 - light shutdown order,
 - bazı locked/open doors,
 - stalk behavior seed.
 
-Bu sistem replayability için yeterli olabilir.
+Aynı seed aynı topology signature'ı üretir; gameplay ve presentation random stream'leri birbirinden ayrılır.
 
 ---
 
-# 44. PROCEDURAL GENERATION — OPTIONAL P2
+# 44. PROCEDURAL MAP GENERATION — P0
 
-Ana oyun tamamen stabil olduğunda Ludus procedural sisteminden:
+Generator aşağıdaki sırayla çalışır:
 
-- DungeonGenerator
-- DungeonData
-- RoomNode
-- DirectionHelper
-- seed/config structure
+- seed ve Inspector config doğrulama,
+- variable-footprint oda ve merdiven yerleşimi,
+- corridor routing ve görünür modül planlama,
+- start, exit, fuse ve safe-zone rol atama,
+- prefab çözümleme ve görünür map build,
+- NavMesh build ve runtime path validation,
+- gameplay/AI kullanımına tek seferlik publication.
 
-reuse edilebilir.
-
-Existing generator topology üretir.
-
-Yeni horror oyununda farklı visualizer kullanılmalıdır.
+Başarısız veya navigation doğrulamasından geçemeyen map yayınlanmaz. Map generation katmanı enemy code çağırmaz.
 
 ---
 
 # 45. PROCEDURAL MAZE VISUALIZER
 
-RoomNode connection pattern üzerinden module seçilir.
+Gizli placement lattice yalnızca yerleşim ve routing hesabı içindir; kullanılmayan lattice hücreleri için mesh veya filler prefab oluşturulmaz.
+
+Odalar `1×2`, `2×2`, `2×3/3×2` görünür footprint'lerle yerleştirilir. Corridor neighbour mask ve straight-run uzunluğu üzerinden module seçilir.
 
 Örneğin:
 
@@ -1141,6 +1149,8 @@ Single connection:
 
 Dead End
 
+Degree-two straight run'lar 4, 8 ve 12 m görünür modüllere sıkıştırılır. Corner, junction, room door veya stair landing üzerinden tek bir düz modül geçirilmez.
+
 ---
 
 # 46. PROCEDURAL EXIT ASSIGNMENT
@@ -1149,9 +1159,11 @@ Exit kuş uçuşu distance ile seçilmemelidir.
 
 Graph üzerinden:
 
-**Start'tan BFS distance açısından en uzak node**
+**Start'tan weighted shortest-path distance açısından en uzak uygun room**
 
 seçilmelidir.
+
+Graph ağırlıkları yatay traversal mesafesini ve katlar arası stair traversal maliyetini birlikte hesaba katar.
 
 ---
 
@@ -1159,6 +1171,7 @@ seçilmelidir.
 
 Fuse'lar:
 
+- `min(fuseCount, floorCount)` kadar floor coverage sağlayan,
 - farklı branches,
 - uzak dead-end'ler,
 - birbirinden ayrılmış bölgeler
@@ -1169,17 +1182,18 @@ Bu sistem player'ı gerçekten map'i keşfetmeye zorlar.
 
 ---
 
-# 48. PROCEDURAL LIGHT SYSTEM
+# 48. PROCEDURAL MODULE METADATA
 
-Her module metadata taşıyabilir:
+Her module gameplay/AI'dan bağımsız neutral metadata taşıyabilir:
 
-- LightZone
-- SafeZone
-- StalkPoints
-- FuseCandidate
+- `StalkPoint_*`
+- `Anchor_SafeZone`
+- `LightAnchor`
+- `Anchor_Fuse_00`
 - MonsterSpawnCandidate
+- `Landing_Bottom` / `Landing_Top`
 
-Generator bittikten sonra gameplay director bu metadata'yı kullanabilir.
+Generator, Start'tan Exit'e, tüm Fuse anchor'larına ve bütün stair landing'lerine complete NavMesh path bulunduğunu doğruladıktan sonra map'i registry üzerinden gameplay/AI kullanımına yayınlar.
 
 ---
 
@@ -1585,9 +1599,11 @@ Audio integration.
 - final chase
 - random fuse
 - random light order
+- procedural acceptance seed checks
+- NavMesh ve artist replacement batch doğrulaması
 - bug fixing
 
-Procedural sadece oyun tamamen stabilse başlanır.
+Procedural map bu aralıkta başlanacak yeni bir feature değildir; ilk oynanabilirin P0 parçasıdır. Bu aşamada yalnızca kabul, tuning ve polish yapılır.
 
 ---
 
@@ -1611,7 +1627,7 @@ Sadece:
 
 Minimum bitmiş oyun:
 
-- single handcrafted map
+- seeded procedural modular maze, Inspector-configurable `2+` floors
 - player movement
 - sprint/stamina
 - flashlight
@@ -1632,7 +1648,7 @@ Minimum bitmiş oyun:
 
 # 68. MAIN TECHNICAL GOAL
 
-Oyunun teknik başarısı procedural map değildir.
+Procedural map zorunlu P0 altyapıdır; ancak tek başına oyunun ana teknik başarı ölçütü değildir.
 
 Oyunun teknik başarısı:
 
