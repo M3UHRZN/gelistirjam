@@ -128,6 +128,44 @@ namespace Gloomveil.MapGeneration.Tests
                 first.Rooms.Select(room => room.FootprintId).Distinct(),
                 Is.SupersetOf(new[] { "1x2", "2x2", "2x3" }));
 
+            IReadOnlyDictionary<GridCoord3, CorridorConnectionMask> corridorMasks =
+                first.CorridorTiles.ToDictionary(tile => tile.Coord, tile => tile.ConnectionMask);
+            MapPort[] selectedAreaPorts = first.Rooms
+                .SelectMany(room => room.Ports)
+                .Concat(first.Stairs.SelectMany(StairPorts))
+                .ToArray();
+            foreach (MapPort port in selectedAreaPorts)
+            {
+                Assert.That(
+                    corridorMasks.TryGetValue(port.WorldOutsideCell, out CorridorConnectionMask mask),
+                    Is.True,
+                    $"Port {port.WorldEdge} has no corridor tile at {port.WorldOutsideCell}.");
+                Assert.That(
+                    (mask & ConnectionTowardArea(port.WorldFacing)) != 0,
+                    Is.True,
+                    $"Corridor tile {port.WorldOutsideCell} is closed toward port {port.WorldEdge}.");
+            }
+
+            var stairLandingCells = new HashSet<GridCoord3>(
+                first.Stairs.SelectMany(StairPorts).Select(port => port.WorldOutsideCell));
+            foreach (CorridorModulePlacement module in first.CorridorModules
+                         .Where(module => module.LengthUnits > 1))
+            {
+                GridSize2 rotated = module.RotatedSize;
+                var rect = new GridRect(
+                    module.SouthwestOrigin.X,
+                    module.SouthwestOrigin.Z,
+                    rotated.Width,
+                    rotated.Depth);
+                Assert.That(
+                    stairLandingCells.Any(cell =>
+                        cell.Floor == module.SouthwestOrigin.Floor &&
+                        cell.X >= rect.X && cell.X < rect.MaxX &&
+                        cell.Z >= rect.Z && cell.Z < rect.MaxZ),
+                    Is.False,
+                    $"Corridor module {module.PlacementId} compresses across a stair landing.");
+            }
+
             MapValidationReport report = new MapLayoutValidator().Validate(first, parameters);
             Assert.That(
                 report.IsValid,
@@ -190,6 +228,37 @@ namespace Gloomveil.MapGeneration.Tests
                 Math.Abs(left.RotatedRect.CenterX2 - right.RotatedRect.CenterX2) +
                 Math.Abs(left.RotatedRect.CenterZ2 - right.RotatedRect.CenterZ2);
             return doubledDistance / 2.0;
+        }
+
+        private static IEnumerable<MapPort> StairPorts(PlacedStair stair)
+        {
+            if (stair.BottomPort.HasValue)
+            {
+                yield return stair.BottomPort.Value;
+            }
+
+            if (stair.TopPort.HasValue)
+            {
+                yield return stair.TopPort.Value;
+            }
+        }
+
+        private static CorridorConnectionMask ConnectionTowardArea(
+            CardinalDirection areaPortFacing)
+        {
+            switch (areaPortFacing)
+            {
+                case CardinalDirection.North:
+                    return CorridorConnectionMask.South;
+                case CardinalDirection.East:
+                    return CorridorConnectionMask.West;
+                case CardinalDirection.South:
+                    return CorridorConnectionMask.North;
+                case CardinalDirection.West:
+                    return CorridorConnectionMask.East;
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(areaPortFacing));
+            }
         }
 
     }

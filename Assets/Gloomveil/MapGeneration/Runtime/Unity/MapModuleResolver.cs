@@ -210,40 +210,13 @@ namespace Gloomveil.MapGeneration
             GridRect rect,
             GridSize2 canonicalSize,
             int quarterTurns,
-            SocketKey local)
-        {
-            SocketKey rotated = local.Rotate(canonicalSize, quarterTurns);
-            GridCoord3 outside;
-            GridEdgeKey edge;
-            switch (rotated.Side)
-            {
-                case CardinalDirection.North:
-                    outside = new GridCoord3(rect.X + rotated.Index, rect.MaxZ, floor);
-                    edge = new GridEdgeKey(floor, GridEdgeAxis.AlongX, outside.X, outside.Z);
-                    break;
-                case CardinalDirection.East:
-                    outside = new GridCoord3(rect.MaxX, rect.Z + rotated.Index, floor);
-                    edge = new GridEdgeKey(floor, GridEdgeAxis.AlongZ, outside.X, outside.Z);
-                    break;
-                case CardinalDirection.South:
-                    outside = new GridCoord3(rect.X + rotated.Index, rect.Z - 1, floor);
-                    edge = new GridEdgeKey(floor, GridEdgeAxis.AlongX, outside.X, outside.Z + 1);
-                    break;
-                case CardinalDirection.West:
-                    outside = new GridCoord3(rect.X - 1, rect.Z + rotated.Index, floor);
-                    edge = new GridEdgeKey(floor, GridEdgeAxis.AlongZ, outside.X + 1, outside.Z);
-                    break;
-                default:
-                    throw new ArgumentOutOfRangeException();
-            }
-
-            return new MapPort(
+            SocketKey local) =>
+            MapPortGeometry.Create(
                 placementId,
                 local,
-                rotated,
-                edge,
-                outside,
-                rotated.Side);
-        }
+                canonicalSize,
+                quarterTurns,
+                rect,
+                floor);
     }
 }

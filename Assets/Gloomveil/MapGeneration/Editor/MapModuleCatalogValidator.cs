@@ -154,15 +154,7 @@ namespace Gloomveil.MapGeneration.Editor
                 ValidateStair(entry, sockets, errors);
             }
 
-            ValidateColliderEnvelope(entry, size, errors);
-            for (int turns = 0; turns < 4; turns++)
-            {
-                GridSize2 rotated = size.Rotate(turns);
-                if (rotated.Width < 1 || rotated.Depth < 1)
-                {
-                    errors.Add($"{label}: quarter-turn {turns} produced an invalid footprint.");
-                }
-            }
+            ValidateQuarterTurnGeometry(entry, size, sockets, errors);
         }
 
         private static void ValidateFamily(
@@ -403,19 +395,55 @@ namespace Gloomveil.MapGeneration.Editor
             IEnumerable<SocketKey> sockets,
             ICollection<string> errors)
         {
-            HashSet<string> childNames = new HashSet<string>(
-                entry.Prefab.GetComponentsInChildren<Transform>(true)
-                    .Select(child => child.name),
-                StringComparer.Ordinal);
+            if (entry.Prefab.GetComponent<ModuleSocketController>() == null)
+            {
+                errors.Add(
+                    $"{entry.CatalogEntryId}: dynamic prefab root needs a " +
+                    $"{nameof(ModuleSocketController)} component.");
+            }
+
+            Transform[] children = entry.Prefab.GetComponentsInChildren<Transform>(true);
             foreach (SocketKey socket in sockets)
             {
                 string suffix = SocketSuffix(socket);
-                if (!childNames.Contains($"Portal_{suffix}") ||
-                    !childNames.Contains($"WallCap_{suffix}"))
+                Transform portal = children.FirstOrDefault(child =>
+                    child.name == $"Portal_{suffix}");
+                Transform wallCap = children.FirstOrDefault(child =>
+                    child.name == $"WallCap_{suffix}");
+                if (portal == null || wallCap == null)
                 {
                     errors.Add(
                         $"{entry.CatalogEntryId}: dynamic socket {socket} lacks Portal_{suffix} " +
                         $"or WallCap_{suffix}.");
+                    continue;
+                }
+
+                if (portal.gameObject.activeSelf)
+                {
+                    errors.Add(
+                        $"{entry.CatalogEntryId}: Portal_{suffix} must be inactive by default.");
+                }
+
+                if (portal.GetComponentsInChildren<Collider>(true)
+                    .Any(collider => collider.enabled && !collider.isTrigger))
+                {
+                    errors.Add(
+                        $"{entry.CatalogEntryId}: Portal_{suffix} must not block navigation.");
+                }
+
+                if (!wallCap.gameObject.activeSelf)
+                {
+                    errors.Add(
+                        $"{entry.CatalogEntryId}: WallCap_{suffix} must be active by default.");
+                }
+
+                BoxCollider capCollider = wallCap.GetComponentsInChildren<BoxCollider>(true)
+                    .FirstOrDefault(collider => collider.enabled && !collider.isTrigger);
+                if (capCollider == null)
+                {
+                    errors.Add(
+                        $"{entry.CatalogEntryId}: WallCap_{suffix} needs an enabled, non-trigger " +
+                        "BoxCollider.");
                 }
             }
         }
@@ -437,40 +465,245 @@ namespace Gloomveil.MapGeneration.Editor
                 errors.Add($"{entry.CatalogEntryId}: stair must span exactly {FloorHeight} m.");
             }
 
-            int requiredRampColliders = entry.CanonicalFootprintUnits == new GridSize2(2, 2) ? 2 : 1;
-            int boxColliders = entry.Prefab.GetComponentsInChildren<BoxCollider>(true).Length;
-            if (boxColliders < requiredRampColliders)
+            if (entry.CanonicalFootprintUnits == new GridSize2(2, 2))
             {
-                errors.Add(
-                    $"{entry.CatalogEntryId}: stair needs at least {requiredRampColliders} simple ramp " +
-                    "BoxCollider(s).");
+                ValidateRampCollider(entry, "RampCollider_Lower", 2f, errors);
+                ValidateRampCollider(entry, "RampCollider_Upper", 2f, errors);
+                ValidateLandingCollider(entry, "LandingCollider", errors);
+            }
+            else
+            {
+                ValidateRampCollider(entry, "RampCollider", FloorHeight, errors);
             }
 
             RequireChild(entry, "Landing_Bottom", errors);
             RequireChild(entry, "Landing_Top", errors);
         }
 
-        private static void ValidateColliderEnvelope(
+        private static void ValidateRampCollider(
             MapModuleEntry entry,
-            GridSize2 size,
+            string childName,
+            float expectedRise,
             ICollection<string> errors)
         {
-            float halfWidth = size.Width * UnitSize * 0.5f + PositionTolerance;
-            float halfDepth = size.Depth * UnitSize * 0.5f + PositionTolerance;
-            foreach (Collider collider in entry.Prefab.GetComponentsInChildren<Collider>(true))
+            BoxCollider collider = RequireNavigableBoxCollider(entry, childName, errors);
+            if (collider == null)
             {
-                Bounds bounds = collider.bounds;
-                Vector3 rootPosition = entry.Prefab.transform.position;
-                float minX = bounds.min.x - rootPosition.x;
-                float maxX = bounds.max.x - rootPosition.x;
-                float minZ = bounds.min.z - rootPosition.z;
-                float maxZ = bounds.max.z - rootPosition.z;
-                if (minX < -halfWidth || maxX > halfWidth ||
-                    minZ < -halfDepth || maxZ > halfDepth)
+                return;
+            }
+
+            float width = collider.size.x * Math.Abs(collider.transform.lossyScale.x);
+            if (width + PositionTolerance < 2.8f)
+            {
+                errors.Add(
+                    $"{entry.CatalogEntryId}: '{childName}' clear width is {width:0.###} m; " +
+                    "expected at least 2.8 m.");
+            }
+
+            Vector3 forward = collider.transform.forward.normalized;
+            float length = collider.size.z * Math.Abs(collider.transform.lossyScale.z);
+            float rise = Math.Abs(forward.y) * length;
+            if (Math.Abs(rise - expectedRise) > 0.15f)
+            {
+                errors.Add(
+                    $"{entry.CatalogEntryId}: '{childName}' rises {rise:0.###} m; " +
+                    $"expected {expectedRise:0.###} m from one continuous ramp collider.");
+            }
+        }
+
+        private static BoxCollider RequireNavigableBoxCollider(
+            MapModuleEntry entry,
+            string childName,
+            ICollection<string> errors)
+        {
+            Transform[] matches = entry.Prefab.GetComponentsInChildren<Transform>(true)
+                .Where(child => child.name == childName)
+                .ToArray();
+            if (matches.Length != 1)
+            {
+                errors.Add(
+                    $"{entry.CatalogEntryId}: expected exactly one '{childName}' child; " +
+                    $"found {matches.Length}.");
+                return null;
+            }
+
+            BoxCollider collider = matches[0].GetComponents<BoxCollider>()
+                .FirstOrDefault(candidate => candidate.enabled && !candidate.isTrigger);
+            if (collider == null)
+            {
+                errors.Add(
+                    $"{entry.CatalogEntryId}: '{childName}' needs an enabled, non-trigger " +
+                    "BoxCollider.");
+            }
+
+            return collider;
+        }
+
+        private static void ValidateLandingCollider(
+            MapModuleEntry entry,
+            string childName,
+            ICollection<string> errors)
+        {
+            BoxCollider collider = RequireNavigableBoxCollider(entry, childName, errors);
+            if (collider == null)
+            {
+                return;
+            }
+
+            float flatness = Math.Abs(Vector3.Dot(
+                collider.transform.up.normalized,
+                Vector3.up));
+            if (flatness < 0.98f)
+            {
+                errors.Add($"{entry.CatalogEntryId}: '{childName}' must be horizontal.");
+            }
+
+            float spanX = collider.size.x * Math.Abs(collider.transform.lossyScale.x);
+            float spanZ = collider.size.z * Math.Abs(collider.transform.lossyScale.z);
+            float usableWidth = Math.Max(spanX, spanZ);
+            if (usableWidth + PositionTolerance < 2.8f)
+            {
+                errors.Add(
+                    $"{entry.CatalogEntryId}: '{childName}' usable width is " +
+                    $"{usableWidth:0.###} m; expected at least 2.8 m.");
+            }
+        }
+
+        private static void ValidateQuarterTurnGeometry(
+            MapModuleEntry entry,
+            GridSize2 size,
+            IReadOnlyDictionary<SocketKey, Transform> sockets,
+            ICollection<string> errors)
+        {
+            Transform root = entry.Prefab.transform;
+            Collider[] colliders = entry.Prefab.GetComponentsInChildren<Collider>(true);
+            for (int turns = 0; turns < 4; turns++)
+            {
+                Quaternion rotation = Quaternion.Euler(0f, turns * 90f, 0f);
+                GridSize2 rotatedSize = size.Rotate(turns);
+                ValidateRotatedSockets(
+                    entry.CatalogEntryId,
+                    root,
+                    size,
+                    rotatedSize,
+                    sockets,
+                    turns,
+                    rotation,
+                    errors);
+                ValidateRotatedColliderEnvelope(
+                    entry.CatalogEntryId,
+                    root,
+                    rotatedSize,
+                    colliders,
+                    turns,
+                    rotation,
+                    errors);
+            }
+        }
+
+        private static void ValidateRotatedSockets(
+            string label,
+            Transform root,
+            GridSize2 canonicalSize,
+            GridSize2 rotatedSize,
+            IReadOnlyDictionary<SocketKey, Transform> sockets,
+            int turns,
+            Quaternion rotation,
+            ICollection<string> errors)
+        {
+            foreach (KeyValuePair<SocketKey, Transform> socket in sockets)
+            {
+                SocketKey rotatedKey = socket.Key.Rotate(canonicalSize, turns);
+                Vector3 localPosition = root.InverseTransformPoint(socket.Value.position);
+                Vector3 actualPosition = rotation * localPosition;
+                Vector3 expectedPosition = ExpectedSocketPosition(rotatedSize, rotatedKey);
+                if ((actualPosition - expectedPosition).sqrMagnitude >
+                    PositionTolerance * PositionTolerance)
                 {
                     errors.Add(
-                        $"{entry.CatalogEntryId}: collider '{collider.name}' protrudes beyond the " +
-                        "documented footprint/socket boundary.");
+                        $"{label}: socket {socket.Key} at quarter-turn {turns} lands at " +
+                        $"{actualPosition}; expected {rotatedKey} at {expectedPosition}.");
+                }
+
+                Vector3 localFacing = root.InverseTransformDirection(socket.Value.forward);
+                Vector3 actualFacing = rotation * localFacing;
+                Vector3 expectedFacing = DirectionVector(rotatedKey.Side);
+                if (Vector3.Dot(actualFacing.normalized, expectedFacing) < 0.98f)
+                {
+                    errors.Add(
+                        $"{label}: socket {socket.Key} faces incorrectly after quarter-turn {turns} " +
+                        $"(expected {rotatedKey.Side}).");
+                }
+            }
+        }
+
+        private static void ValidateRotatedColliderEnvelope(
+            string label,
+            Transform root,
+            GridSize2 rotatedSize,
+            IEnumerable<Collider> colliders,
+            int turns,
+            Quaternion rotation,
+            ICollection<string> errors)
+        {
+            float halfWidth = rotatedSize.Width * UnitSize * 0.5f + PositionTolerance;
+            float halfDepth = rotatedSize.Depth * UnitSize * 0.5f + PositionTolerance;
+            foreach (Collider collider in colliders)
+            {
+                foreach (Vector3 localCorner in ColliderCornersInRootSpace(collider, root))
+                {
+                    Vector3 corner = rotation * localCorner;
+                    if (corner.x >= -halfWidth && corner.x <= halfWidth &&
+                        corner.z >= -halfDepth && corner.z <= halfDepth)
+                    {
+                        continue;
+                    }
+
+                    errors.Add(
+                        $"{label}: collider '{collider.name}' protrudes beyond the {rotatedSize} " +
+                        $"footprint/socket boundary at quarter-turn {turns}.");
+                    break;
+                }
+            }
+        }
+
+        private static IEnumerable<Vector3> ColliderCornersInRootSpace(
+            Collider collider,
+            Transform root)
+        {
+            if (collider is BoxCollider box)
+            {
+                Vector3 halfSize = box.size * 0.5f;
+                for (int x = -1; x <= 1; x += 2)
+                {
+                    for (int y = -1; y <= 1; y += 2)
+                    {
+                        for (int z = -1; z <= 1; z += 2)
+                        {
+                            Vector3 point = box.center + Vector3.Scale(
+                                halfSize,
+                                new Vector3(x, y, z));
+                            yield return root.InverseTransformPoint(
+                                box.transform.TransformPoint(point));
+                        }
+                    }
+                }
+
+                yield break;
+            }
+
+            Bounds bounds = collider.bounds;
+            for (int x = -1; x <= 1; x += 2)
+            {
+                for (int y = -1; y <= 1; y += 2)
+                {
+                    for (int z = -1; z <= 1; z += 2)
+                    {
+                        Vector3 point = bounds.center + Vector3.Scale(
+                            bounds.extents,
+                            new Vector3(x, y, z));
+                        yield return root.InverseTransformPoint(point);
+                    }
                 }
             }
         }

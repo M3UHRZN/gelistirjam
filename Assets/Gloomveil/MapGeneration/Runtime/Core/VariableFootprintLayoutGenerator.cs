@@ -46,7 +46,13 @@ namespace Gloomveil.MapGeneration
                     continue;
                 }
 
-                IReadOnlyList<CorridorTile> corridorTiles = CreateCorridorTiles(corridorCells);
+                MapPort[] selectedAreaPorts = packed.Rooms
+                    .SelectMany(room => room.Ports)
+                    .Concat(packed.Stairs.SelectMany(StairPorts))
+                    .ToArray();
+                IReadOnlyList<CorridorTile> corridorTiles = CreateCorridorTiles(
+                    corridorCells,
+                    selectedAreaPorts);
                 int firstCorridorPlacementId = packed.Rooms
                     .Select(room => room.PlacementId)
                     .Concat(packed.Stairs.Select(stair => stair.PlacementId))
@@ -379,11 +385,11 @@ namespace Gloomveil.MapGeneration
             var result = new List<MapPort>();
             foreach (SocketKey localSocket in localSockets)
             {
-                SocketKey rotatedSocket = localSocket.Rotate(canonicalSize, quarterTurns);
-                MapPort port = CreateWorldPort(
+                MapPort port = MapPortGeometry.Create(
                     ownerPlacementId,
                     localSocket,
-                    rotatedSocket,
+                    canonicalSize,
+                    quarterTurns,
                     rotatedRect,
                     floor);
                 GridCoord3 outside = port.WorldOutsideCell;
@@ -399,62 +405,6 @@ namespace Gloomveil.MapGeneration
 
             result.Sort(ComparePorts);
             return new ReadOnlyCollection<MapPort>(result);
-        }
-
-        private static MapPort CreateWorldPort(
-            int ownerPlacementId,
-            SocketKey localSocket,
-            SocketKey rotatedSocket,
-            GridRect rect,
-            int floor)
-        {
-            GridCoord3 outside;
-            GridEdgeKey edge;
-            switch (rotatedSocket.Side)
-            {
-                case CardinalDirection.North:
-                    outside = new GridCoord3(rect.X + rotatedSocket.Index, rect.MaxZ, floor);
-                    edge = new GridEdgeKey(
-                        floor,
-                        GridEdgeAxis.AlongX,
-                        rect.X + rotatedSocket.Index,
-                        rect.MaxZ);
-                    break;
-                case CardinalDirection.East:
-                    outside = new GridCoord3(rect.MaxX, rect.Z + rotatedSocket.Index, floor);
-                    edge = new GridEdgeKey(
-                        floor,
-                        GridEdgeAxis.AlongZ,
-                        rect.MaxX,
-                        rect.Z + rotatedSocket.Index);
-                    break;
-                case CardinalDirection.South:
-                    outside = new GridCoord3(rect.X + rotatedSocket.Index, rect.Z - 1, floor);
-                    edge = new GridEdgeKey(
-                        floor,
-                        GridEdgeAxis.AlongX,
-                        rect.X + rotatedSocket.Index,
-                        rect.Z);
-                    break;
-                case CardinalDirection.West:
-                    outside = new GridCoord3(rect.X - 1, rect.Z + rotatedSocket.Index, floor);
-                    edge = new GridEdgeKey(
-                        floor,
-                        GridEdgeAxis.AlongZ,
-                        rect.X,
-                        rect.Z + rotatedSocket.Index);
-                    break;
-                default:
-                    throw new ArgumentOutOfRangeException();
-            }
-
-            return new MapPort(
-                ownerPlacementId,
-                localSocket,
-                rotatedSocket,
-                edge,
-                outside,
-                rotatedSocket.Side);
         }
 
         private static IEnumerable<SocketKey> AllRoomLocalSockets(GridSize2 size)
@@ -742,13 +692,34 @@ namespace Gloomveil.MapGeneration
         }
 
         private static IReadOnlyList<CorridorTile> CreateCorridorTiles(
-            IReadOnlyCollection<GridCoord3> corridorCells)
+            IReadOnlyCollection<GridCoord3> corridorCells,
+            IEnumerable<MapPort> selectedAreaPorts)
         {
             var cells = new HashSet<GridCoord3>(corridorCells);
+            var areaConnections = new Dictionary<GridCoord3, CorridorConnectionMask>();
+            foreach (MapPort port in selectedAreaPorts)
+            {
+                CorridorConnectionMask connection = ConnectionTowardArea(port.WorldFacing);
+                if (areaConnections.TryGetValue(
+                        port.WorldOutsideCell,
+                        out CorridorConnectionMask existing))
+                {
+                    areaConnections[port.WorldOutsideCell] = existing | connection;
+                }
+                else
+                {
+                    areaConnections.Add(port.WorldOutsideCell, connection);
+                }
+            }
+
             var result = new List<CorridorTile>();
             foreach (GridCoord3 cell in cells.OrderBy(cell => cell))
             {
-                CorridorConnectionMask mask = CorridorConnectionMask.None;
+                CorridorConnectionMask mask = areaConnections.TryGetValue(
+                    cell,
+                    out CorridorConnectionMask areaMask)
+                    ? areaMask
+                    : CorridorConnectionMask.None;
                 if (cells.Contains(new GridCoord3(cell.X, cell.Z + 1, cell.Floor)))
                 {
                     mask |= CorridorConnectionMask.North;
@@ -773,6 +744,24 @@ namespace Gloomveil.MapGeneration
             }
 
             return new ReadOnlyCollection<CorridorTile>(result);
+        }
+
+        private static CorridorConnectionMask ConnectionTowardArea(
+            CardinalDirection areaPortFacing)
+        {
+            switch (areaPortFacing)
+            {
+                case CardinalDirection.North:
+                    return CorridorConnectionMask.South;
+                case CardinalDirection.East:
+                    return CorridorConnectionMask.West;
+                case CardinalDirection.South:
+                    return CorridorConnectionMask.North;
+                case CardinalDirection.West:
+                    return CorridorConnectionMask.East;
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(areaPortFacing));
+            }
         }
 
         private static IEnumerable<MapPort> StairPorts(PlacedStair stair)

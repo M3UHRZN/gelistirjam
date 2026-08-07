@@ -49,7 +49,7 @@ Start, Exit, Fuse ve Safe için ayrı oda geometrisi yapılmayacak. Aynı oda ka
 | `PF_STA_Straight_1x2_01` | 4 × 8 m | alt `S_00` (0,0,-4), üst `N_00` (0,4,+4) |
 | `PF_STA_Switchback_2x2_01` | 8 × 8 m | alt `S_00` (-2,0,-4), üst `S_01` (+2,4,-4) |
 
-Her merdiven tam 4 m yükselir. Straight merdivende tek ramp collider; switchback merdivende her kol için bir ramp collider ve düz landing collider kullanılır. Görsel basamaklar navigation collider'ı olarak kullanılmaz. Net merdiven ve landing genişliği en az 2.8 m'dir.
+Her merdiven tam 4 m yükselir. Straight merdivendeki kesintisiz collider çocuğu `RampCollider`; switchback çocukları `RampCollider_Lower`, `RampCollider_Upper` ve düz `LandingCollider` adını korur. `BoxCollider` doğrudan bu isimli GameObject üzerinde, enabled ve non-trigger olur; ramp local X ekseni net genişlik, local Z ekseni koşu yönüdür. Görsel basamaklar navigation collider'ı olarak kullanılmaz. Net merdiven ve yatay landing genişliği en az 2.8 m'dir.
 
 ## Socket Sözleşmesi
 
@@ -64,6 +64,7 @@ Canonical `width × depth` footprint için:
 - North/South sınırı: `z = ±depth * 2`; East/West sınırı: `x = ±width * 2`.
 - Socket forward ekseni dışarı bakar.
 - Her dinamik oda socket'inin aynı suffix ile `Portal_*` ve `WallCap_*` çocuğu olur.
+- Dinamik oda prefabının root'undaki `ModuleSocketController` kaldırılmaz veya başka çocuğa taşınmaz.
 - Stair çocukları `Socket_Bottom_<side>_<index>` ve `Socket_Top_<side>_<index>` adını kullanır.
 
 ## Anchor Sözleşmesi

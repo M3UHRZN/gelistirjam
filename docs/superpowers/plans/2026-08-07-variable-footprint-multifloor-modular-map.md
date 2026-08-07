@@ -437,7 +437,7 @@ public MapGenerationParameters(
     IReadOnlyList<int> corridorRunLengths)
 ~~~
 
-`Validate()` rejects a floor count below 2, dimensions below 8 units, fewer than two stairs per floor pair, room minimum below the three required footprints, max below min, non-positive footprint dimensions/weights, missing `1x2`/`2x2`/`2x3`, negative clearance, a vertical traversal cost below 1, and configurations that cannot fit two separated stairs.
+`Validate()` rejects a floor count below 2, dimensions below 8 units, any value other than exactly two stairs per floor pair, room minimum below the three required footprints, max below min, non-positive footprint dimensions/weights, missing `1x2`/`2x2`/`2x3`, negative clearance, a vertical traversal cost below 1, and configurations that cannot fit two separated stairs.
 
 `FootprintSpec` is data, not an enum: `Id`, `CanonicalSize`, `Weight`, and `RequiredPerFloor`. Room specs use `RequiredPerFloor`; stair specs leave it false.
 

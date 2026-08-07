@@ -193,11 +193,11 @@ namespace Gloomveil.MapGeneration
         {
             var corridorCells = new HashSet<GridCoord3>(
                 layout.CorridorTiles.Select(tile => tile.Coord));
-            MapPort[] ports = layout.Rooms
+            MapPort[] areaPorts = layout.Rooms
                 .SelectMany(room => room.Ports)
                 .Concat(layout.Stairs.SelectMany(StairPorts))
                 .ToArray();
-            foreach (MapPort port in ports)
+            foreach (MapPort port in areaPorts)
             {
                 if (!corridorCells.Contains(port.WorldOutsideCell))
                 {
@@ -214,18 +214,312 @@ namespace Gloomveil.MapGeneration
                 }
             }
 
-            foreach (IGrouping<GridEdgeKey, MapPort> group in ports.GroupBy(port => port.WorldEdge))
+            MapPort[] corridorPorts = layout.CorridorModules
+                .SelectMany(CorridorPorts)
+                .ToArray();
+            IGrouping<GridEdgeKey, MapPort>[] portGroups = areaPorts
+                .Concat(corridorPorts)
+                .GroupBy(port => port.WorldEdge)
+                .ToArray();
+            foreach (IGrouping<GridEdgeKey, MapPort> group in portGroups)
             {
                 MapPort[] shared = group.ToArray();
-                if (shared.Length > 2)
+                if (shared.Length != 2)
                 {
-                    errors.Add($"World edge {group.Key} is shared by more than two ports.");
+                    errors.Add(
+                        $"World edge {group.Key} has {shared.Length} open module ports; expected 2.");
+                    continue;
                 }
 
-                if (shared.Length == 2 && !AreOpposite(shared[0].WorldFacing, shared[1].WorldFacing))
+                if (!AreOpposite(shared[0].WorldFacing, shared[1].WorldFacing))
                 {
                     errors.Add($"Ports sharing world edge {group.Key} do not face opposite directions.");
                 }
+            }
+
+            HashSet<GridEdgeKey> expectedEdges = ExpectedOpenModuleEdges(layout, errors);
+            var actualEdges = new HashSet<GridEdgeKey>(portGroups.Select(group => group.Key));
+            foreach (GridEdgeKey missing in expectedEdges.Where(edge => !actualEdges.Contains(edge)))
+            {
+                errors.Add(
+                    $"Corridor topology opens world edge {missing}, but no module port declares it.");
+            }
+
+            foreach (GridEdgeKey unexpected in actualEdges.Where(edge => !expectedEdges.Contains(edge)))
+            {
+                errors.Add(
+                    $"Module ports open world edge {unexpected}, but corridor topology closes it.");
+            }
+        }
+
+        private static IEnumerable<MapPort> CorridorPorts(CorridorModulePlacement module)
+        {
+            GridSize2 rotated = module.RotatedSize;
+            var rect = new GridRect(
+                module.SouthwestOrigin.X,
+                module.SouthwestOrigin.Z,
+                rotated.Width,
+                rotated.Depth);
+            foreach (SocketKey localSocket in module.OpenLocalSockets)
+            {
+                yield return MapPortGeometry.Create(
+                    module.PlacementId,
+                    localSocket,
+                    module.CanonicalSize,
+                    module.QuarterTurns,
+                    rect,
+                    module.SouthwestOrigin.Floor);
+            }
+        }
+
+        private static HashSet<GridEdgeKey> ExpectedOpenModuleEdges(
+            MapLayout layout,
+            ICollection<string> errors)
+        {
+            var tilesByCoord = new Dictionary<GridCoord3, CorridorTile>();
+            foreach (CorridorTile tile in layout.CorridorTiles)
+            {
+                if (tilesByCoord.ContainsKey(tile.Coord))
+                {
+                    errors.Add($"Corridor tile {tile.Coord} is duplicated.");
+                    continue;
+                }
+
+                tilesByCoord.Add(tile.Coord, tile);
+            }
+
+            var moduleByCell = new Dictionary<GridCoord3, int>();
+            foreach (CorridorModulePlacement module in layout.CorridorModules)
+            {
+                GridSize2 size = module.RotatedSize;
+                for (int z = module.SouthwestOrigin.Z;
+                     z < module.SouthwestOrigin.Z + size.Depth;
+                     z++)
+                {
+                    for (int x = module.SouthwestOrigin.X;
+                         x < module.SouthwestOrigin.X + size.Width;
+                         x++)
+                    {
+                        var coord = new GridCoord3(x, z, module.SouthwestOrigin.Floor);
+                        if (moduleByCell.TryGetValue(coord, out int owner))
+                        {
+                            errors.Add(
+                                $"Corridor cell {coord} is covered by modules {owner} and " +
+                                $"{module.PlacementId}.");
+                            continue;
+                        }
+
+                        moduleByCell.Add(coord, module.PlacementId);
+                    }
+                }
+            }
+
+            foreach (CorridorTile tile in layout.CorridorTiles)
+            {
+                if (!moduleByCell.ContainsKey(tile.Coord))
+                {
+                    errors.Add($"Corridor tile {tile.Coord} is not covered by a module.");
+                    continue;
+                }
+
+                ValidateInternalModuleEdge(
+                    tile,
+                    CardinalDirection.North,
+                    tilesByCoord,
+                    moduleByCell,
+                    errors);
+                ValidateInternalModuleEdge(
+                    tile,
+                    CardinalDirection.East,
+                    tilesByCoord,
+                    moduleByCell,
+                    errors);
+            }
+
+            var expected = new HashSet<GridEdgeKey>();
+            foreach (CorridorTile tile in layout.CorridorTiles)
+            {
+                RecordExpectedOpenEdge(
+                    tile,
+                    CardinalDirection.North,
+                    tilesByCoord,
+                    moduleByCell,
+                    expected,
+                    errors);
+                RecordExpectedOpenEdge(
+                    tile,
+                    CardinalDirection.East,
+                    tilesByCoord,
+                    moduleByCell,
+                    expected,
+                    errors);
+                RecordExpectedOpenEdge(
+                    tile,
+                    CardinalDirection.South,
+                    tilesByCoord,
+                    moduleByCell,
+                    expected,
+                    errors);
+                RecordExpectedOpenEdge(
+                    tile,
+                    CardinalDirection.West,
+                    tilesByCoord,
+                    moduleByCell,
+                    expected,
+                    errors);
+            }
+
+            return expected;
+        }
+
+        private static void ValidateInternalModuleEdge(
+            CorridorTile tile,
+            CardinalDirection direction,
+            IReadOnlyDictionary<GridCoord3, CorridorTile> tilesByCoord,
+            IReadOnlyDictionary<GridCoord3, int> moduleByCell,
+            ICollection<string> errors)
+        {
+            GridCoord3 neighborCoord = Neighbor(tile.Coord, direction);
+            if (!tilesByCoord.TryGetValue(neighborCoord, out CorridorTile neighbor) ||
+                !moduleByCell.TryGetValue(tile.Coord, out int owner) ||
+                !moduleByCell.TryGetValue(neighborCoord, out int neighborOwner) ||
+                owner != neighborOwner)
+            {
+                return;
+            }
+
+            bool forwardOpen =
+                (tile.ConnectionMask & ConnectionFor(direction)) != 0;
+            bool backwardOpen =
+                (neighbor.ConnectionMask & ConnectionFor(Opposite(direction))) != 0;
+            if (!forwardOpen || !backwardOpen)
+            {
+                errors.Add(
+                    $"Corridor module {owner} has a closed internal edge between " +
+                    $"{tile.Coord} and {neighborCoord}.");
+            }
+        }
+
+        private static void RecordExpectedOpenEdge(
+            CorridorTile tile,
+            CardinalDirection direction,
+            IReadOnlyDictionary<GridCoord3, CorridorTile> tilesByCoord,
+            IReadOnlyDictionary<GridCoord3, int> moduleByCell,
+            ISet<GridEdgeKey> expected,
+            ICollection<string> errors)
+        {
+            CorridorConnectionMask connection = ConnectionFor(direction);
+            if ((tile.ConnectionMask & connection) == 0)
+            {
+                return;
+            }
+
+            GridCoord3 neighborCoord = Neighbor(tile.Coord, direction);
+            if (tilesByCoord.TryGetValue(neighborCoord, out CorridorTile neighbor))
+            {
+                CorridorConnectionMask opposite = ConnectionFor(Opposite(direction));
+                if ((neighbor.ConnectionMask & opposite) == 0)
+                {
+                    errors.Add(
+                        $"Corridor connection {tile.Coord} -> {neighborCoord} is not reciprocal.");
+                }
+
+                if (moduleByCell.TryGetValue(tile.Coord, out int owner) &&
+                    moduleByCell.TryGetValue(neighborCoord, out int neighborOwner) &&
+                    owner == neighborOwner)
+                {
+                    return;
+                }
+            }
+
+            expected.Add(EdgeForCorridorCell(tile.Coord, direction));
+        }
+
+        private static CorridorConnectionMask ConnectionFor(CardinalDirection direction)
+        {
+            switch (direction)
+            {
+                case CardinalDirection.North:
+                    return CorridorConnectionMask.North;
+                case CardinalDirection.East:
+                    return CorridorConnectionMask.East;
+                case CardinalDirection.South:
+                    return CorridorConnectionMask.South;
+                case CardinalDirection.West:
+                    return CorridorConnectionMask.West;
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(direction), direction, null);
+            }
+        }
+
+        private static CardinalDirection Opposite(CardinalDirection direction)
+        {
+            switch (direction)
+            {
+                case CardinalDirection.North:
+                    return CardinalDirection.South;
+                case CardinalDirection.East:
+                    return CardinalDirection.West;
+                case CardinalDirection.South:
+                    return CardinalDirection.North;
+                case CardinalDirection.West:
+                    return CardinalDirection.East;
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(direction), direction, null);
+            }
+        }
+
+        private static GridCoord3 Neighbor(
+            GridCoord3 coord,
+            CardinalDirection direction)
+        {
+            switch (direction)
+            {
+                case CardinalDirection.North:
+                    return new GridCoord3(coord.X, coord.Z + 1, coord.Floor);
+                case CardinalDirection.East:
+                    return new GridCoord3(coord.X + 1, coord.Z, coord.Floor);
+                case CardinalDirection.South:
+                    return new GridCoord3(coord.X, coord.Z - 1, coord.Floor);
+                case CardinalDirection.West:
+                    return new GridCoord3(coord.X - 1, coord.Z, coord.Floor);
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(direction), direction, null);
+            }
+        }
+
+        private static GridEdgeKey EdgeForCorridorCell(
+            GridCoord3 coord,
+            CardinalDirection direction)
+        {
+            switch (direction)
+            {
+                case CardinalDirection.North:
+                    return new GridEdgeKey(
+                        coord.Floor,
+                        GridEdgeAxis.AlongX,
+                        coord.X,
+                        coord.Z + 1);
+                case CardinalDirection.East:
+                    return new GridEdgeKey(
+                        coord.Floor,
+                        GridEdgeAxis.AlongZ,
+                        coord.X + 1,
+                        coord.Z);
+                case CardinalDirection.South:
+                    return new GridEdgeKey(
+                        coord.Floor,
+                        GridEdgeAxis.AlongX,
+                        coord.X,
+                        coord.Z);
+                case CardinalDirection.West:
+                    return new GridEdgeKey(
+                        coord.Floor,
+                        GridEdgeAxis.AlongZ,
+                        coord.X,
+                        coord.Z);
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(direction), direction, null);
             }
         }
 
@@ -347,10 +641,13 @@ namespace Gloomveil.MapGeneration
 
         private static void ValidateVisibleLengths(MapLayout layout, ICollection<string> errors)
         {
-            var roomDoorCells = new HashSet<GridCoord3>(
-                layout.Rooms.SelectMany(room => room.Ports).Select(port => port.WorldOutsideCell));
+            var protectedTransitionCells = new HashSet<GridCoord3>(
+                layout.Rooms
+                    .SelectMany(room => room.Ports)
+                    .Concat(layout.Stairs.SelectMany(StairPorts))
+                    .Select(port => port.WorldOutsideCell));
             int eligibleStraightCells = layout.CorridorTiles.Count(tile =>
-                IsStraight(tile.ConnectionMask) && !roomDoorCells.Contains(tile.Coord));
+                IsStraight(tile.ConnectionMask) && !protectedTransitionCells.Contains(tile.Coord));
             if (eligibleStraightCells >= 6)
             {
                 int distinctLengths = layout.CorridorModules

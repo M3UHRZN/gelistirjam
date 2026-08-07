@@ -29,8 +29,13 @@ namespace Gloomveil.MapGeneration
                 : GetComponent<MapGenerationBootstrap>();
             if (source == null ||
                 source.LastLayout == null ||
-                source.LastRuntimeData == null ||
                 source.Config == null)
+            {
+                return;
+            }
+
+            DrawInvalidSocketPairs(source);
+            if (source.LastRuntimeData == null)
             {
                 return;
             }
@@ -132,6 +137,105 @@ namespace Gloomveil.MapGeneration
                 Gizmos.DrawWireSphere(check.SourcePosition, 0.25f);
                 Gizmos.DrawWireSphere(check.TargetPosition, 0.25f);
             }
+        }
+
+        private static void DrawInvalidSocketPairs(MapGenerationBootstrap source)
+        {
+            MapLayout layout = source.LastLayout;
+            IEnumerable<MapPort> areaPorts = layout.Rooms
+                .SelectMany(room => room.Ports)
+                .Concat(layout.Stairs.SelectMany(StairPorts));
+            IEnumerable<MapPort> corridorPorts = layout.CorridorModules
+                .SelectMany(CorridorPorts);
+
+            Transform mapSpace = source.NavMeshController != null
+                ? source.NavMeshController.ContentRoot
+                : source.transform;
+            Gizmos.color = Color.red;
+            foreach (IGrouping<GridEdgeKey, MapPort> group in areaPorts
+                         .Concat(corridorPorts)
+                         .GroupBy(port => port.WorldEdge))
+            {
+                MapPort[] shared = group.ToArray();
+                bool validPair = shared.Length == 2 &&
+                                 AreOpposite(
+                                     shared[0].WorldFacing,
+                                     shared[1].WorldFacing);
+                if (validPair)
+                {
+                    continue;
+                }
+
+                Vector3 local = WorldEdgeMidpoint(
+                    group.Key,
+                    source.Config.UnitSize,
+                    source.Config.FloorHeight);
+                Vector3 world = mapSpace.TransformPoint(local);
+                const float markerRadius = 0.28f;
+                Gizmos.DrawWireSphere(world, markerRadius);
+                Gizmos.DrawLine(
+                    world + (Vector3.left * markerRadius),
+                    world + (Vector3.right * markerRadius));
+                Gizmos.DrawLine(
+                    world + (Vector3.back * markerRadius),
+                    world + (Vector3.forward * markerRadius));
+            }
+        }
+
+        private static IEnumerable<MapPort> CorridorPorts(
+            CorridorModulePlacement module)
+        {
+            GridSize2 rotated = module.RotatedSize;
+            var rect = new GridRect(
+                module.SouthwestOrigin.X,
+                module.SouthwestOrigin.Z,
+                rotated.Width,
+                rotated.Depth);
+            foreach (SocketKey localSocket in module.OpenLocalSockets)
+            {
+                yield return MapPortGeometry.Create(
+                    module.PlacementId,
+                    localSocket,
+                    module.CanonicalSize,
+                    module.QuarterTurns,
+                    rect,
+                    module.SouthwestOrigin.Floor);
+            }
+        }
+
+        private static IEnumerable<MapPort> StairPorts(PlacedStair stair)
+        {
+            if (stair.BottomPort.HasValue)
+            {
+                yield return stair.BottomPort.Value;
+            }
+
+            if (stair.TopPort.HasValue)
+            {
+                yield return stair.TopPort.Value;
+            }
+        }
+
+        private static bool AreOpposite(
+            CardinalDirection left,
+            CardinalDirection right) =>
+            (left == CardinalDirection.North && right == CardinalDirection.South) ||
+            (left == CardinalDirection.South && right == CardinalDirection.North) ||
+            (left == CardinalDirection.East && right == CardinalDirection.West) ||
+            (left == CardinalDirection.West && right == CardinalDirection.East);
+
+        private static Vector3 WorldEdgeMidpoint(
+            GridEdgeKey edge,
+            float unitSize,
+            float floorHeight)
+        {
+            float x = edge.Axis == GridEdgeAxis.AlongX
+                ? (edge.X + 0.5f) * unitSize
+                : edge.X * unitSize;
+            float z = edge.Axis == GridEdgeAxis.AlongZ
+                ? (edge.Z + 0.5f) * unitSize
+                : edge.Z * unitSize;
+            return new Vector3(x, edge.Floor * floorHeight + 0.1f, z);
         }
 
         private void DrawFlatBounds(

@@ -118,13 +118,28 @@ namespace Gloomveil.MapGeneration
                 throw Invalid(nameof(ExtraRoomLinksPerFloor), ExtraRoomLinksPerFloor, "must not be negative");
             }
 
-            RequireAtLeast(nameof(VerticalLinksPerFloorPair), VerticalLinksPerFloorPair, 2);
+            if (VerticalLinksPerFloorPair != 2)
+            {
+                throw Invalid(
+                    nameof(VerticalLinksPerFloorPair),
+                    VerticalLinksPerFloorPair,
+                    "must be exactly 2 for the P0 two-stair floor-pair contract");
+            }
             if (MinimumStairCenterSeparationUnits < 0)
             {
                 throw Invalid(
                     nameof(MinimumStairCenterSeparationUnits),
                     MinimumStairCenterSeparationUnits,
                     "must not be negative");
+            }
+
+            if (double.IsNaN(MinimumStairCenterSeparationUnits) ||
+                double.IsInfinity(MinimumStairCenterSeparationUnits))
+            {
+                throw Invalid(
+                    nameof(MinimumStairCenterSeparationUnits),
+                    MinimumStairCenterSeparationUnits,
+                    "must be finite");
             }
 
             RequireAtLeast(nameof(VerticalTraversalCostUnits), VerticalTraversalCostUnits, 1);
@@ -137,6 +152,10 @@ namespace Gloomveil.MapGeneration
             {
                 throw new MapGenerationException("RoomFootprints and StairFootprints must not be empty.");
             }
+
+            ValidateFootprintsFitBounds(nameof(RoomFootprints), RoomFootprints);
+            ValidateFootprintsFitBounds(nameof(StairFootprints), StairFootprints);
+            ValidateTwoStairFeasibility();
 
             string[] requiredIds = { "1x2", "2x2", "2x3" };
             foreach (string requiredId in requiredIds)
@@ -174,6 +193,76 @@ namespace Gloomveil.MapGeneration
             {
                 throw Invalid(field, value, $"must be at least {minimum}");
             }
+        }
+
+        private void ValidateFootprintsFitBounds(
+            string collectionName,
+            IEnumerable<FootprintSpec> footprints)
+        {
+            foreach (FootprintSpec footprint in footprints)
+            {
+                foreach (GridSize2 size in new[]
+                         {
+                             footprint.CanonicalSize,
+                             footprint.CanonicalSize.Rotate(1)
+                         }.Distinct())
+                {
+                    if (size.Width > WidthUnits || size.Depth > DepthUnits)
+                    {
+                        throw new MapGenerationException(
+                            $"{collectionName} entry '{footprint.Id}' has orientation {size} that " +
+                            $"does not fit inside {WidthUnits}x{DepthUnits}.");
+                    }
+                }
+            }
+        }
+
+        private void ValidateTwoStairFeasibility()
+        {
+            GridSize2[] possibleSizes = StairFootprints
+                .SelectMany(spec => new[]
+                {
+                    spec.CanonicalSize,
+                    spec.CanonicalSize.Rotate(1)
+                })
+                .Distinct()
+                .ToArray();
+            double maximumSeparation = double.NegativeInfinity;
+            foreach (GridSize2 left in possibleSizes)
+            {
+                foreach (GridSize2 right in possibleSizes)
+                {
+                    bool canSeparateAlongX =
+                        (long)left.Width + RoomClearanceUnits + right.Width <= WidthUnits;
+                    bool canSeparateAlongZ =
+                        (long)left.Depth + RoomClearanceUnits + right.Depth <= DepthUnits;
+                    if (!canSeparateAlongX && !canSeparateAlongZ)
+                    {
+                        continue;
+                    }
+
+                    double separation =
+                        WidthUnits - (((double)left.Width + right.Width) / 2.0) +
+                        DepthUnits - (((double)left.Depth + right.Depth) / 2.0);
+                    maximumSeparation = Math.Max(maximumSeparation, separation);
+                }
+            }
+
+            if (double.IsNegativeInfinity(maximumSeparation))
+            {
+                throw new MapGenerationException(
+                    $"Two distinct stairs cannot fit inside {WidthUnits}x{DepthUnits} with " +
+                    $"RoomClearanceUnits={RoomClearanceUnits}.");
+            }
+
+            if (MinimumStairCenterSeparationUnits > maximumSeparation)
+            {
+                throw new MapGenerationException(
+                    $"MinimumStairCenterSeparationUnits={MinimumStairCenterSeparationUnits} cannot " +
+                    $"fit inside {WidthUnits}x{DepthUnits}; the maximum centre Manhattan separation " +
+                    $"for two available stair footprints is {maximumSeparation}.");
+            }
+
         }
 
         private static MapGenerationException Invalid(string field, object value, string rule) =>

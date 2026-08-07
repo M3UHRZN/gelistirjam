@@ -62,6 +62,20 @@ namespace Gloomveil.MapGeneration
                 ValidatePath(
                     data,
                     report,
+                    data.StartAnchor,
+                    stair.BottomLanding,
+                    "PlayerStart",
+                    $"Stair[{stair.PlacementId}].Bottom");
+                ValidatePath(
+                    data,
+                    report,
+                    data.StartAnchor,
+                    stair.TopLanding,
+                    "PlayerStart",
+                    $"Stair[{stair.PlacementId}].Top");
+                ValidatePath(
+                    data,
+                    report,
                     stair.BottomLanding,
                     stair.TopLanding,
                     $"Stair[{stair.PlacementId}].Bottom",

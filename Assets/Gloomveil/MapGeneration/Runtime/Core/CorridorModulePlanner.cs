@@ -59,31 +59,34 @@ namespace Gloomveil.MapGeneration
             var byCoord = tiles.ToDictionary(tile => tile.Coord);
             var roomDoors = new HashSet<GridCoord3>(roomDoorCells);
             var stairLandings = new HashSet<GridCoord3>(stairLandingCells);
-            var protectedTransitions = new HashSet<GridCoord3>(
-                roomDoors.Where(coord =>
+            var protectedStraightCells = new HashSet<GridCoord3>(
+                roomDoors.Concat(stairLandings).Where(coord =>
                     byCoord.TryGetValue(coord, out CorridorTile tile) &&
-                    IsStraight(tile.ConnectionMask) &&
-                    !stairLandings.Contains(coord)));
+                    IsStraight(tile.ConnectionMask)));
             var result = new List<CorridorModulePlacement>();
             int nextPlacementId = firstPlacementId;
 
-            foreach (GridCoord3 coord in protectedTransitions.OrderBy(coord => coord))
+            foreach (GridCoord3 coord in protectedStraightCells.OrderBy(coord => coord))
             {
                 CorridorTile tile = byCoord[coord];
                 int turns = tile.ConnectionMask == VerticalMask ? 0 : 1;
+                CorridorShape shape = roomDoors.Contains(coord) &&
+                                      !stairLandings.Contains(coord)
+                    ? CorridorShape.DoorTransition
+                    : CorridorShape.Straight;
                 result.Add(new CorridorModulePlacement(
                     nextPlacementId++,
                     coord,
                     new GridSize2(1, 1),
                     turns,
-                    CorridorShape.DoorTransition,
+                    shape,
                     1,
                     StraightSockets()));
             }
 
             foreach (CorridorTile tile in tiles.OrderBy(tile => tile.Coord))
             {
-                if (protectedTransitions.Contains(tile.Coord) || IsStraight(tile.ConnectionMask))
+                if (protectedStraightCells.Contains(tile.Coord) || IsStraight(tile.ConnectionMask))
                 {
                     continue;
                 }
@@ -105,7 +108,7 @@ namespace Gloomveil.MapGeneration
             foreach (CorridorTile tile in tiles.OrderBy(tile => tile.Coord))
             {
                 if (!IsStraight(tile.ConnectionMask) ||
-                    protectedTransitions.Contains(tile.Coord) ||
+                    protectedStraightCells.Contains(tile.Coord) ||
                     processedStraight.Contains(tile.Coord))
                 {
                     continue;
@@ -116,7 +119,7 @@ namespace Gloomveil.MapGeneration
                     tile.Coord,
                     vertical,
                     byCoord,
-                    protectedTransitions,
+                    protectedStraightCells,
                     processedStraight);
                 eligibleStraightCellCount += run.Count;
                 if (!TrySegment(run.Count, allowed, random, out IReadOnlyList<int> segmentLengths))

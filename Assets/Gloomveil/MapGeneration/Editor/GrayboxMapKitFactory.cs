@@ -16,6 +16,20 @@ namespace Gloomveil.MapGeneration.Editor
             DataFolder + "/GrayboxMapModuleCatalog.asset";
         private const float UnitSize = 4f;
         private const float FloorHeight = 4f;
+        private const float WallThickness = 0.6f;
+        private const float WallHeight = 3.2f;
+        private const float CorridorClearWidth = 2.8f;
+        private const float DoorWidth = 1.6f;
+        private const float DoorHeight = 3f;
+        private const float LintelHeight = WallHeight - DoorHeight;
+
+        private static readonly CardinalDirection[] CardinalDirections =
+        {
+            CardinalDirection.North,
+            CardinalDirection.East,
+            CardinalDirection.South,
+            CardinalDirection.West
+        };
 
         [MenuItem("Tools/Gloomveil/Map/Create Graybox Kit")]
         public static void CreateGrayboxKit()
@@ -126,6 +140,8 @@ namespace Gloomveil.MapGeneration.Editor
                     CreateDynamicDoorPair(root.transform, size, socket);
                 }
 
+                CreateRoomShell(root.transform, size);
+
                 CreateAnchor(root.transform, "Anchor_PlayerStart", MapAnchorKind.PlayerStart, new Vector3(0f, 0f, 0f));
                 CreateAnchor(root.transform, "Anchor_Exit", MapAnchorKind.Exit, new Vector3(0.5f, 0f, 0.5f));
                 CreateAnchor(root.transform, "Anchor_Fuse_00", MapAnchorKind.Fuse, new Vector3(-0.5f, 0f, 0.5f));
@@ -164,6 +180,8 @@ namespace Gloomveil.MapGeneration.Editor
                 {
                     CreateSocket(root.transform, size, socket);
                 }
+
+                CreateCorridorShell(root.transform, size, shape);
 
                 CreateCommonAnchors(root.transform, size);
                 GameObject prefab = SavePrefab(root, prefabName);
@@ -209,6 +227,7 @@ namespace Gloomveil.MapGeneration.Editor
                     : new SocketKey(CardinalDirection.North, 0, 1);
                 CreateStairSocket(root.transform, size, bottom, topLanding: false);
                 CreateStairSocket(root.transform, size, top, topLanding: true);
+                CreateStairExteriorShell(root.transform, size, bottom, top);
                 CreateAnchor(
                     root.transform,
                     "Landing_Bottom",
@@ -264,28 +283,49 @@ namespace Gloomveil.MapGeneration.Editor
         private static void CreateSwitchbackStair(Transform root)
         {
             CreateFloor(root, new GridSize2(2, 2));
-            const float angle = 14.38f;
-            CreateRamp(root, "RampCollider_Lower", new Vector3(-2f, 1f, 0f), -angle, 7.8f);
-            CreateRamp(root, "RampCollider_Upper", new Vector3(2f, 3f, 0f), angle, 7.8f);
+            const float verticalRise = 2f;
+            const float lowerHorizontalRun = 5.8f;
+            const float upperHorizontalRun = 5.1f;
+            float lowerAngle = Mathf.Atan2(verticalRise, lowerHorizontalRun) * Mathf.Rad2Deg;
+            float upperAngle = Mathf.Atan2(verticalRise, upperHorizontalRun) * Mathf.Rad2Deg;
+            float lowerLength = Mathf.Sqrt(
+                (lowerHorizontalRun * lowerHorizontalRun) + (verticalRise * verticalRise));
+            float upperLength = Mathf.Sqrt(
+                (upperHorizontalRun * upperHorizontalRun) + (verticalRise * verticalRise));
+            float lowerCenterY = 1f - (0.08f * Mathf.Cos(lowerAngle * Mathf.Deg2Rad));
+            float upperCenterY = 3f - (0.08f * Mathf.Cos(upperAngle * Mathf.Deg2Rad));
+
+            CreateRamp(
+                root,
+                "RampCollider_Lower",
+                new Vector3(-2f, lowerCenterY, -1f),
+                -lowerAngle,
+                lowerLength);
+            CreateRamp(
+                root,
+                "RampCollider_Upper",
+                new Vector3(2f, upperCenterY, -0.65f),
+                upperAngle,
+                upperLength);
             CreateVisualBlock(
                 root,
                 "RampVisual_Lower",
-                new Vector3(-2f, 1f, 0f),
-                new Vector3(2.8f, 0.16f, 7.8f),
-                Quaternion.Euler(-angle, 0f, 0f),
+                new Vector3(-2f, lowerCenterY, -1f),
+                new Vector3(2.8f, 0.16f, lowerLength),
+                Quaternion.Euler(-lowerAngle, 0f, 0f),
                 removeCollider: true);
             CreateVisualBlock(
                 root,
                 "RampVisual_Upper",
-                new Vector3(2f, 3f, 0f),
-                new Vector3(2.8f, 0.16f, 7.8f),
-                Quaternion.Euler(angle, 0f, 0f),
+                new Vector3(2f, upperCenterY, -0.65f),
+                new Vector3(2.8f, 0.16f, upperLength),
+                Quaternion.Euler(upperAngle, 0f, 0f),
                 removeCollider: true);
             CreateVisualBlock(
                 root,
                 "LandingCollider",
-                new Vector3(0f, 1.9f, 3f),
-                new Vector3(6.8f, 0.2f, 2f),
+                new Vector3(0f, 1.9f, 2.95f),
+                new Vector3(6.8f, 0.2f, 2.1f),
                 Quaternion.identity,
                 removeCollider: false);
             CreateVisualBlock(
@@ -321,6 +361,305 @@ namespace Gloomveil.MapGeneration.Editor
                 new Vector3(size.Width * UnitSize, 0.2f, size.Depth * UnitSize),
                 Quaternion.identity,
                 removeCollider: false);
+        }
+
+        private static void CreateRoomShell(Transform root, GridSize2 size)
+        {
+            const string prefix = "RoomShell";
+            SocketKey[] sockets = AllBoundarySockets(size).ToArray();
+            CreatePerimeterCornerPosts(root, size, 0f, prefix);
+            foreach (CardinalDirection side in CardinalDirections)
+            {
+                float[] openingCenters = sockets
+                    .Where(socket => socket.Side == side)
+                    .Select(socket => SocketTangentPosition(size, socket))
+                    .OrderBy(position => position)
+                    .ToArray();
+                CreateSideWallWithOpenings(
+                    root,
+                    size,
+                    side,
+                    0f,
+                    DoorWidth,
+                    openingCenters,
+                    prefix);
+            }
+
+            foreach (SocketKey socket in sockets)
+            {
+                CreateBoundaryBlockAtSocket(
+                    root,
+                    $"{prefix}_Lintel_{SocketSuffix(socket)}",
+                    size,
+                    socket,
+                    DoorWidth,
+                    LintelHeight,
+                    DoorHeight + (LintelHeight * 0.5f),
+                    removeCollider: false);
+            }
+        }
+
+        private static void CreateCorridorShell(
+            Transform root,
+            GridSize2 size,
+            CorridorShape shape)
+        {
+            const string prefix = "CorridorShell";
+            SocketKey[] sockets = CorridorSockets(shape).ToArray();
+            CreatePerimeterCornerPosts(root, size, 0f, prefix);
+            foreach (CardinalDirection side in CardinalDirections)
+            {
+                float[] openingCenters = sockets
+                    .Where(socket => socket.Side == side)
+                    .Select(socket => SocketTangentPosition(size, socket))
+                    .OrderBy(position => position)
+                    .ToArray();
+                CreateSideWallWithOpenings(
+                    root,
+                    size,
+                    side,
+                    0f,
+                    CorridorClearWidth,
+                    openingCenters,
+                    prefix);
+            }
+
+            if (shape == CorridorShape.DoorTransition)
+            {
+                CreateInlineDoorFrame(root);
+            }
+        }
+
+        private static void CreateStairExteriorShell(
+            Transform root,
+            GridSize2 size,
+            SocketKey bottom,
+            SocketKey top)
+        {
+            CreateStairLevelShell(root, size, bottom, 0f, "StairShell_Lower");
+            CreateStairLevelShell(root, size, top, FloorHeight, "StairShell_Upper");
+        }
+
+        private static void CreateStairLevelShell(
+            Transform root,
+            GridSize2 size,
+            SocketKey openSocket,
+            float baseY,
+            string prefix)
+        {
+            CreatePerimeterCornerPosts(root, size, baseY, prefix);
+            foreach (CardinalDirection side in CardinalDirections)
+            {
+                float[] openingCenters = side == openSocket.Side
+                    ? new[] { SocketTangentPosition(size, openSocket) }
+                    : Array.Empty<float>();
+                CreateSideWallWithOpenings(
+                    root,
+                    size,
+                    side,
+                    baseY,
+                    CorridorClearWidth,
+                    openingCenters,
+                    prefix);
+            }
+        }
+
+        private static void CreatePerimeterCornerPosts(
+            Transform root,
+            GridSize2 size,
+            float baseY,
+            string prefix)
+        {
+            float x = (size.Width * UnitSize * 0.5f) - (WallThickness * 0.5f);
+            float z = (size.Depth * UnitSize * 0.5f) - (WallThickness * 0.5f);
+            float y = baseY + (WallHeight * 0.5f);
+            Vector3 scale = new Vector3(WallThickness, WallHeight, WallThickness);
+            CreateVisualBlock(
+                root,
+                $"{prefix}_Corner_NW",
+                new Vector3(-x, y, z),
+                scale,
+                Quaternion.identity,
+                removeCollider: false);
+            CreateVisualBlock(
+                root,
+                $"{prefix}_Corner_NE",
+                new Vector3(x, y, z),
+                scale,
+                Quaternion.identity,
+                removeCollider: false);
+            CreateVisualBlock(
+                root,
+                $"{prefix}_Corner_SW",
+                new Vector3(-x, y, -z),
+                scale,
+                Quaternion.identity,
+                removeCollider: false);
+            CreateVisualBlock(
+                root,
+                $"{prefix}_Corner_SE",
+                new Vector3(x, y, -z),
+                scale,
+                Quaternion.identity,
+                removeCollider: false);
+        }
+
+        private static void CreateSideWallWithOpenings(
+            Transform root,
+            GridSize2 size,
+            CardinalDirection side,
+            float baseY,
+            float openingWidth,
+            IReadOnlyList<float> openingCenters,
+            string prefix)
+        {
+            float halfSpan = SideTangentSpan(size, side) * 0.5f;
+            float minimum = -halfSpan + WallThickness;
+            float maximum = halfSpan - WallThickness;
+            float cursor = minimum;
+            int segmentIndex = 0;
+            foreach (float center in openingCenters.OrderBy(position => position))
+            {
+                float openingMinimum = center - (openingWidth * 0.5f);
+                float openingMaximum = center + (openingWidth * 0.5f);
+                if (openingMinimum < minimum - 0.001f || openingMaximum > maximum + 0.001f)
+                {
+                    throw new InvalidOperationException(
+                        $"{prefix} opening on {side} falls outside the footprint wall span.");
+                }
+
+                if (openingMinimum > cursor + 0.001f)
+                {
+                    CreateSideWallSpan(
+                        root,
+                        size,
+                        side,
+                        baseY,
+                        cursor,
+                        openingMinimum,
+                        $"{prefix}_Wall_{DirectionToken(side)}_{segmentIndex:00}");
+                    segmentIndex++;
+                }
+
+                cursor = Mathf.Max(cursor, openingMaximum);
+            }
+
+            if (maximum > cursor + 0.001f)
+            {
+                CreateSideWallSpan(
+                    root,
+                    size,
+                    side,
+                    baseY,
+                    cursor,
+                    maximum,
+                    $"{prefix}_Wall_{DirectionToken(side)}_{segmentIndex:00}");
+            }
+        }
+
+        private static void CreateSideWallSpan(
+            Transform root,
+            GridSize2 size,
+            CardinalDirection side,
+            float baseY,
+            float tangentMinimum,
+            float tangentMaximum,
+            string name)
+        {
+            float length = tangentMaximum - tangentMinimum;
+            float tangentCenter = (tangentMinimum + tangentMaximum) * 0.5f;
+            float halfWidth = size.Width * UnitSize * 0.5f;
+            float halfDepth = size.Depth * UnitSize * 0.5f;
+            float normalInset = WallThickness * 0.5f;
+            float y = baseY + (WallHeight * 0.5f);
+            Vector3 position;
+            Vector3 scale;
+            switch (side)
+            {
+                case CardinalDirection.North:
+                    position = new Vector3(tangentCenter, y, halfDepth - normalInset);
+                    scale = new Vector3(length, WallHeight, WallThickness);
+                    break;
+                case CardinalDirection.East:
+                    position = new Vector3(halfWidth - normalInset, y, tangentCenter);
+                    scale = new Vector3(WallThickness, WallHeight, length);
+                    break;
+                case CardinalDirection.South:
+                    position = new Vector3(tangentCenter, y, -halfDepth + normalInset);
+                    scale = new Vector3(length, WallHeight, WallThickness);
+                    break;
+                default:
+                    position = new Vector3(-halfWidth + normalInset, y, tangentCenter);
+                    scale = new Vector3(WallThickness, WallHeight, length);
+                    break;
+            }
+
+            CreateVisualBlock(root, name, position, scale, Quaternion.identity, removeCollider: false);
+        }
+
+        private static void CreateBoundaryBlockAtSocket(
+            Transform root,
+            string name,
+            GridSize2 size,
+            SocketKey socket,
+            float width,
+            float height,
+            float centerHeight,
+            bool removeCollider)
+        {
+            Quaternion rotation = DirectionRotation(socket.Side);
+            Vector3 outward = rotation * Vector3.forward;
+            Vector3 position = ExpectedSocketPosition(size, socket) +
+                               new Vector3(0f, centerHeight, 0f) -
+                               (outward * (WallThickness * 0.5f));
+            CreateVisualBlock(
+                root,
+                name,
+                position,
+                new Vector3(width, height, WallThickness),
+                rotation,
+                removeCollider);
+        }
+
+        private static void CreateInlineDoorFrame(Transform root)
+        {
+            float jambWidth = (CorridorClearWidth - DoorWidth) * 0.5f;
+            float jambOffset = (DoorWidth * 0.5f) + (jambWidth * 0.5f);
+            CreateVisualBlock(
+                root,
+                "DoorFrame_Jamb_Left",
+                new Vector3(-jambOffset, WallHeight * 0.5f, 0f),
+                new Vector3(jambWidth, WallHeight, WallThickness),
+                Quaternion.identity,
+                removeCollider: false);
+            CreateVisualBlock(
+                root,
+                "DoorFrame_Jamb_Right",
+                new Vector3(jambOffset, WallHeight * 0.5f, 0f),
+                new Vector3(jambWidth, WallHeight, WallThickness),
+                Quaternion.identity,
+                removeCollider: false);
+            CreateVisualBlock(
+                root,
+                "DoorFrame_Lintel",
+                new Vector3(0f, DoorHeight + (LintelHeight * 0.5f), 0f),
+                new Vector3(DoorWidth, LintelHeight, WallThickness),
+                Quaternion.identity,
+                removeCollider: false);
+        }
+
+        private static float SideTangentSpan(GridSize2 size, CardinalDirection side) =>
+            side == CardinalDirection.North || side == CardinalDirection.South
+                ? size.Width * UnitSize
+                : size.Depth * UnitSize;
+
+        private static float SocketTangentPosition(GridSize2 size, SocketKey socket)
+        {
+            Vector3 position = ExpectedSocketPosition(size, socket);
+            return socket.Side == CardinalDirection.North ||
+                   socket.Side == CardinalDirection.South
+                ? position.x
+                : position.z;
         }
 
         private static GameObject CreateVisualBlock(
@@ -375,27 +714,21 @@ namespace Gloomveil.MapGeneration.Editor
             GridSize2 size,
             SocketKey socket)
         {
-            Vector3 position = ExpectedSocketPosition(size, socket) + new Vector3(0f, 1.5f, 0f);
-            Vector3 scale = socket.Side == CardinalDirection.North ||
-                            socket.Side == CardinalDirection.South
-                ? new Vector3(1.6f, 3f, 0.12f)
-                : new Vector3(0.12f, 3f, 1.6f);
             string suffix = SocketSuffix(socket);
-            GameObject portal = CreateVisualBlock(
-                root,
-                $"Portal_{suffix}",
-                position,
-                scale,
-                Quaternion.identity,
-                removeCollider: true);
+            var portal = new GameObject($"Portal_{suffix}");
+            portal.transform.SetParent(root, false);
+            portal.transform.localPosition = ExpectedSocketPosition(size, socket);
+            portal.transform.localRotation = DirectionRotation(socket.Side);
             portal.SetActive(false);
-            CreateVisualBlock(
+            CreateBoundaryBlockAtSocket(
                 root,
                 $"WallCap_{suffix}",
-                position,
-                scale,
-                Quaternion.identity,
-                removeCollider: true);
+                size,
+                socket,
+                DoorWidth,
+                DoorHeight,
+                DoorHeight * 0.5f,
+                removeCollider: false);
         }
 
         private static void CreateCommonAnchors(Transform root, GridSize2 size)

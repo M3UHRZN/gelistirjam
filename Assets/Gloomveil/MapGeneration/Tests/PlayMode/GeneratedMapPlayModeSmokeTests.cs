@@ -67,9 +67,37 @@ namespace Gloomveil.MapGeneration.Tests
                     foreach (GeneratedMapModule stair in data.StairModules)
                     {
                         AssertCompletePath(
+                            data.StartAnchor,
+                            stair.BottomLanding,
+                            fixture.Surface.agentTypeID);
+                        AssertCompletePath(
+                            data.StartAnchor,
+                            stair.TopLanding,
+                            fixture.Surface.agentTypeID);
+                        AssertCompletePath(
                             stair.BottomLanding,
                             stair.TopLanding,
                             fixture.Surface.agentTypeID);
+                    }
+
+                    if (floors == 2)
+                    {
+                        GameObject previousRoot = data.Root;
+                        NavMeshData previousNavMeshData = fixture.Surface.navMeshData;
+                        publishCount = 0;
+
+                        fixture.Bootstrap.Generate(1042);
+
+                        Assert.That(previousRoot.activeSelf, Is.False);
+                        Assert.That(fixture.Registry.IsReady, Is.True);
+                        Assert.That(publishCount, Is.EqualTo(1));
+                        Assert.That(fixture.Registry.Current.Root, Is.Not.SameAs(previousRoot));
+                        Assert.That(fixture.Surface.navMeshData, Is.Not.Null);
+                        Assert.That(
+                            fixture.Surface.navMeshData,
+                            Is.Not.SameAs(previousNavMeshData));
+                        yield return null;
+                        Assert.That(previousRoot == null, Is.True);
                     }
                 }
                 finally

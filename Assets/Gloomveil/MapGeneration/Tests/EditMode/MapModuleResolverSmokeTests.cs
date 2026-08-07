@@ -101,6 +101,18 @@ namespace Gloomveil.MapGeneration.Tests
                 new SeededRandom(7, "modules"));
 
             Assert.That(result.Prefab.name, Is.EqualTo(expected));
+            MapPort north = result.Ports.Single(port =>
+                port.LocalSocket.Side == CardinalDirection.North);
+            MapPort south = result.Ports.Single(port =>
+                port.LocalSocket.Side == CardinalDirection.South);
+            Assert.That(north.WorldFacing, Is.EqualTo(CardinalDirection.North));
+            Assert.That(
+                north.WorldEdge,
+                Is.EqualTo(new GridEdgeKey(0, GridEdgeAxis.AlongX, 0, length)));
+            Assert.That(south.WorldFacing, Is.EqualTo(CardinalDirection.South));
+            Assert.That(
+                south.WorldEdge,
+                Is.EqualTo(new GridEdgeKey(0, GridEdgeAxis.AlongX, 0, 0)));
         }
 
         private MapModuleEntry Entry(
