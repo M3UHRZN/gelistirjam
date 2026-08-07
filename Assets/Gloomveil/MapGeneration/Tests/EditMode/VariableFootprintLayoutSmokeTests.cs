@@ -94,6 +94,32 @@ namespace Gloomveil.MapGeneration.Tests
             }
         }
 
+        [TestCase(2)]
+        [TestCase(3)]
+        [TestCase(4)]
+        public void Generate_Defaults_AreDeterministicConnectedAndVisiblyVaried(int floors)
+        {
+            MapGenerationParameters parameters =
+                MapGenerationParameters.CreateProductionDefaults(floors);
+            var generator = new VariableFootprintLayoutGenerator();
+
+            MapLayout first = generator.Generate(parameters, 1042);
+            MapLayout second = generator.Generate(parameters, 1042);
+
+            Assert.That(second.CreateSignature(), Is.EqualTo(first.CreateSignature()));
+            Assert.That(first.TraversalGraph.IsFullyConnected, Is.True);
+            Assert.That(
+                first.CorridorModules
+                    .Where(module => module.Shape == CorridorShape.Straight)
+                    .Select(module => module.LengthUnits)
+                    .Distinct()
+                    .Count(),
+                Is.GreaterThanOrEqualTo(2));
+            Assert.That(
+                first.Rooms.Select(room => room.FootprintId).Distinct(),
+                Is.SupersetOf(new[] { "1x2", "2x2", "2x3" }));
+        }
+
         private static PackedAreaLayout PackFirstValidAreas(
             MapGenerationParameters parameters,
             int seed)
