@@ -106,6 +106,15 @@ namespace Gloomveil.MapGeneration.Tests
             MapLayout first = generator.Generate(parameters, 1042);
             MapLayout second = generator.Generate(parameters, 1042);
 
+            new GameplayRoleAssigner().Assign(
+                first,
+                parameters,
+                new SeededRandom(1042, "roles"));
+            new GameplayRoleAssigner().Assign(
+                second,
+                parameters,
+                new SeededRandom(1042, "roles"));
+
             Assert.That(second.CreateSignature(), Is.EqualTo(first.CreateSignature()));
             Assert.That(first.TraversalGraph.IsFullyConnected, Is.True);
             Assert.That(
@@ -118,6 +127,23 @@ namespace Gloomveil.MapGeneration.Tests
             Assert.That(
                 first.Rooms.Select(room => room.FootprintId).Distinct(),
                 Is.SupersetOf(new[] { "1x2", "2x2", "2x3" }));
+
+            MapValidationReport report = new MapLayoutValidator().Validate(first, parameters);
+            Assert.That(
+                report.IsValid,
+                Is.True,
+                string.Join(Environment.NewLine, report.Errors));
+
+            PlacedRoom start = first.Rooms.Single(room => room.Role == RoomRole.Start);
+            PlacedRoom exit = first.Rooms.Single(room => room.Role == RoomRole.Exit);
+            IReadOnlyDictionary<int, int> distances =
+                MapGraphSearch.WeightedDistancesFrom(
+                    first.TraversalGraph,
+                    start.GraphNodeId);
+            int farthestEligible = first.Rooms
+                .Where(room => room.Role != RoomRole.Start)
+                .Max(room => distances[room.GraphNodeId]);
+            Assert.That(distances[exit.GraphNodeId], Is.EqualTo(farthestEligible));
         }
 
         private static PackedAreaLayout PackFirstValidAreas(
