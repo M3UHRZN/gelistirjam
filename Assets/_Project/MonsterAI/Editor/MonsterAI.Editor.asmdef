@@ -1,0 +1,19 @@
+{
+    "name": "Game.MonsterAI.Editor",
+    "rootNamespace": "Game.MonsterAI.Editor",
+    "references": [
+        "Game.MonsterAI",
+        "Unity.AI.Navigation"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
