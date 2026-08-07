@@ -2,7 +2,11 @@
   "name": "Gloomveil.MapGeneration.PlayModeTests",
   "rootNamespace": "Gloomveil.MapGeneration.Tests",
   "references": [
-    "Gloomveil.MapGeneration"
+    "Gloomveil.MapGeneration",
+    "Unity.AI.Navigation"
+  ],
+  "defineConstraints": [
+    "UNITY_EDITOR"
   ],
   "optionalUnityReferences": [
     "TestAssemblies"

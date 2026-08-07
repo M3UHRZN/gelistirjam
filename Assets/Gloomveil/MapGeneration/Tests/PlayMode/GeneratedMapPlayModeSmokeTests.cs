@@ -1,118 +1,181 @@
+using System;
 using System.Collections;
-using System.Collections.Generic;
 using System.Linq;
 using NUnit.Framework;
+using Unity.AI.Navigation;
+#if UNITY_EDITOR
+using UnityEditor;
+#endif
 using UnityEngine;
+using UnityEngine.AI;
 using UnityEngine.TestTools;
 
 namespace Gloomveil.MapGeneration.Tests
 {
     public sealed class GeneratedMapPlayModeSmokeTests
     {
-        private readonly List<Object> ownedObjects = new List<Object>();
-        private ModularMapBuilder builder;
-
-        [TearDown]
-        public void TearDown()
-        {
-            builder?.DestroyGeneratedRoot();
-            foreach (Object ownedObject in ownedObjects)
-            {
-                if (ownedObject != null)
-                {
-                    Object.DestroyImmediate(ownedObject);
-                }
-            }
-
-            ownedObjects.Clear();
-        }
+        private const string CatalogPath =
+            "Assets/Gloomveil/MapGeneration/Data/GrayboxMapModuleCatalog.asset";
 
         [UnityTest]
-        public IEnumerator Build_TwoFloors_UsesOneObjectPerVisiblePlacement()
+        public IEnumerator Generate_BuildsNavigableMapsThenPublishes()
         {
-            const int seed = 1042;
-            MapLayout layout = GenerateAssignedLayout(floors: 2, seed);
-            MapModuleCatalog catalog = CreateTemporaryCatalog();
-            builder = new ModularMapBuilder(catalog, unitSize: 4f, floorHeight: 4f);
-
-            GeneratedMapRuntimeData data = builder.Build(layout, seed);
-            int expected =
-                layout.Rooms.Count + layout.Stairs.Count + layout.CorridorModules.Count;
-
-            Assert.That(data.Modules.Count, Is.EqualTo(expected));
-            Assert.That(
-                data.Modules.Count,
-                Is.LessThan(layout.WidthUnits * layout.DepthUnits * 2));
-            Assert.That(
-                data.RoomModules.Select(module => module.CanonicalFootprintUnits),
-                Does.Contain(new GridSize2(1, 2)));
-            Assert.That(
-                data.RoomModules.Select(module => module.CanonicalFootprintUnits),
-                Does.Contain(new GridSize2(2, 2)));
-            Assert.That(
-                data.RoomModules.Select(module => module.CanonicalFootprintUnits),
-                Does.Contain(new GridSize2(2, 3)));
-            yield return null;
-        }
-
-        private static MapLayout GenerateAssignedLayout(int floors, int seed)
-        {
-            MapGenerationParameters parameters =
-                MapGenerationParameters.CreateProductionDefaults(floors);
-            MapLayout layout = new VariableFootprintLayoutGenerator().Generate(parameters, seed);
-            new GameplayRoleAssigner().Assign(
-                layout,
-                parameters,
-                new SeededRandom(seed, "roles"));
-            MapValidationReport report = new MapLayoutValidator().Validate(layout, parameters);
-            Assert.That(report.IsValid, Is.True, string.Join("\n", report.Errors));
-            return layout;
-        }
-
-        private MapModuleCatalog CreateTemporaryCatalog()
-        {
-            var entries = new List<MapModuleEntry>
+            foreach (int floors in new[] { 2, 3, 4 })
             {
-                Entry("ROOM_1x2", MapModuleCategory.Room, new GridSize2(1, 2)),
-                Entry("ROOM_2x2", MapModuleCategory.Room, new GridSize2(2, 2)),
-                Entry("ROOM_2x3", MapModuleCategory.Room, new GridSize2(2, 3)),
-                Entry("COR_STRAIGHT_1x1", MapModuleCategory.Corridor, new GridSize2(1, 1), CorridorShape.Straight),
-                Entry("COR_STRAIGHT_1x2", MapModuleCategory.Corridor, new GridSize2(1, 2), CorridorShape.Straight),
-                Entry("COR_STRAIGHT_1x3", MapModuleCategory.Corridor, new GridSize2(1, 3), CorridorShape.Straight),
-                Entry("COR_CORNER", MapModuleCategory.Corridor, new GridSize2(1, 1), CorridorShape.Corner),
-                Entry("COR_T", MapModuleCategory.Corridor, new GridSize2(1, 1), CorridorShape.TJunction),
-                Entry("COR_CROSS", MapModuleCategory.Corridor, new GridSize2(1, 1), CorridorShape.CrossJunction),
-                Entry("COR_DEAD", MapModuleCategory.Corridor, new GridSize2(1, 1), CorridorShape.DeadEnd),
-                Entry("COR_DOOR", MapModuleCategory.Corridor, new GridSize2(1, 1), CorridorShape.DoorTransition),
-                Entry("STA_1x2", MapModuleCategory.Stair, new GridSize2(1, 2)),
-                Entry("STA_2x2", MapModuleCategory.Stair, new GridSize2(2, 2))
-            };
-            MapModuleCatalog catalog = ScriptableObject.CreateInstance<MapModuleCatalog>();
-            catalog.name = "TemporaryMapModuleCatalog";
-            catalog.SetEntries(entries);
-            ownedObjects.Add(catalog);
-            return catalog;
+                MapGenerationFixture fixture = CreateFixture(floors);
+                int publishCount = 0;
+                Action<GeneratedMapRuntimeData> onReady = _ => publishCount++;
+                fixture.Registry.MapReady += onReady;
+
+                try
+                {
+                    fixture.Bootstrap.Generate(1042);
+                    yield return null;
+
+                    Assert.That(fixture.Registry.IsReady, Is.True, $"floors={floors}");
+                    Assert.That(publishCount, Is.EqualTo(1), $"floors={floors}");
+                    GeneratedMapRuntimeData data = fixture.Registry.Current;
+                    int visiblePlacementCount =
+                        data.RoomModules.Count +
+                        data.CorridorModules.Count +
+                        data.StairModules.Count;
+                    Assert.That(data.Modules.Count, Is.EqualTo(visiblePlacementCount));
+                    Assert.That(
+                        data.Modules.Count,
+                        Is.LessThan(data.WidthUnits * data.DepthUnits * floors));
+                    Assert.That(
+                        data.RoomModules.Select(module => module.CanonicalFootprintUnits),
+                        Is.SupersetOf(new[]
+                        {
+                            new GridSize2(1, 2),
+                            new GridSize2(2, 2),
+                            new GridSize2(2, 3)
+                        }));
+
+                    AssertCompletePath(
+                        data.StartAnchor,
+                        data.ExitAnchor,
+                        fixture.Surface.agentTypeID);
+                    foreach (Transform fuse in data.FuseAnchors)
+                    {
+                        AssertCompletePath(
+                            data.StartAnchor,
+                            fuse,
+                            fixture.Surface.agentTypeID);
+                    }
+
+                    foreach (GeneratedMapModule stair in data.StairModules)
+                    {
+                        AssertCompletePath(
+                            stair.BottomLanding,
+                            stair.TopLanding,
+                            fixture.Surface.agentTypeID);
+                    }
+                }
+                finally
+                {
+                    fixture.Registry.MapReady -= onReady;
+                    fixture.Dispose();
+                }
+            }
         }
 
-        private MapModuleEntry Entry(
-            string id,
-            MapModuleCategory category,
-            GridSize2 size,
-            CorridorShape shape = CorridorShape.DeadEnd)
+        private static MapGenerationFixture CreateFixture(int floors)
         {
-            var prefab = new GameObject($"PF_{id}");
-            ownedObjects.Add(prefab);
-            return new MapModuleEntry(
-                id,
-                id,
-                category,
-                size,
-                shape,
-                RoomRoleMask.All,
-                prefab,
-                weight: 1,
-                allowQuarterTurns: true,
-                usesDynamicSockets: false);
+#if UNITY_EDITOR
+            MapModuleCatalog catalog =
+                AssetDatabase.LoadAssetAtPath<MapModuleCatalog>(CatalogPath);
+#else
+            MapModuleCatalog catalog = null;
+#endif
+            Assert.That(catalog, Is.Not.Null, CatalogPath);
+
+            MapGenerationConfig config =
+                ScriptableObject.CreateInstance<MapGenerationConfig>();
+            config.ConfigureGeneratedContent(catalog, floors);
+
+            var root = new GameObject($"MapGenerationFixture_{floors}");
+            GeneratedMapRegistry registry = root.AddComponent<GeneratedMapRegistry>();
+            var surfaceObject = new GameObject("GeneratedGeometrySurface");
+            surfaceObject.transform.SetParent(root.transform, false);
+            NavMeshSurface surface = surfaceObject.AddComponent<NavMeshSurface>();
+            GeneratedNavMeshController navMeshController =
+                root.AddComponent<GeneratedNavMeshController>();
+            navMeshController.Configure(surface);
+            MapGenerationBootstrap bootstrap = root.AddComponent<MapGenerationBootstrap>();
+            bootstrap.Configure(config, navMeshController, registry);
+
+            return new MapGenerationFixture(
+                root,
+                config,
+                bootstrap,
+                registry,
+                surface);
+        }
+
+        private static void AssertCompletePath(
+            Transform from,
+            Transform to,
+            int agentTypeId)
+        {
+            Assert.That(from, Is.Not.Null);
+            Assert.That(to, Is.Not.Null);
+            var filter = new NavMeshQueryFilter
+            {
+                agentTypeID = agentTypeId,
+                areaMask = NavMesh.AllAreas
+            };
+            Assert.That(
+                NavMesh.SamplePosition(from.position, out NavMeshHit fromHit, 1.5f, filter),
+                Is.True,
+                $"Could not sample {from.name} at {from.position}.");
+            Assert.That(
+                NavMesh.SamplePosition(to.position, out NavMeshHit toHit, 1.5f, filter),
+                Is.True,
+                $"Could not sample {to.name} at {to.position}.");
+
+            var path = new NavMeshPath();
+            bool calculated = NavMesh.CalculatePath(
+                fromHit.position,
+                toHit.position,
+                filter,
+                path);
+            Assert.That(calculated, Is.True, $"{from.name} -> {to.name}");
+            Assert.That(
+                path.status,
+                Is.EqualTo(NavMeshPathStatus.PathComplete),
+                $"{from.name} -> {to.name}: {path.status}");
+        }
+
+        private sealed class MapGenerationFixture : IDisposable
+        {
+            private readonly GameObject root;
+            private readonly MapGenerationConfig config;
+
+            public MapGenerationBootstrap Bootstrap { get; }
+            public GeneratedMapRegistry Registry { get; }
+            public NavMeshSurface Surface { get; }
+
+            public MapGenerationFixture(
+                GameObject root,
+                MapGenerationConfig config,
+                MapGenerationBootstrap bootstrap,
+                GeneratedMapRegistry registry,
+                NavMeshSurface surface)
+            {
+                this.root = root;
+                this.config = config;
+                Bootstrap = bootstrap;
+                Registry = registry;
+                Surface = surface;
+            }
+
+            public void Dispose()
+            {
+                Bootstrap.ClearGeneratedMap();
+                UnityEngine.Object.DestroyImmediate(root);
+                UnityEngine.Object.DestroyImmediate(config);
+            }
         }
     }
 }

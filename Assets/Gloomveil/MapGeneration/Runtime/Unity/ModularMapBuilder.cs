@@ -13,6 +13,8 @@ namespace Gloomveil.MapGeneration
         private readonly Transform parent;
         private GameObject generatedRoot;
 
+        public GameObject GeneratedRoot => generatedRoot;
+
         public ModularMapBuilder(
             MapModuleCatalog catalog,
             float unitSize,
@@ -85,6 +87,7 @@ namespace Gloomveil.MapGeneration
                 return;
             }
 
+            generatedRoot.SetActive(false);
             if (Application.isPlaying)
             {
                 UnityEngine.Object.Destroy(generatedRoot);
