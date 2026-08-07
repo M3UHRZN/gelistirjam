@@ -1,0 +1,13 @@
+{
+  "name": "Gloomveil.MapGeneration.EditModeTests",
+  "rootNamespace": "Gloomveil.MapGeneration.Tests",
+  "references": [
+    "Gloomveil.MapGeneration"
+  ],
+  "optionalUnityReferences": [
+    "TestAssemblies"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ]
+}

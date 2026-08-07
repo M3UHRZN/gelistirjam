@@ -1,0 +1,8 @@
+{
+  "name": "Gloomveil.MapGeneration",
+  "rootNamespace": "Gloomveil.MapGeneration",
+  "references": [
+    "Unity.AI.Navigation"
+  ],
+  "autoReferenced": true
+}
