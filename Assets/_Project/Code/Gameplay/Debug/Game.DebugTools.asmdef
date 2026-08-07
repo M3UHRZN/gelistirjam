@@ -1,0 +1,18 @@
+{
+    "name": "Game.DebugTools",
+    "rootNamespace": "Game.Gameplay.DebugTools",
+    "references": [
+        "Game.Core",
+        "Game.Gameplay",
+        "Unity.InputSystem"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
