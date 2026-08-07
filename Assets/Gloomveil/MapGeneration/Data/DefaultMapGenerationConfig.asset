@@ -18,8 +18,8 @@ MonoBehaviour:
   widthUnits: 16
   depthUnits: 16
   floorCount: 2
-  minRoomsPerFloor: 7
-  maxRoomsPerFloor: 9
+  minRoomsPerFloor: 10
+  maxRoomsPerFloor: 18
   roomClearanceUnits: 1
   extraRoomLinksPerFloor: 2
   verticalLinksPerFloorPair: 2
