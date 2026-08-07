@@ -284,8 +284,8 @@ namespace Gloomveil.MapGeneration.Editor
             CreateVisualBlock(
                 root,
                 "LandingCollider",
-                new Vector3(0f, 1.9f, 3.6f),
-                new Vector3(6.8f, 0.2f, 0.8f),
+                new Vector3(0f, 1.9f, 3f),
+                new Vector3(6.8f, 0.2f, 2f),
                 Quaternion.identity,
                 removeCollider: false);
             CreateVisualBlock(
