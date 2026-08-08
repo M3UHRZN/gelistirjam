@@ -3,6 +3,7 @@ using Game.Gameplay;
 using Game.Gameplay.Objectives;
 using Game.Gameplay.World;
 using Gloomveil.MapGeneration;
+using Unity.Cinemachine;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -42,7 +43,11 @@ namespace Game.Editor
             MapFuseGate fuseGate = EnsureFuseGate();
             MainSceneWiring wiring = EnsureMainSceneWiring();
 
-            fuseGate.Bind(registry, gameFlow, objectiveManager, miniGame);
+            // Optional: a missing brain only costs the tablet's blend-duration override (MapFuseGate's
+            // Bind contract), so this setup tool must not fail when the scene doesn't have one yet.
+            CinemachineBrain cinemachineBrain = Object.FindFirstObjectByType<CinemachineBrain>();
+
+            fuseGate.Bind(registry, gameFlow, objectiveManager, miniGame, cinemachineBrain);
             wiring.Bind(gameFlow, objectiveManager, mapExit, miniGame);
 
             EditorUtility.SetDirty(fuseGate);

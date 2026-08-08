@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Game.Core;
 using Game.Gameplay.Objectives;
 using Gloomveil.MapGeneration;
+using Unity.Cinemachine;
 using UnityEngine;
 
 namespace Game.Gameplay.World
@@ -22,6 +23,9 @@ namespace Game.Gameplay.World
         [SerializeField] private GameFlowController gameFlow;
         [SerializeField] private ObjectiveManager objectiveManager;
         [SerializeField] private FuseMiniGameController miniGame;
+
+        [SerializeField, Tooltip("The scene's CinemachineBrain, handed to each spawned tablet presenter. Spawned prefabs cannot hold scene references, so the gate passes it through.")]
+        private CinemachineBrain cinemachineBrain;
 
         [SerializeField, Tooltip("Optional visual spawned at each anchor. A plain placeholder cube is built when empty.")]
         private GameObject fuseBoxPrefab;
@@ -50,12 +54,13 @@ namespace Game.Gameplay.World
         public IReadOnlyList<FuseBox> SpawnedFuseBoxes => spawned;
 
         public void Bind(GeneratedMapRegistry mapRegistry, GameFlowController flow,
-            ObjectiveManager objectives, FuseMiniGameController fuseMiniGame)
+            ObjectiveManager objectives, FuseMiniGameController fuseMiniGame, CinemachineBrain brain)
         {
             registry = mapRegistry;
             gameFlow = flow;
             objectiveManager = objectives;
             miniGame = fuseMiniGame;
+            cinemachineBrain = brain;
             if (isActiveAndEnabled) Subscribe();
         }
 
@@ -150,11 +155,14 @@ namespace Game.Gameplay.World
                 FuseBox fuseBox = instance.GetComponent<FuseBox>();
                 if (fuseBox == null) fuseBox = instance.AddComponent<FuseBox>();
 
+                FuseTabletPresenter presenter = instance.GetComponent<FuseTabletPresenter>();
+                if (presenter != null) presenter.Bind(cinemachineBrain);
+
                 int rounds = roundsPattern != null && roundsPattern.Length > 0
                     ? roundsPattern[i % roundsPattern.Length]
                     : 1;
                 fuseBox.SetRoundsRequired(rounds);
-                fuseBox.Bind(gameFlow, objectiveManager, miniGame);
+                fuseBox.Bind(gameFlow, objectiveManager, miniGame, presenter);
                 spawned.Add(fuseBox);
             }
 
@@ -331,6 +339,10 @@ namespace Game.Gameplay.World
 
         private void ClearSpawned()
         {
+            // A minigame open on a fuse that is about to be destroyed would leave its canvas parented
+            // to a dead transform and its coroutine waiting for input that can never arrive.
+            if (miniGame != null) miniGame.ForceCancel();
+
             foreach (FuseBox box in spawned)
             {
                 if (box != null) Destroy(box.gameObject);

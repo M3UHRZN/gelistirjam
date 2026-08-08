@@ -513,7 +513,9 @@ namespace Game.Editor
 
             FuseBox fuseBox = go.AddComponent<FuseBox>();
             fuseBox.SetRoundsRequired(roundsRequired);
-            fuseBox.Bind(gameFlow, objectiveManager, miniGame);
+            // No tablet presenter in the monster-AI test scene — this builder tests AI behaviour, not
+            // the fuse view hand-off, and IFuseViewPresenter is optional (FuseBox null-checks it).
+            fuseBox.Bind(gameFlow, objectiveManager, miniGame, null);
         }
 
         /// <summary>
