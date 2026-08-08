@@ -3,7 +3,6 @@ using Game.Gameplay.Monster;
 using Game.Gameplay.Objectives;
 using Game.Gameplay.World;
 using UnityEngine;
-using UnityEngine.Serialization;
 
 namespace Game.Gameplay
 {
@@ -21,29 +20,27 @@ namespace Game.Gameplay
     public class SceneWiring : MonoBehaviour
     {
         [SerializeField] private MonsterBrain brain;
-        [SerializeField, FormerlySerializedAs("gameManager")] private GameFlowController gameFlow;
+        [SerializeField] private GameManager gameManager;
         [SerializeField] private ObjectiveManager objectiveManager;
-        [SerializeField, Tooltip("Hand-placed exit of the AI test scene. Leave empty in a generated-map scene.")]
-        private ExitController exitController;
-        [SerializeField, Tooltip("Exit built from the generated map's Anchor_Exit. Leave empty in the AI test scene.")]
-        private MapExitController mapExitController;
+        [SerializeField] private ExitController exitController;
         [SerializeField] private LightZone[] lightShutdownOrder;
         [SerializeField] private MonsterConfig config;
+        [SerializeField] private FuseMiniGameController fuseMiniGame;
 
         private readonly LightDirector lightDirector = new LightDirector();
         private bool wired;
 
-        public void Bind(MonsterBrain monsterBrain, GameFlowController flow, ObjectiveManager objectives,
+        public void Bind(MonsterBrain monsterBrain, GameManager manager, ObjectiveManager objectives,
             ExitController exit, LightZone[] shutdownOrder, MonsterConfig monsterConfig,
-            MapExitController mapExit = null)
+            FuseMiniGameController miniGame)
         {
             brain = monsterBrain;
-            gameFlow = flow;
+            gameManager = manager;
             objectiveManager = objectives;
             exitController = exit;
-            mapExitController = mapExit;
             lightShutdownOrder = shutdownOrder;
             config = monsterConfig;
+            fuseMiniGame = miniGame;
             Wire();
         }
 
@@ -55,21 +52,14 @@ namespace Game.Gameplay
         private void Wire()
         {
             if (wired) return;
-            // Neither exit reference is required: a scene has one or the other, never both, and a
-            // generated-map scene may run with neither while the exit is still being built. Making
-            // either one mandatory would drop everything else in this method — including the
-            // FinalChase reaction below, which both exits depend on.
-            if (brain == null || gameFlow == null || objectiveManager == null || config == null) return;
+            if (brain == null || gameManager == null || objectiveManager == null || exitController == null || config == null || fuseMiniGame == null) return;
             wired = true;
 
             lightDirector.SetShutdownOrder(lightShutdownOrder);
 
-            brain.OnKill += () => gameFlow.ChangeState(gameFlow.DeathState);
+            brain.OnKill += () => gameManager.ChangeState(gameManager.DeathState);
             objectiveManager.OnAnyFuseCompleted += lightDirector.OnFuseCompleted;
-            // MapExitController deliberately does not know about objectives, so the objective ->
-            // exit link is made here rather than inside it (TGD section 37).
-            if (exitController != null) objectiveManager.OnAllComplete += exitController.Open;
-            if (mapExitController != null) objectiveManager.OnAllComplete += mapExitController.Open;
+            objectiveManager.OnAllComplete += exitController.Open;
 
             // TGD section 36: the monster must be aware of fuse interactions, not just that player
             // control is locked. See FuseBox.OnInteractionStarted/Stopped -> ObjectiveManager forward.
@@ -86,12 +76,22 @@ namespace Game.Gameplay
             // "aggression artar" the TGD also asks for comes entirely from the other three bullets
             // (lights out, shorter reposition cooldown, closer candidate points) plus IsRelentless,
             // not from the Anger stat itself.
-            gameFlow.OnStateChanged += stateName =>
+            gameManager.OnStateChanged += stateName =>
             {
                 if (stateName != nameof(FinalChaseState)) return;
                 lightDirector.ShutdownAll();
                 brain.IsRelentless = true;
                 brain.ChangeState(brain.AggressiveState);
+            };
+
+            // Death mid-minigame (prompt section 27, found live via Unity MCP testing — see chat): the
+            // Fuse popup has no way to know the player died on its own, so it just sat open forever,
+            // fighting visually with the death sequence. ForceCancel runs the same graceful
+            // close/cursor-restore path as an ESC press.
+            gameManager.OnStateChanged += stateName =>
+            {
+                if (stateName != nameof(DeathState)) return;
+                fuseMiniGame.ForceCancel();
             };
         }
     }
