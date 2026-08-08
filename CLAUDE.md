@@ -25,7 +25,7 @@ This is a Unity Editor project, not a CLI-buildable app — there is no `npm`/`g
 Two independent assembly groups exist:
 
 1. **`_Project/Code`** — the game itself, split by MASTER_PROMPT's layering (Presentation → Application → Domain → Infrastructure):
-   - `Core/` (`Game.Core.asmdef`) — `GameManager` + `GameStateMachine`, the game-flow FSM (Initialization → Exploration → FuseInteraction/FinalChase → Death/Victory, TGD §4). Core never references concrete Gameplay types — it only depends on `IPlayerControlGate`/`IGameState`; the composition root (`SceneWiring`) wires concrete player types and calls `GameManager.ChangeState(...)` for events it observes.
+   - `Core/` (`Game.Core.asmdef`) — `GameFlowController` + `GameStateMachine`, the game-flow FSM (Initialization → Exploration → FuseInteraction/FinalChase → Death/Victory, TGD §4). It only drives states — no objectives, no services — which is why it is not a "manager" (TGD §49 still calls this system `GameManager`; the code deliberately does not). Core never references concrete Gameplay types — it only depends on `IPlayerControlGate`/`IGameState`; the composition root (`SceneWiring`) wires concrete player types and calls `GameFlowController.ChangeState(...)` for events it observes.
    - `Gameplay/` (`Game.Gameplay.asmdef`) — `Monster/` (brain, navigator, perception, anger, gaze — each monster behaviour is its own `IMonsterState` under `Monster/States/`), `Player/` (movement, gaze detection, flashlight), `World/` (`SafeZone`, `LightZone`, `LightDirector`, `ExitController`), `Objectives/` (`FuseBox`, `ObjectiveManager`), `Interaction/` (`IInteractable`, `PlayerInteraction`), and `SceneWiring.cs` (the composition root).
    - `Gameplay/Debug/` (`Game.DebugTools.asmdef`) — gizmo/HUD-only debug visualization, separate assembly so it can be stripped.
    - `Editor/` (`Game.Editor.asmdef`) — editor-only tooling (test scene builders, NavMesh diagnostics).
@@ -53,5 +53,5 @@ Two-layer design (TGD §11, §50): `MonsterBrain` makes high-level decisions (st
 
 Infer conventions from the existing code, not from `MASTER_PROMPT.md` (see note above — it's a generic third-party guide, not project policy). Notable points already established in the codebase:
 - Namespaces mirror assembly/folder (`Game.Core`, presumably `Game.Gameplay.*` etc.).
-- XML doc comments on non-obvious public types explain architectural intent (see `GameManager.cs`), not just restate the API.
+- XML doc comments on non-obvious public types explain architectural intent (see `GameFlowController.cs`), not just restate the API.
 - `SceneWiring.cs` is the single composition root for the gameplay scene — new cross-system wiring goes there, not scattered `FindObjectOfType` calls.

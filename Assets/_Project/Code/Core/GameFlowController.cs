@@ -4,19 +4,21 @@ using UnityEngine;
 namespace Game.Core
 {
     /// <summary>
-    /// Owns the game's own flow state machine (TGD section 4): Initialization -> Exploration ->
-    /// FuseInteraction / FinalChase -> Death / Victory. Core never references concrete Gameplay
-    /// types directly (MASTER_PROMPT.md section 9 — dependencies point inward only); it only knows
-    /// the IPlayerControlGate interface. The composition root (scene builder) wires the concrete
-    /// player and calls ChangeState(...) directly for events it observes (e.g. MonsterBrain.OnKill).
+    /// Drives the game's flow state machine (TGD section 4): Initialization -> Exploration ->
+    /// FuseInteraction / FinalChase -> Death / Victory. That is its whole job — it owns no
+    /// objectives, no inventory, no services, which is why it is not called a "manager". Core never
+    /// references concrete Gameplay types directly (MASTER_PROMPT.md section 9 — dependencies point
+    /// inward only); it only knows the IPlayerControlGate interface. The composition root (scene
+    /// builder) wires the concrete player and calls ChangeState(...) directly for events it observes
+    /// (e.g. MonsterBrain.OnKill).
     ///
     /// FuseInteractionState and FinalChaseState are fully implemented and fully wired: FuseBox.Begin/
-    /// EndInteract drives FuseInteractionState <-> ExplorationState, and ExitController.Open drives
-    /// FinalChaseState once ObjectiveManager reports every fuse complete. (Was previously documented
-    /// as "nothing triggers them yet" — accurate when written, stale once those systems landed;
-    /// corrected here — see chat: Unity MCP validation pass.)
+    /// EndInteract drives FuseInteractionState <-> ExplorationState, and an exit controller drives
+    /// FinalChaseState once every fuse reports complete. (Was previously documented as "nothing
+    /// triggers them yet" — accurate when written, stale once those systems landed; corrected
+    /// here — see chat: Unity MCP validation pass.)
     /// </summary>
-    public class GameManager : MonoBehaviour
+    public class GameFlowController : MonoBehaviour
     {
         private IPlayerControlGate playerControlGate;
 

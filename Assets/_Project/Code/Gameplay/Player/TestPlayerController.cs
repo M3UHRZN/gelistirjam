@@ -10,7 +10,7 @@ namespace Game.Gameplay.Player
     /// Reads devices directly instead of an Input Actions asset — the real game should route through
     /// the project's .inputactions asset with rebinding support (MASTER_PROMPT.md section 27). Flagged
     /// here as an accepted shortcut because this controller only exists to drive the AI test scene.
-    /// Implements IPlayerControlGate so Core's GameManager can freeze/unfreeze control without
+    /// Implements IPlayerControlGate so Core's GameFlowController can freeze/unfreeze control without
     /// referencing this concrete type (MASTER_PROMPT.md section 9 — inward-only dependencies).
     /// </summary>
     /// <summary>Exposes current world-space velocity to systems that must stay decoupled from the concrete player rig (TGD section 18 prediction).</summary>
