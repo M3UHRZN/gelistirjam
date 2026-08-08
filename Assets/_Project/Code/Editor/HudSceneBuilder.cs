@@ -1,21 +1,26 @@
+using System;
+using System.Collections.Generic;
 using Game.Core;
 using Game.Gameplay.Interaction;
 using Game.Gameplay.Objectives;
 using Game.Gameplay.Player;
 using Game.UI;
+using TMPro;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
 namespace Game.Editor
 {
     /// <summary>
-    /// Reproducibly builds the HUD hierarchy into the active scene.
+    /// Reproducibly builds the Arızalı Tesis Terminali HUD into the active scene.
     /// </summary>
     public static class HudSceneBuilder
     {
         private const string RootName = "HudCanvas";
+        private const string CandidateName = "__HudCanvas_Building";
         private const float ReferenceWidth = 1920f;
         private const float ReferenceHeight = 1080f;
         private const float CornerMarginX = 48f;
@@ -26,17 +31,55 @@ namespace Game.Editor
         [MenuItem("Tools/Gloomveil/UI/Build HUD")]
         public static void BuildHud()
         {
-            GameObject existing = GameObject.Find(RootName);
-            if (existing != null)
+            TMP_FontAsset font = HudTerminalFactory.EnsureFontAsset();
+            if (font == null) return;
+
+            Scene scene = SceneManager.GetActiveScene();
+            GameObject candidate = null;
+
+            try
             {
-                Undo.DestroyObjectImmediate(existing);
+                candidate = BuildCandidate(font);
+                ValidateCandidate(candidate);
+
+                List<GameObject> existingRoots = FindNamedRoots(scene, RootName);
+                Undo.RegisterCreatedObjectUndo(candidate, "Build Retro Terminal HUD");
+                for (int i = 0; i < existingRoots.Count; i++)
+                {
+                    Undo.DestroyObjectImmediate(existingRoots[i]);
+                }
+
+                candidate.name = RootName;
+                candidate.SetActive(true);
+
+                EditorSceneManager.MarkSceneDirty(scene);
+                Selection.activeGameObject = candidate;
+                Debug.Log(
+                    $"[HUD Builder] Built retro terminal '{RootName}' in scene '{scene.name}'. " +
+                    "Save the scene to keep it.");
             }
+            catch (Exception exception)
+            {
+                if (candidate != null)
+                {
+                    UnityEngine.Object.DestroyImmediate(candidate);
+                }
 
-            Font font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+                Debug.LogException(new InvalidOperationException(
+                    "[HUD Builder] Retro terminal build failed; existing HUD was preserved.",
+                    exception));
+            }
+        }
 
-            var canvasObject = new GameObject(RootName,
-                typeof(Canvas), typeof(CanvasScaler), typeof(CanvasGroup),
-                typeof(HudCameraMotion), typeof(HudVisibility));
+        private static GameObject BuildCandidate(TMP_FontAsset font)
+        {
+            var canvasObject = new GameObject(CandidateName, typeof(RectTransform));
+            canvasObject.SetActive(false);
+            canvasObject.AddComponent<Canvas>();
+            canvasObject.AddComponent<CanvasScaler>();
+            canvasObject.AddComponent<CanvasGroup>();
+            canvasObject.AddComponent<HudCameraMotion>();
+            canvasObject.AddComponent<HudVisibility>();
 
             Canvas canvas = canvasObject.GetComponent<Canvas>();
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
@@ -60,10 +103,11 @@ namespace Game.Editor
             else
             {
                 Debug.LogWarning(
-                    "[HUD Builder] No MainCamera found — HUD sway will rest until HudCameraMotion is bound.");
+                    "[HUD Builder] No MainCamera found — HUD sway will rest until bound.");
             }
 
-            GameFlowController flow = Object.FindFirstObjectByType<GameFlowController>();
+            GameFlowController flow =
+                UnityEngine.Object.FindFirstObjectByType<GameFlowController>();
             if (flow != null)
             {
                 canvasObject.GetComponent<HudVisibility>().Bind(flow, canvasGroup);
@@ -71,211 +115,228 @@ namespace Game.Editor
             else
             {
                 Debug.LogWarning(
-                    "[HUD Builder] No GameFlowController found — HUD visibility control will stay disabled.");
+                    "[HUD Builder] No GameFlowController found — HUD visibility stays disabled.");
             }
 
-            RectTransform swayRoot = CreateFullScreenChild(canvasObject.transform, "SwayRoot");
+            RectTransform swayRoot =
+                HudTerminalFactory.CreateFullScreenChild(canvasObject.transform, "SwayRoot");
             swayRoot.gameObject.AddComponent<HudRootSway>().Bind(motion);
 
-            RectTransform fixedRoot = CreateFullScreenChild(canvasObject.transform, "FixedRoot");
+            RectTransform fixedRoot =
+                HudTerminalFactory.CreateFullScreenChild(canvasObject.transform, "FixedRoot");
 
             BuildObjective(swayRoot, motion, font);
-            BuildStamina(swayRoot, motion);
+            BuildStamina(swayRoot, motion, font);
             BuildFlashlight(swayRoot, motion, font);
             BuildPrompt(swayRoot, motion, font);
             BuildCrosshair(fixedRoot, motion);
 
-            Undo.RegisterCreatedObjectUndo(canvasObject, "Build HUD");
-            EditorSceneManager.MarkSceneDirty(canvasObject.scene);
-            Selection.activeGameObject = canvasObject;
-            Debug.Log(
-                $"[HUD Builder] Built '{RootName}' in scene '{canvasObject.scene.name}'. Save the scene to keep it.");
+            return canvasObject;
         }
 
-        private static RectTransform CreateFullScreenChild(Transform parent, string name)
+        private static void BuildObjective(RectTransform parent, HudCameraMotion motion,
+            TMP_FontAsset font)
         {
-            var go = new GameObject(name, typeof(RectTransform));
-            var rect = (RectTransform)go.transform;
-            rect.SetParent(parent, false);
-            rect.anchorMin = Vector2.zero;
-            rect.anchorMax = Vector2.one;
-            rect.offsetMin = Vector2.zero;
-            rect.offsetMax = Vector2.zero;
-            return rect;
-        }
-
-        private static RectTransform CreateChild(Transform parent, string name, Vector2 anchor,
-            Vector2 pivot, Vector2 anchoredPosition, Vector2 size)
-        {
-            var go = new GameObject(name, typeof(RectTransform));
-            var rect = (RectTransform)go.transform;
-            rect.SetParent(parent, false);
-            rect.anchorMin = anchor;
-            rect.anchorMax = anchor;
-            rect.pivot = pivot;
-            rect.anchoredPosition = anchoredPosition;
-            rect.sizeDelta = size;
-            return rect;
-        }
-
-        private static Text CreateText(RectTransform parent, string name, Font font, int fontSize,
-            TextAnchor alignment)
-        {
-            RectTransform rect = CreateChild(parent, name, new Vector2(0.5f, 0.5f),
-                new Vector2(0.5f, 0.5f), Vector2.zero, parent.sizeDelta);
-            rect.anchorMin = Vector2.zero;
-            rect.anchorMax = Vector2.one;
-            rect.offsetMin = Vector2.zero;
-            rect.offsetMax = Vector2.zero;
-
-            Text text = rect.gameObject.AddComponent<Text>();
-            text.font = font;
-            text.fontSize = fontSize;
-            text.alignment = alignment;
-            text.horizontalOverflow = HorizontalWrapMode.Overflow;
-            text.verticalOverflow = VerticalWrapMode.Overflow;
-            text.raycastTarget = false;
-            return text;
-        }
-
-        private static Image CreateImage(RectTransform parent, string name, Vector2 anchor,
-            Vector2 pivot, Vector2 anchoredPosition, Vector2 size, Color color)
-        {
-            RectTransform rect = CreateChild(parent, name, anchor, pivot, anchoredPosition, size);
-            Image image = rect.gameObject.AddComponent<Image>();
-            image.color = color;
-            image.raycastTarget = false;
-            return image;
-        }
-
-        private static void BuildObjective(RectTransform parent, HudCameraMotion motion, Font font)
-        {
-            RectTransform rect = CreateChild(parent, "ObjectiveWidget", new Vector2(0f, 1f),
-                new Vector2(0f, 1f), new Vector2(CornerMarginX, -CornerMarginY),
-                new Vector2(420f, 34f));
+            RectTransform rect = HudTerminalFactory.CreateChild(parent, "ObjectiveWidget",
+                new Vector2(0f, 1f), new Vector2(0f, 1f),
+                new Vector2(CornerMarginX, -CornerMarginY), new Vector2(460f, 66f));
 
             HudSway sway = rect.gameObject.AddComponent<HudSway>();
             sway.Bind(motion);
-            AssignSerialized(sway, "pixelsPerDegreePerSecond", new Vector2(-0.055f, 0.038f));
+            HudTerminalFactory.AssignSerialized(sway, "pixelsPerDegreePerSecond",
+                new Vector2(-0.055f, 0.038f));
 
-            Text label = CreateText(rect, "Label", font, 24, TextAnchor.UpperLeft);
-            label.text = string.Empty;
+            CanvasGroup group = AddPassiveCanvasGroup(rect, 1f);
+            HudTerminalFactory.CreatePanel(rect);
+
+            RectTransform headerRect = HudTerminalFactory.CreateChild(rect, "Header",
+                new Vector2(0f, 1f), new Vector2(0f, 1f),
+                new Vector2(14f, -7f), new Vector2(430f, 15f));
+            HudTerminalFactory.AddText(headerRect, font, 11f,
+                TextAlignmentOptions.TopLeft, HudTerminalFactory.MutedPhosphor,
+                "GRID://POWER");
+
+            RectTransform valueRect = HudTerminalFactory.CreateChild(rect, "Value",
+                Vector2.zero, Vector2.zero, new Vector2(14f, 9f),
+                new Vector2(430f, 31f));
+            TextMeshProUGUI value = HudTerminalFactory.AddText(valueRect, font, 22f,
+                TextAlignmentOptions.MidlineLeft, HudTerminalFactory.Phosphor, string.Empty);
 
             ObjectiveWidget widget = rect.gameObject.AddComponent<ObjectiveWidget>();
-            ObjectiveManager objectives = Object.FindFirstObjectByType<ObjectiveManager>();
+            ObjectiveManager objectives =
+                UnityEngine.Object.FindFirstObjectByType<ObjectiveManager>();
             if (objectives != null)
             {
                 widget.Bind(objectives);
             }
             else
             {
+                group.alpha = 0f;
                 Debug.Log(
-                    "[HUD Builder] No ObjectiveManager in this scene — the fuse counter will stand down until one exists.");
+                    "[HUD Builder] No ObjectiveManager — objective terminal is hidden.");
             }
 
-            AssignSerialized(widget, "label", label);
+            HudTerminalFactory.AssignSerialized(widget, "label", value);
+            HudTerminalFactory.AssignSerialized(widget, "group", group);
         }
 
-        private static void BuildStamina(RectTransform parent, HudCameraMotion motion)
+        private static void BuildStamina(RectTransform parent, HudCameraMotion motion,
+            TMP_FontAsset font)
         {
-            RectTransform rect = CreateChild(parent, "StaminaWidget", Vector2.zero,
-                Vector2.zero, new Vector2(CornerMarginX, CornerMarginY),
-                new Vector2(260f, 14f));
+            RectTransform rect = HudTerminalFactory.CreateChild(parent, "StaminaWidget",
+                Vector2.zero, Vector2.zero,
+                new Vector2(CornerMarginX, CornerMarginY), new Vector2(320f, 62f));
 
             HudSway sway = rect.gameObject.AddComponent<HudSway>();
             sway.Bind(motion);
-            AssignSerialized(sway, "pixelsPerDegreePerSecond", new Vector2(-0.07f, 0.048f));
+            HudTerminalFactory.AssignSerialized(sway, "pixelsPerDegreePerSecond",
+                new Vector2(-0.07f, 0.048f));
 
-            CanvasGroup group = rect.gameObject.AddComponent<CanvasGroup>();
-            group.interactable = false;
-            group.blocksRaycasts = false;
+            CanvasGroup group = AddPassiveCanvasGroup(rect, 1f);
+            HudTerminalFactory.CreatePanel(rect);
 
-            Image background = CreateImage(rect, "Background", Vector2.zero, Vector2.zero,
-                Vector2.zero, new Vector2(260f, 14f), new Color(0f, 0f, 0f, 0.45f));
-            background.rectTransform.anchorMin = Vector2.zero;
-            background.rectTransform.anchorMax = Vector2.one;
-            background.rectTransform.offsetMin = Vector2.zero;
-            background.rectTransform.offsetMax = Vector2.zero;
+            RectTransform headerRect = HudTerminalFactory.CreateChild(rect, "Header",
+                new Vector2(0f, 1f), new Vector2(0f, 1f),
+                new Vector2(14f, -7f), new Vector2(292f, 14f));
+            HudTerminalFactory.AddText(headerRect, font, 10f,
+                TextAlignmentOptions.TopLeft, HudTerminalFactory.MutedPhosphor,
+                "RUN://CAPACITY");
 
-            Image fill = CreateImage(rect, "Fill", Vector2.zero, Vector2.zero,
-                Vector2.zero, new Vector2(260f, 14f),
-                new Color(0.85f, 0.85f, 0.82f, 0.9f));
-            fill.rectTransform.anchorMin = Vector2.zero;
-            fill.rectTransform.anchorMax = Vector2.one;
-            fill.rectTransform.offsetMin = new Vector2(2f, 2f);
-            fill.rectTransform.offsetMax = new Vector2(-2f, -2f);
+            RectTransform bar = HudTerminalFactory.CreateChild(rect, "Bar", Vector2.zero,
+                Vector2.zero, new Vector2(14f, 10f), new Vector2(292f, 16f));
+
+            Image background = HudTerminalFactory.CreateImage(bar, "Background",
+                Vector2.zero, Vector2.zero, Vector2.zero, Vector2.zero,
+                new Color32(121, 255, 155, 35));
+            HudTerminalFactory.Stretch(background.rectTransform, Vector2.zero, Vector2.zero);
+
+            Image fill = HudTerminalFactory.CreateImage(bar, "Fill", Vector2.zero,
+                Vector2.zero, Vector2.zero, Vector2.zero, HudTerminalFactory.Phosphor);
+            HudTerminalFactory.Stretch(fill.rectTransform, new Vector2(2f, 2f),
+                new Vector2(-2f, -2f));
             fill.type = Image.Type.Filled;
             fill.fillMethod = Image.FillMethod.Horizontal;
             fill.fillOrigin = (int)Image.OriginHorizontal.Left;
             fill.fillAmount = 1f;
 
+            for (int i = 1; i < 12; i++)
+            {
+                float normalized = i / 12f;
+                HudTerminalFactory.CreateImage(bar, $"Segment{i:00}",
+                    new Vector2(normalized, 0.5f), new Vector2(0.5f, 0.5f),
+                    Vector2.zero, new Vector2(2f, 12f), HudTerminalFactory.Base);
+            }
+
             StaminaWidget widget = rect.gameObject.AddComponent<StaminaWidget>();
-            PlayerController player = Object.FindFirstObjectByType<PlayerController>();
+            PlayerController player =
+                UnityEngine.Object.FindFirstObjectByType<PlayerController>();
             if (player != null)
             {
                 widget.Bind(player);
             }
             else
             {
+                group.alpha = 0f;
                 Debug.LogWarning(
-                    "[HUD Builder] No PlayerController found — the stamina bar will stand down.");
+                    "[HUD Builder] No PlayerController — stamina terminal is hidden.");
             }
 
-            AssignSerialized(widget, "fill", fill);
-            AssignSerialized(widget, "group", group);
+            HudTerminalFactory.AssignSerialized(widget, "fill", fill);
+            HudTerminalFactory.AssignSerialized(widget, "group", group);
         }
 
-        private static void BuildFlashlight(RectTransform parent, HudCameraMotion motion, Font font)
+        private static void BuildFlashlight(RectTransform parent, HudCameraMotion motion,
+            TMP_FontAsset font)
         {
-            RectTransform rect = CreateChild(parent, "FlashlightWidget", new Vector2(1f, 0f),
-                new Vector2(1f, 0f), new Vector2(-CornerMarginX, CornerMarginY),
-                new Vector2(34f, 34f));
+            RectTransform rect = HudTerminalFactory.CreateChild(parent, "FlashlightWidget",
+                new Vector2(1f, 0f), new Vector2(1f, 0f),
+                new Vector2(-CornerMarginX, CornerMarginY), new Vector2(230f, 62f));
 
             HudSway sway = rect.gameObject.AddComponent<HudSway>();
             sway.Bind(motion);
-            AssignSerialized(sway, "pixelsPerDegreePerSecond", new Vector2(-0.065f, 0.044f));
+            HudTerminalFactory.AssignSerialized(sway, "pixelsPerDegreePerSecond",
+                new Vector2(-0.065f, 0.044f));
 
-            Text icon = CreateText(rect, "Icon", font, 22, TextAnchor.MiddleCenter);
-            icon.text = "(F)";
-            icon.color = new Color(0.5f, 0.5f, 0.5f, 0.45f);
+            CanvasGroup group = AddPassiveCanvasGroup(rect, 1f);
+            HudTerminalFactory.CreatePanel(rect);
+
+            RectTransform headerRect = HudTerminalFactory.CreateChild(rect, "Header",
+                new Vector2(0f, 1f), new Vector2(0f, 1f),
+                new Vector2(14f, -7f), new Vector2(202f, 14f));
+            HudTerminalFactory.AddText(headerRect, font, 10f,
+                TextAlignmentOptions.TopLeft, HudTerminalFactory.MutedPhosphor,
+                "AUX://LIGHT");
+
+            RectTransform keyRect = HudTerminalFactory.CreateChild(rect, "Key", Vector2.zero,
+                Vector2.zero, new Vector2(14f, 8f), new Vector2(42f, 29f));
+            TextMeshProUGUI key = HudTerminalFactory.AddText(keyRect, font, 18f,
+                TextAlignmentOptions.Center, HudTerminalFactory.Phosphor, "[F]");
+
+            RectTransform labelRect = HudTerminalFactory.CreateChild(rect, "Label", Vector2.zero,
+                Vector2.zero, new Vector2(62f, 8f), new Vector2(82f, 29f));
+            TextMeshProUGUI label = HudTerminalFactory.AddText(labelRect, font, 17f,
+                TextAlignmentOptions.MidlineLeft, HudTerminalFactory.Phosphor, "FENER");
+
+            RectTransform stateRect = HudTerminalFactory.CreateChild(rect, "State",
+                new Vector2(1f, 0f), new Vector2(1f, 0f),
+                new Vector2(-14f, 8f), new Vector2(72f, 29f));
+            TextMeshProUGUI state = HudTerminalFactory.AddText(stateRect, font, 15f,
+                TextAlignmentOptions.MidlineRight, HudTerminalFactory.MutedPhosphor,
+                "KAPALI");
 
             FlashlightWidget widget = rect.gameObject.AddComponent<FlashlightWidget>();
             FlashlightController flashlight =
-                Object.FindFirstObjectByType<FlashlightController>();
+                UnityEngine.Object.FindFirstObjectByType<FlashlightController>();
             if (flashlight != null)
             {
                 widget.Bind(flashlight);
             }
             else
             {
+                group.alpha = 0f;
                 Debug.LogWarning(
-                    "[HUD Builder] No FlashlightController found — the flashlight icon will stand down.");
+                    "[HUD Builder] No FlashlightController — flashlight terminal is hidden.");
             }
 
-            AssignSerialized(widget, "icon", icon);
+            HudTerminalFactory.AssignSerialized(widget, "stateLabel", state);
+            HudTerminalFactory.AssignSerialized(widget, "visualParts",
+                new Graphic[] { key, label, state });
+            HudTerminalFactory.AssignSerialized(widget, "group", group);
         }
 
-        private static void BuildPrompt(RectTransform parent, HudCameraMotion motion, Font font)
+        private static void BuildPrompt(RectTransform parent, HudCameraMotion motion,
+            TMP_FontAsset font)
         {
-            RectTransform rect = CreateChild(parent, "InteractionPromptWidget",
-                new Vector2(0.5f, 0f), new Vector2(0.5f, 0f),
-                new Vector2(0f, PromptBottomOffset), new Vector2(700f, 36f));
+            RectTransform rect = HudTerminalFactory.CreateChild(parent,
+                "InteractionPromptWidget", new Vector2(0.5f, 0f),
+                new Vector2(0.5f, 0f), new Vector2(0f, PromptBottomOffset),
+                new Vector2(720f, 52f));
 
             HudSway sway = rect.gameObject.AddComponent<HudSway>();
             sway.Bind(motion);
-            AssignSerialized(sway, "pixelsPerDegreePerSecond", new Vector2(-0.03f, 0.02f));
+            HudTerminalFactory.AssignSerialized(sway, "pixelsPerDegreePerSecond",
+                new Vector2(-0.03f, 0.02f));
 
-            CanvasGroup group = rect.gameObject.AddComponent<CanvasGroup>();
-            group.interactable = false;
-            group.blocksRaycasts = false;
-            group.alpha = 0f;
+            CanvasGroup group = AddPassiveCanvasGroup(rect, 0f);
+            HudTerminalFactory.CreatePanel(rect);
 
-            Text label = CreateText(rect, "Label", font, 22, TextAnchor.MiddleCenter);
-            label.text = string.Empty;
+            RectTransform headerRect = HudTerminalFactory.CreateChild(rect, "Header",
+                new Vector2(0f, 1f), new Vector2(0f, 1f),
+                new Vector2(14f, -6f), new Vector2(692f, 13f));
+            HudTerminalFactory.AddText(headerRect, font, 9f,
+                TextAlignmentOptions.TopLeft, HudTerminalFactory.MutedPhosphor,
+                "INPUT://CONTEXT");
+
+            RectTransform promptRect = HudTerminalFactory.CreateChild(rect, "Prompt",
+                Vector2.zero, Vector2.zero, new Vector2(14f, 5f),
+                new Vector2(692f, 29f));
+            TextMeshProUGUI prompt = HudTerminalFactory.AddText(promptRect, font, 18f,
+                TextAlignmentOptions.MidlineLeft, HudTerminalFactory.Phosphor, string.Empty);
 
             InteractionPromptWidget widget =
                 rect.gameObject.AddComponent<InteractionPromptWidget>();
-            PlayerInteraction interaction = Object.FindFirstObjectByType<PlayerInteraction>();
+            PlayerInteraction interaction =
+                UnityEngine.Object.FindFirstObjectByType<PlayerInteraction>();
             if (interaction != null)
             {
                 widget.Bind(interaction);
@@ -283,26 +344,25 @@ namespace Game.Editor
             else
             {
                 Debug.LogWarning(
-                    "[HUD Builder] No PlayerInteraction found — the interaction prompt will stand down.");
+                    "[HUD Builder] No PlayerInteraction — prompt terminal is hidden.");
             }
 
-            AssignSerialized(widget, "label", label);
-            AssignSerialized(widget, "group", group);
+            HudTerminalFactory.AssignSerialized(widget, "label", prompt);
+            HudTerminalFactory.AssignSerialized(widget, "group", group);
         }
 
         private static void BuildCrosshair(RectTransform parent, HudCameraMotion motion)
         {
-            RectTransform rect = CreateChild(parent, "CrosshairWidget",
-                new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero,
-                new Vector2(64f, 64f));
+            RectTransform rect = HudTerminalFactory.CreateChild(parent, "CrosshairWidget",
+                new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
+                Vector2.zero, new Vector2(64f, 64f));
 
-            CanvasGroup group = rect.gameObject.AddComponent<CanvasGroup>();
-            group.interactable = false;
-            group.blocksRaycasts = false;
+            CanvasGroup group = AddPassiveCanvasGroup(rect, 1f);
 
-            Color color = Color.white;
-            Image dot = CreateImage(rect, "Dot", new Vector2(0.5f, 0.5f),
-                new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(2f, 2f), color);
+            Image dot = HudTerminalFactory.CreateImage(rect, "DotDiamond",
+                new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
+                Vector2.zero, new Vector2(3f, 3f), HudTerminalFactory.MutedPhosphor);
+            dot.rectTransform.localRotation = Quaternion.Euler(0f, 0f, 45f);
 
             var ticks = new RectTransform[4];
             var graphics = new Graphic[5];
@@ -320,62 +380,163 @@ namespace Game.Editor
             for (int i = 0; i < directions.Length; i++)
             {
                 bool vertical = i < 2;
-                Vector2 size = vertical ? new Vector2(2f, 7f) : new Vector2(7f, 2f);
-                Image tick = CreateImage(rect, names[i], new Vector2(0.5f, 0.5f),
-                    new Vector2(0.5f, 0.5f), directions[i] * CrosshairTickDistance,
-                    size, color);
+                Vector2 size = vertical ? new Vector2(1.5f, 8f) : new Vector2(8f, 1.5f);
+                Image tick = HudTerminalFactory.CreateImage(rect, names[i],
+                    new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
+                    directions[i] * CrosshairTickDistance, size,
+                    HudTerminalFactory.MutedPhosphor);
                 ticks[i] = tick.rectTransform;
                 graphics[i + 1] = tick;
             }
 
             CrosshairPulse pulse = rect.gameObject.AddComponent<CrosshairPulse>();
             pulse.Bind(motion);
-            AssignSerialized(pulse, "ticks", ticks);
-            AssignSerialized(pulse, "group", group);
+            HudTerminalFactory.AssignSerialized(pulse, "ticks", ticks);
+            HudTerminalFactory.AssignSerialized(pulse, "group", group);
 
             CrosshairWidget widget = rect.gameObject.AddComponent<CrosshairWidget>();
-            PlayerInteraction interaction = Object.FindFirstObjectByType<PlayerInteraction>();
+            PlayerInteraction interaction =
+                UnityEngine.Object.FindFirstObjectByType<PlayerInteraction>();
             if (interaction != null)
             {
                 widget.Bind(interaction);
             }
 
-            AssignSerialized(widget, "parts", graphics);
+            HudTerminalFactory.AssignSerialized(widget, "parts", graphics);
         }
 
-        private static void AssignSerialized(Object target, string fieldName, object value)
+        private static CanvasGroup AddPassiveCanvasGroup(RectTransform rect, float alpha)
         {
+            CanvasGroup group = rect.gameObject.AddComponent<CanvasGroup>();
+            group.alpha = alpha;
+            group.interactable = false;
+            group.blocksRaycasts = false;
+            return group;
+        }
+
+        private static List<GameObject> FindNamedRoots(Scene scene, string rootName)
+        {
+            var results = new List<GameObject>();
+            GameObject[] roots = scene.GetRootGameObjects();
+            for (int i = 0; i < roots.Length; i++)
+            {
+                if (roots[i].name == rootName) results.Add(roots[i]);
+            }
+
+            return results;
+        }
+
+        private static void ValidateCandidate(GameObject candidate)
+        {
+            if (candidate.GetComponentsInChildren<TerminalPanelGraphic>(true).Length != 4)
+            {
+                throw new InvalidOperationException(
+                    "Candidate must contain exactly four TerminalPanelGraphic components.");
+            }
+
+            int segmentCount = 0;
+            RectTransform[] rects = candidate.GetComponentsInChildren<RectTransform>(true);
+            for (int i = 0; i < rects.Length; i++)
+            {
+                if (rects[i].name.StartsWith("Segment", StringComparison.Ordinal))
+                {
+                    segmentCount++;
+                }
+            }
+
+            if (segmentCount != 11)
+            {
+                throw new InvalidOperationException(
+                    $"Candidate stamina bar has {segmentCount} separators; expected 11.");
+            }
+
+            if (candidate.GetComponentInChildren<GraphicRaycaster>(true) != null)
+            {
+                throw new InvalidOperationException("HUD must not contain GraphicRaycaster.");
+            }
+
+            Graphic[] graphics = candidate.GetComponentsInChildren<Graphic>(true);
+            for (int i = 0; i < graphics.Length; i++)
+            {
+                if (graphics[i].raycastTarget)
+                {
+                    throw new InvalidOperationException(
+                        $"Graphic '{graphics[i].name}' has raycastTarget enabled.");
+                }
+            }
+
+            CanvasGroup[] groups = candidate.GetComponentsInChildren<CanvasGroup>(true);
+            for (int i = 0; i < groups.Length; i++)
+            {
+                if (groups[i].blocksRaycasts)
+                {
+                    throw new InvalidOperationException(
+                        $"CanvasGroup '{groups[i].name}' blocks raycasts.");
+                }
+            }
+
+            Transform fixedRoot = candidate.transform.Find("FixedRoot");
+            Transform crosshair = fixedRoot != null
+                ? fixedRoot.Find("CrosshairWidget")
+                : null;
+            if (crosshair == null || crosshair.GetComponent<HudSway>() != null)
+            {
+                throw new InvalidOperationException(
+                    "Crosshair must be under FixedRoot and must not have HudSway.");
+            }
+
+            RequireReference(candidate.GetComponentInChildren<ObjectiveWidget>(true),
+                "label", "group");
+            RequireReference(candidate.GetComponentInChildren<StaminaWidget>(true),
+                "fill", "group");
+            RequireReference(candidate.GetComponentInChildren<FlashlightWidget>(true),
+                "stateLabel", "group");
+            RequireReference(candidate.GetComponentInChildren<InteractionPromptWidget>(true),
+                "label", "group");
+            RequireArray(candidate.GetComponentInChildren<FlashlightWidget>(true),
+                "visualParts", 3);
+            RequireArray(candidate.GetComponentInChildren<CrosshairWidget>(true),
+                "parts", 5);
+            RequireArray(candidate.GetComponentInChildren<CrosshairPulse>(true),
+                "ticks", 4);
+        }
+
+        private static void RequireReference(UnityEngine.Object target, params string[] fields)
+        {
+            if (target == null) throw new InvalidOperationException("Required widget is missing.");
+
             var serialized = new SerializedObject(target);
-            SerializedProperty property = serialized.FindProperty(fieldName);
-            if (property == null)
+            for (int i = 0; i < fields.Length; i++)
             {
-                Debug.LogError(
-                    $"[HUD Builder] {target.GetType().Name} has no serialized field '{fieldName}'.");
-                return;
+                SerializedProperty property = serialized.FindProperty(fields[i]);
+                if (property == null || property.objectReferenceValue == null)
+                {
+                    throw new InvalidOperationException(
+                        $"{target.GetType().Name}.{fields[i]} is not assigned.");
+                }
+            }
+        }
+
+        private static void RequireArray(UnityEngine.Object target, string field, int length)
+        {
+            if (target == null) throw new InvalidOperationException("Required widget is missing.");
+
+            var serialized = new SerializedObject(target);
+            SerializedProperty property = serialized.FindProperty(field);
+            if (property == null || !property.isArray || property.arraySize != length)
+            {
+                throw new InvalidOperationException(
+                    $"{target.GetType().Name}.{field} must have {length} entries.");
             }
 
-            switch (value)
+            for (int i = 0; i < property.arraySize; i++)
             {
-                case Object unityObject:
-                    property.objectReferenceValue = unityObject;
-                    break;
-                case Vector2 vector:
-                    property.vector2Value = vector;
-                    break;
-                case Object[] array:
-                    property.arraySize = array.Length;
-                    for (int i = 0; i < array.Length; i++)
-                    {
-                        property.GetArrayElementAtIndex(i).objectReferenceValue = array[i];
-                    }
-                    break;
-                default:
-                    Debug.LogError(
-                        $"[HUD Builder] Unsupported value type for '{fieldName}'.");
-                    return;
+                if (property.GetArrayElementAtIndex(i).objectReferenceValue == null)
+                {
+                    throw new InvalidOperationException(
+                        $"{target.GetType().Name}.{field}[{i}] is not assigned.");
+                }
             }
-
-            serialized.ApplyModifiedPropertiesWithoutUndo();
         }
     }
 }
