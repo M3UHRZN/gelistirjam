@@ -4,6 +4,7 @@
     "references": [
         "Game.Core",
         "Game.Gameplay",
+        "Game.UI",
         "Game.DebugTools",
         "Unity.AI.Navigation",
         "Unity.InputSystem",
