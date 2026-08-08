@@ -1,0 +1,38 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4ffe2b3f569e545a2bc9c1db94da271e, type: 3}
+  m_Name: MonsterConfig_Default
+  m_EditorClassIdentifier: Game.MonsterAI::Game.MonsterAI.MonsterConfig
+  patrolSpeed: 1.8
+  patrolRadius: 10
+  detectionRadius: 12
+  interestedSpeed: 4.2
+  stalkBehindDistance: 3
+  stalkRepathInterval: 0.45
+  loseInterestRadius: 16
+  shySpeed: 5.5
+  shyFleeRadius: 14
+  shyFleeDuration: 24
+  staredownAngerInterval: 1
+  staredownCheckInterval: 1
+  staredownChance: 0.35
+  aggressiveSpeed: 4.8
+  loseAggroRadius: 20
+  aggressiveAngerDecayPerSecond: 1
+  contactKillRange: 1
+  gazeRayCount: 5
+  gazeRequiredHits: 3
+  gazeConeHalfAngleDegrees: 3
+  gazeMaxDistance: 25
+  gazeAggroHardCap: 4
+  angerPerSpotted: 1
+  maxAnger: 12
