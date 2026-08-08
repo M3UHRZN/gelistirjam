@@ -12,8 +12,8 @@ namespace Game.UI
     {
         [SerializeField] private PlayerInteraction interaction;
         [SerializeField] private Graphic[] parts;
-        [SerializeField] private Color idleColor = new Color(1f, 1f, 1f, 1f);
-        [SerializeField] private Color targetedColor = new Color(1f, 0.86f, 0.45f, 1f);
+        [SerializeField] private Color idleColor = new Color32(121, 255, 155, 150);
+        [SerializeField] private Color targetedColor = new Color32(121, 255, 155, 255);
 
         private bool lastTargeted;
 

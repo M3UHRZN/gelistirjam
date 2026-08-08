@@ -1,6 +1,6 @@
 using Game.Gameplay.Objectives;
+using TMPro;
 using UnityEngine;
-using UnityEngine.UI;
 
 namespace Game.UI
 {
@@ -11,14 +11,15 @@ namespace Game.UI
     public class ObjectiveWidget : MonoBehaviour
     {
         [SerializeField] private ObjectiveManager objectives;
-        [SerializeField] private Text label;
+        [SerializeField] private TMP_Text label;
+        [SerializeField] private CanvasGroup group;
 
         [SerializeField, Tooltip("{0} = completed, {1} = required.")]
-        private string format = "SİGORTA {0}/{1}";
+        private string format = "SİGORTA // {0:00}/{1:00}";
 
-        [SerializeField] private string allCompleteText = "ÇIKIŞ AÇILDI";
-        [SerializeField] private Color normalColor = new Color(0.88f, 0.88f, 0.85f, 0.92f);
-        [SerializeField] private Color flashColor = new Color(1f, 0.9f, 0.5f, 1f);
+        [SerializeField] private string allCompleteText = "ÇIKIŞ // AÇIK";
+        [SerializeField] private Color normalColor = new Color32(121, 255, 155, 235);
+        [SerializeField] private Color flashColor = new Color32(121, 255, 155, 255);
         [SerializeField] private float flashSeconds = 0.6f;
 
         private bool allComplete;
@@ -28,11 +29,12 @@ namespace Game.UI
 
         private void Awake()
         {
-            if (objectives == null || label == null)
+            if (objectives == null || label == null || group == null)
             {
                 Debug.LogWarning(
-                    $"[HUD] {name}: ObjectiveManager/label not assigned — fuse counter disabled.",
+                    $"[HUD] {name}: ObjectiveManager/label/group not assigned — fuse counter disabled.",
                     this);
+                if (group != null) group.alpha = 0f;
                 if (label != null) label.enabled = false;
                 enabled = false;
                 return;
@@ -60,7 +62,11 @@ namespace Game.UI
 
         private void HandleFuseCompleted() => flashTimer = flashSeconds;
 
-        private void HandleAllComplete() => allComplete = true;
+        private void HandleAllComplete()
+        {
+            allComplete = true;
+            Refresh();
+        }
 
         private void Update()
         {
@@ -89,6 +95,7 @@ namespace Game.UI
             if (allComplete ||
                 (required > 0 && objectives.CompletedCount >= required))
             {
+                group.alpha = 1f;
                 label.enabled = true;
                 label.text = allCompleteText;
                 return;
@@ -96,10 +103,12 @@ namespace Game.UI
 
             if (required <= 0)
             {
+                group.alpha = 0f;
                 label.enabled = false;
                 return;
             }
 
+            group.alpha = 1f;
             label.enabled = true;
             label.text = string.Format(format, objectives.CompletedCount, required);
         }

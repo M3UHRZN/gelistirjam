@@ -14,8 +14,8 @@ namespace Game.UI
         [SerializeField] private Image fill;
         [SerializeField] private CanvasGroup group;
 
-        [SerializeField] private Color normalColor = new Color(0.85f, 0.85f, 0.82f, 0.9f);
-        [SerializeField] private Color exhaustedColor = new Color(0.85f, 0.22f, 0.18f, 0.95f);
+        [SerializeField] private Color normalColor = new Color32(121, 255, 155, 230);
+        [SerializeField] private Color exhaustedColor = new Color32(255, 90, 54, 242);
         [SerializeField] private float exhaustedPulseHz = 1f;
         [SerializeField, Range(0f, 1f)] private float exhaustedPulseDepth = 0.45f;
         [SerializeField, Range(0f, 1f)] private float idleAlpha = 1f;
@@ -24,12 +24,16 @@ namespace Game.UI
 
         private void Awake()
         {
-            if (player == null || fill == null)
+            if (player == null || fill == null || group == null)
             {
                 Debug.LogWarning(
-                    $"[HUD] {name}: player/fill not assigned — stamina bar disabled.", this);
+                    $"[HUD] {name}: player/fill/group not assigned — stamina bar disabled.", this);
+                if (group != null) group.alpha = 0f;
                 enabled = false;
+                return;
             }
+
+            group.alpha = 1f;
         }
 
         private void Update() => Refresh();
