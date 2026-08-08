@@ -23,6 +23,8 @@ namespace Game.Gameplay
         [SerializeField] private ObjectiveManager objectiveManager;
         [SerializeField] private MapExitController mapExit;
         [SerializeField] private FuseMiniGameController fuseMiniGame;
+        [SerializeField, Tooltip("Target percentage of the non-SafeZone LightZone pool still active after fuse 1, 2, 3, ... (TGD section 32). The last entry is reused for any fuse beyond the array's length.")]
+        private float[] shutdownTargetPercents = { 75f, 45f, 15f };
 
         private readonly LightDirector lightDirector = new LightDirector();
         private bool wired;
@@ -50,6 +52,7 @@ namespace Game.Gameplay
             wired = true;
 
             objectiveManager.OnAnyFuseCompleted += lightDirector.OnFuseCompleted;
+            lightDirector.SetShutdownTargetPercents(shutdownTargetPercents);
 
             // All fuses complete -> open the exit -> MapExitController.Open() itself enters
             // FinalChaseState (TGD section 37/38) -- not duplicated here.
