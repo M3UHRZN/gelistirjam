@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using System.Linq;
 using Game.Gameplay;
 using Game.Gameplay.World;
@@ -57,6 +58,88 @@ namespace Game.Gameplay.Tests
             }
 
             yield break;
+        }
+
+        [UnityTest]
+        public IEnumerator OnMapReady_OmitsDoorTransitionEntirely_NeverKeepsTwoAdjacentCorridorFixtures_NeverThinsRoomOrStair()
+        {
+            Fixture fixture = CreateFixture();
+
+            try
+            {
+                fixture.Bootstrap.Generate(2024);
+
+                var modulesWithAnchors = new List<GeneratedMapModule>();
+                foreach (Transform anchor in fixture.Registry.Current.LightAnchors)
+                {
+                    if (anchor == null) continue;
+                    GeneratedMapModule module = anchor.GetComponentInParent<GeneratedMapModule>();
+                    if (module != null && !modulesWithAnchors.Contains(module)) modulesWithAnchors.Add(module);
+                }
+
+                var doorTransitionModules = modulesWithAnchors
+                    .Where(m => m.Category == MapModuleCategory.Corridor && m.CatalogEntryId.Contains("DoorTransition"))
+                    .ToList();
+                var otherCorridorModules = modulesWithAnchors
+                    .Where(m => m.Category == MapModuleCategory.Corridor && !m.CatalogEntryId.Contains("DoorTransition"))
+                    .ToList();
+                var nonCorridorModules = modulesWithAnchors.Where(m => m.Category != MapModuleCategory.Corridor).ToList();
+
+                // A real generated map must actually exercise all three groups, otherwise the
+                // assertions below would trivially pass on an empty set.
+                Assert.That(doorTransitionModules.Count, Is.GreaterThan(0), "test setup sanity: expected DoorTransition modules in the generated map");
+                Assert.That(otherCorridorModules.Count, Is.GreaterThan(0), "test setup sanity: expected non-DoorTransition corridor modules");
+                Assert.That(nonCorridorModules.Count, Is.GreaterThan(0), "test setup sanity: expected Room/Stair modules");
+
+                var spawnedZoneNames = new HashSet<string>();
+                foreach (LightZone zone in fixture.Gate.SpawnedLightZones) spawnedZoneNames.Add(zone.name);
+
+                bool WasSpawned(GeneratedMapModule m) =>
+                    spawnedZoneNames.Contains($"LightZone_{m.CatalogEntryId}_{m.PlacementId}");
+
+                Assert.That(doorTransitionModules.Any(WasSpawned), Is.False,
+                    "DoorTransition (the room<->corridor connector) must never keep a fixture");
+
+                int nonCorridorZonesSpawned = nonCorridorModules.Count(WasSpawned);
+                Assert.That(nonCorridorZonesSpawned, Is.EqualTo(nonCorridorModules.Count),
+                    "every Room/Stair category module (fuse rooms, exit, safezones, start, stairs) must keep its fixture");
+
+                var litCorridorModules = otherCorridorModules.Where(WasSpawned).ToList();
+                Assert.That(litCorridorModules.Count, Is.GreaterThan(0),
+                    "test setup sanity: expected at least one non-DoorTransition corridor to keep its fixture");
+
+                for (int i = 0; i < litCorridorModules.Count; i++)
+                {
+                    for (int j = i + 1; j < litCorridorModules.Count; j++)
+                    {
+                        Assert.That(AreAdjacent(litCorridorModules[i], litCorridorModules[j]), Is.False,
+                            $"lit corridor modules {litCorridorModules[i].name} and {litCorridorModules[j].name} " +
+                            "are spatially adjacent -- no two adjacent corridor segments should both keep a fixture");
+                    }
+                }
+            }
+            finally
+            {
+                fixture.Dispose();
+            }
+
+            yield break;
+        }
+
+        /// <summary>Mirrors MapLightGate's private adjacency test, kept independent here on purpose
+        /// (a bug in the production check should not also be baked into its own test's oracle).</summary>
+        private static bool AreAdjacent(GeneratedMapModule a, GeneratedMapModule b)
+        {
+            if (a.Origin.Floor != b.Origin.Floor) return false;
+
+            GridSize2 sizeA = a.RotatedFootprintUnits;
+            GridSize2 sizeB = b.RotatedFootprintUnits;
+
+            bool touchesOrOverlapsX =
+                a.Origin.X + sizeA.Width >= b.Origin.X && b.Origin.X + sizeB.Width >= a.Origin.X;
+            bool touchesOrOverlapsZ =
+                a.Origin.Z + sizeA.Depth >= b.Origin.Z && b.Origin.Z + sizeB.Depth >= a.Origin.Z;
+            return touchesOrOverlapsX && touchesOrOverlapsZ;
         }
 
         [UnityTest]

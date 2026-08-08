@@ -17,6 +17,18 @@ namespace Game.Gameplay.World
     /// the "critical light" that must survive Final Chase.
     /// The remaining zones are shuffled with a seed-derived RNG so the shutdown order is part of the
     /// map's deterministic, per-seed randomization (TGD section 43).
+    ///
+    /// Fixture-count thinning (user-requested tuning, not itself a TGD-mandated rule, but consistent
+    /// with TGD section 1's "dark industrial labyrinth" tone and the "don't let it get boring"
+    /// note it came with): the DoorTransition corridor shape (the short connector strip between a
+    /// room and a corridor) never gets a fixture at all — it sits between two already-lit spaces, so
+    /// its own light reads as redundant. Among the remaining corridor modules, no two that are
+    /// spatially adjacent (touching footprints, same floor) ever both keep a fixture — a run of
+    /// several corridor segments in a row gets at most every-other-one lit, never a lit stretch.
+    /// Selection order is a seed-derived shuffle so which one of an adjacent pair wins is
+    /// deterministic per seed but not a rigid, visually-obvious pattern. Room and Stair category
+    /// modules (fuse rooms, exit, safezones, start, stair landings) are never thinned — they're
+    /// comparatively rare and functionally significant for safety/navigation/objective visibility.
     /// </summary>
     [DisallowMultipleComponent]
     public class MapLightGate : MonoBehaviour
@@ -83,7 +95,7 @@ namespace Game.Gameplay.World
             }
 
             var moduleOrder = new List<GeneratedMapModule>();
-            var lightsByModule = new Dictionary<GeneratedMapModule, List<Light>>();
+            var anchorsByModule = new Dictionary<GeneratedMapModule, List<Transform>>();
             var safeZoneModules = new HashSet<GeneratedMapModule>();
 
             foreach (Transform anchor in data.LightAnchors)
@@ -98,26 +110,27 @@ namespace Game.Gameplay.World
                     continue;
                 }
 
-                Light light = anchor.GetComponentInChildren<Light>();
-                if (light == null) light = BuildDefaultLight(anchor);
-
-                if (!lightsByModule.TryGetValue(module, out List<Light> lights))
+                if (!anchorsByModule.TryGetValue(module, out List<Transform> anchors))
                 {
-                    lights = new List<Light>();
-                    lightsByModule[module] = lights;
+                    anchors = new List<Transform>();
+                    anchorsByModule[module] = anchors;
                     moduleOrder.Add(module);
                 }
-                lights.Add(light);
+                anchors.Add(anchor);
 
                 if (module.RoomRole == RoomRole.SafeZone) safeZoneModules.Add(module);
             }
+
+            HashSet<GeneratedMapModule> omittedCorridorModules = PickCorridorModulesToOmit(moduleOrder, data.Seed);
 
             var shutdownCandidates = new List<LightZone>();
             var safeZoneZones = new List<LightZone>();
 
             foreach (GeneratedMapModule module in moduleOrder)
             {
-                LightZone zone = BuildLightZone(module, lightsByModule[module]);
+                if (omittedCorridorModules.Contains(module)) continue;
+
+                LightZone zone = BuildLightZone(module, BuildLights(anchorsByModule[module]));
                 spawnedZones.Add(zone);
 
                 if (safeZoneModules.Contains(module))
@@ -144,6 +157,18 @@ namespace Game.Gameplay.World
             wiring.LightDirector.SetShutdownOrder(shutdownCandidates);
         }
 
+        private List<Light> BuildLights(List<Transform> anchors)
+        {
+            var lights = new List<Light>(anchors.Count);
+            foreach (Transform anchor in anchors)
+            {
+                Light light = anchor.GetComponentInChildren<Light>();
+                if (light == null) light = BuildDefaultLight(anchor);
+                lights.Add(light);
+            }
+            return lights;
+        }
+
         private LightZone BuildLightZone(GeneratedMapModule module, List<Light> lights)
         {
             var go = new GameObject($"LightZone_{module.CatalogEntryId}_{module.PlacementId}");
@@ -165,14 +190,81 @@ namespace Game.Gameplay.World
             return light;
         }
 
-        // Fisher-Yates with a seed-derived RNG: same seed -> same shutdown order (TGD section 43).
-        private static void Shuffle(List<LightZone> zones, int seed)
+        /// <summary>
+        /// Picks which Corridor-category modules get no fixture at all (Room/Stair are never
+        /// touched). DoorTransition modules are always omitted. Among the rest, a seed-shuffled
+        /// greedy pass keeps a module only if it doesn't touch a module already kept — so no two
+        /// adjacent corridor segments are ever both lit.
+        /// </summary>
+        private static HashSet<GeneratedMapModule> PickCorridorModulesToOmit(
+            List<GeneratedMapModule> moduleOrder, int seed)
+        {
+            var omitted = new HashSet<GeneratedMapModule>();
+            var candidates = new List<GeneratedMapModule>();
+
+            foreach (GeneratedMapModule module in moduleOrder)
+            {
+                if (module.Category != MapModuleCategory.Corridor) continue;
+
+                if (module.CatalogEntryId.Contains("DoorTransition"))
+                {
+                    omitted.Add(module);
+                    continue;
+                }
+
+                candidates.Add(module);
+            }
+
+            // Distinct seed offset from the shutdown-order shuffle so the two selections don't correlate.
+            Shuffle(candidates, seed + 1);
+
+            var kept = new List<GeneratedMapModule>();
+            foreach (GeneratedMapModule candidate in candidates)
+            {
+                bool touchesKeptModule = false;
+                foreach (GeneratedMapModule keptModule in kept)
+                {
+                    if (!ModulesAreAdjacent(candidate, keptModule)) continue;
+                    touchesKeptModule = true;
+                    break;
+                }
+
+                if (touchesKeptModule)
+                {
+                    omitted.Add(candidate);
+                }
+                else
+                {
+                    kept.Add(candidate);
+                }
+            }
+
+            return omitted;
+        }
+
+        /// <summary>True if both modules sit on the same floor and their grid footprints touch or overlap.</summary>
+        private static bool ModulesAreAdjacent(GeneratedMapModule a, GeneratedMapModule b)
+        {
+            if (a.Origin.Floor != b.Origin.Floor) return false;
+
+            GridSize2 sizeA = a.RotatedFootprintUnits;
+            GridSize2 sizeB = b.RotatedFootprintUnits;
+
+            bool touchesOrOverlapsX =
+                a.Origin.X + sizeA.Width >= b.Origin.X && b.Origin.X + sizeB.Width >= a.Origin.X;
+            bool touchesOrOverlapsZ =
+                a.Origin.Z + sizeA.Depth >= b.Origin.Z && b.Origin.Z + sizeB.Depth >= a.Origin.Z;
+            return touchesOrOverlapsX && touchesOrOverlapsZ;
+        }
+
+        // Fisher-Yates with a seed-derived RNG: same seed -> same result (TGD section 43).
+        private static void Shuffle<T>(List<T> items, int seed)
         {
             var random = new System.Random(seed);
-            for (int i = zones.Count - 1; i > 0; i--)
+            for (int i = items.Count - 1; i > 0; i--)
             {
                 int j = random.Next(i + 1);
-                (zones[i], zones[j]) = (zones[j], zones[i]);
+                (items[i], items[j]) = (items[j], items[i]);
             }
         }
 
