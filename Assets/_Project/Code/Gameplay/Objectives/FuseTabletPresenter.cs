@@ -1,4 +1,5 @@
 using System.Collections;
+using DG.Tweening;
 using Unity.Cinemachine;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -64,6 +65,7 @@ namespace Game.Gameplay.Objectives
             IsActive = true;
             yaw = 0f;
             pitch = 0f;
+            ResetLever();
 
             SetBlendDuration(blendInDuration);
 
@@ -88,9 +90,15 @@ namespace Game.Gameplay.Objectives
             }
         }
 
-        public virtual IEnumerator PlayCompletion()
+        public IEnumerator PlayCompletion()
         {
-            yield break;
+            if (lever == null) yield break;
+
+            Tween tween = lever
+                .DOLocalRotate(leverOpenEuler, leverTweenDuration)
+                .SetEase(Ease.OutBack);
+
+            yield return tween.WaitForCompletion();
         }
 
         /// <summary>
@@ -123,6 +131,23 @@ namespace Game.Gameplay.Objectives
             if (brain == null) return;
             brain.DefaultBlend = new CinemachineBlendDefinition(
                 CinemachineBlendDefinition.Styles.EaseInOut, seconds);
+        }
+
+        /// <summary>
+        /// Snaps the lever closed, killing any tween still running from a previous interaction. A fuse
+        /// can be re-entered after an ESC cancel, and DOTween keeps mutating a transform after the
+        /// coroutine that started it is gone.
+        /// </summary>
+        private void ResetLever()
+        {
+            if (lever == null) return;
+            lever.DOKill();
+            lever.localRotation = Quaternion.Euler(leverClosedEuler);
+        }
+
+        private void OnDisable()
+        {
+            if (lever != null) lever.DOKill();
         }
     }
 }

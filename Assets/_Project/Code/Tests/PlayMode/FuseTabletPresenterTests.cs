@@ -103,6 +103,50 @@ namespace Game.Gameplay.Tests
             yield break;
         }
 
+        [UnityTest]
+        public IEnumerator PlayCompletion_RotatesLeverToTheOpenPose()
+        {
+            Fixture fixture = CreateFixture();
+
+            try
+            {
+                fixture.Presenter.Activate();
+                yield return fixture.Presenter.StartCoroutine(fixture.Presenter.PlayCompletion());
+
+                Assert.That(
+                    Quaternion.Angle(
+                        fixture.Lever.localRotation,
+                        Quaternion.Euler(0f, 0f, -70f)),
+                    Is.LessThan(0.5f));
+            }
+            finally
+            {
+                fixture.Dispose();
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator Activate_SnapsLeverBackToClosedAfterAPreviousCompletion()
+        {
+            Fixture fixture = CreateFixture();
+
+            try
+            {
+                fixture.Presenter.Activate();
+                yield return fixture.Presenter.StartCoroutine(fixture.Presenter.PlayCompletion());
+
+                fixture.Presenter.Activate();
+
+                Assert.That(
+                    Quaternion.Angle(fixture.Lever.localRotation, Quaternion.identity),
+                    Is.LessThan(0.01f));
+            }
+            finally
+            {
+                fixture.Dispose();
+            }
+        }
+
         internal static Fixture CreateFixture()
         {
             var brainObject = new GameObject("FusePresenterFixture_Brain", typeof(Camera));
@@ -134,7 +178,7 @@ namespace Game.Gameplay.Tests
 
             presenter.Bind(brain);
 
-            return new Fixture(brainObject, tablet, brain, fuseView, presenter);
+            return new Fixture(brainObject, tablet, brain, fuseView, presenter, lever.transform);
         }
 
         internal sealed class Fixture : IDisposable
@@ -145,19 +189,22 @@ namespace Game.Gameplay.Tests
             public CinemachineBrain Brain { get; }
             public CinemachineCamera FuseView { get; }
             public FuseTabletPresenter Presenter { get; }
+            public Transform Lever { get; }
 
             public Fixture(
                 GameObject brainObject,
                 GameObject tablet,
                 CinemachineBrain brain,
                 CinemachineCamera fuseView,
-                FuseTabletPresenter presenter)
+                FuseTabletPresenter presenter,
+                Transform leverTransform)
             {
                 this.brainObject = brainObject;
                 this.tablet = tablet;
                 Brain = brain;
                 FuseView = fuseView;
                 Presenter = presenter;
+                Lever = leverTransform;
             }
 
             public void Dispose()
