@@ -18,7 +18,19 @@ namespace Game.Core
     /// </summary>
     public class GameManager : MonoBehaviour
     {
-        private IPlayerControlGate playerControlGate;
+        // Serialized as MonoBehaviour, not as IPlayerControlGate: Unity's serializer ignores
+        // interface-typed fields entirely (same failure class already fixed once in
+        // MonsterPerception.IPlayerVelocitySource — see that file's comment for the full
+        // explanation). The previous `private IPlayerControlGate playerControlGate` field was
+        // correctly assigned by Bind() at Editor build time, but silently reset to null the moment
+        // Play Mode actually started (or the scene was reopened) since nothing about that assignment
+        // was ever persisted. SetPlayerControlEnabled(false) was therefore a no-op the entire time —
+        // found live via Unity MCP testing after a user report that camera look still worked while
+        // the Fuse minigame panel was open (see chat).
+        [SerializeField] private MonoBehaviour playerControlGateBehaviour;
+        private IPlayerControlGate cachedPlayerControlGate;
+        private IPlayerControlGate PlayerControlGate =>
+            cachedPlayerControlGate ??= playerControlGateBehaviour as IPlayerControlGate;
 
         public event Action<string> OnStateChanged;
         public string CurrentStateName => fsm?.Current?.GetType().Name ?? "-";
@@ -32,9 +44,13 @@ namespace Game.Core
 
         private GameStateMachine fsm;
 
-        public void Bind(IPlayerControlGate controlGate) => playerControlGate = controlGate;
+        public void Bind(IPlayerControlGate controlGate)
+        {
+            cachedPlayerControlGate = controlGate;
+            playerControlGateBehaviour = controlGate as MonoBehaviour;
+        }
 
-        public void SetPlayerControlEnabled(bool enabled) => playerControlGate?.SetControlEnabled(enabled);
+        public void SetPlayerControlEnabled(bool enabled) => PlayerControlGate?.SetControlEnabled(enabled);
 
         private bool initialized;
 

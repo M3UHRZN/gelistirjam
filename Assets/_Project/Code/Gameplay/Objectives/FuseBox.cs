@@ -8,17 +8,21 @@ namespace Game.Gameplay.Objectives
     public enum FuseBoxState { Incomplete, Active, Complete }
 
     /// <summary>
-    /// A single fuse objective (TGD section 33-36). Hold-to-complete is a placeholder for the real
-    /// cable-matching minigame described in the TGD — flagged explicitly, not a silent simplification.
-    /// Releasing early cancels and resets progress to 0 (TGD section 35: "Cancel → progress reset").
+    /// A single fuse objective (TGD section 33-36). Interacting hands off to a
+    /// <see cref="FuseMiniGameController"/> 4-button memory minigame — replaces the previous
+    /// hold-to-complete placeholder (see chat: Fuse Memory Minigame implementation). This class still
+    /// owns the fuse's own state (Incomplete/Active/Complete) and round progress; the minigame itself
+    /// is a generic, domain-agnostic runner that knows nothing about fuses, objectives, or the monster
+    /// (prompt section 4/45 — no FuseBox -> MonsterBrain hard reference, and none here either).
     /// </summary>
     [RequireComponent(typeof(Collider))]
     public class FuseBox : MonoBehaviour, IInteractable
     {
-        [SerializeField, Tooltip("Placeholder minigame duration (TGD section 34: real minigame targets 5-8s).")]
-        private float holdDurationSeconds = 6f;
+        [SerializeField, Tooltip("How many memory-sequence rounds this fuse requires (TGD section 33 default split: Fuse 1 = 1, Fuse 2 = 2, Fuse 3 = 3).")]
+        private int roundsRequired = 1;
         [SerializeField] private GameManager gameManager;
         [SerializeField] private ObjectiveManager objectiveManager;
+        [SerializeField] private FuseMiniGameController miniGame;
 
         public FuseBoxState State { get; private set; } = FuseBoxState.Incomplete;
         public event Action OnCompleted;
@@ -33,17 +37,22 @@ namespace Game.Gameplay.Objectives
 
         public bool CanInteract => State == FuseBoxState.Incomplete;
         public string InteractionPrompt => "Hold E to activate fuse";
-        public float HoldProgress01 => Mathf.Clamp01(holdProgress / holdDurationSeconds);
 
-        private float holdProgress;
+        /// <summary>Rounds finished so far on this fuse. Preserved across an ESC cancel (prompt section 15 — only the *current* round resets), reset to full on Complete.</summary>
+        public int RoundsCompleted { get; private set; }
+        public int RoundsRequired => roundsRequired;
+
+        /// <summary>Sets the round requirement from code (composition root) instead of only via the Inspector — mirrors ObjectiveManager.SetRequiredCount's pattern.</summary>
+        public void SetRoundsRequired(int rounds) => roundsRequired = Mathf.Max(1, rounds);
 
         // Registers immediately in addition to OnEnable, same defensive pattern as SafeZone/StalkPoint:
         // the editor scene builder creates this GameObject already active, so OnEnable can fire before
         // Bind() runs. Register() must therefore be idempotent, which ObjectiveManager guarantees.
-        public void Bind(GameManager manager, ObjectiveManager objectives)
+        public void Bind(GameManager manager, ObjectiveManager objectives, FuseMiniGameController miniGameController)
         {
             gameManager = manager;
             objectiveManager = objectives;
+            miniGame = miniGameController;
             if (isActiveAndEnabled) objectiveManager.Register(this);
         }
 
@@ -68,62 +77,62 @@ namespace Game.Gameplay.Objectives
         public void BeginInteract()
         {
             if (!CanInteract) return;
+            if (miniGame == null || miniGame.IsActive) return; // prompt section 17: only one fuse interaction at a time
+
             State = FuseBoxState.Active;
-            holdProgress = 0f;
             gameManager?.ChangeState(gameManager.FuseInteractionState);
             OnInteractionStarted?.Invoke(transform.position);
+
+            miniGame.Begin(roundsRequired, RoundsCompleted, name,
+                onRoundComplete: HandleRoundComplete,
+                onFullyComplete: HandleFullyComplete,
+                onCancelled: HandleCancelled);
         }
 
-        public void EndInteract()
+        /// <summary>
+        /// Intentionally a no-op now: PlayerInteraction fires this on E-release (or losing the raycast
+        /// target), which happens almost immediately once the minigame UI takes over — the player lets
+        /// go of E to reach for the mouse. Cancelling is now exclusively ESC's job (prompt section 15),
+        /// handled inside FuseMiniGameController. Kept as a real method (not removed) only to satisfy
+        /// IInteractable — see chat: Fuse Memory Minigame implementation.
+        /// </summary>
+        public void EndInteract() { }
+
+        private void HandleRoundComplete() => RoundsCompleted++;
+
+        private void HandleFullyComplete()
         {
-            if (State != FuseBoxState.Active) return;
-
-            if (holdProgress >= holdDurationSeconds)
-            {
-                Complete();
-            }
-            else
-            {
-                State = FuseBoxState.Incomplete; // cancelled — progress reset (TGD section 35)
-                holdProgress = 0f;
-            }
-
+            RoundsCompleted = roundsRequired;
+            State = FuseBoxState.Complete;
+            OnCompleted?.Invoke();
             FinishInteraction();
         }
 
-        private void Update()
+        private void HandleCancelled()
         {
-            if (State != FuseBoxState.Active) return;
-
-            holdProgress += Time.deltaTime;
-            if (holdProgress >= holdDurationSeconds)
-            {
-                // Auto-complete: the player is still physically holding E past the exact frame the
-                // minigame finishes, so this fires before EndInteract() ever will. Previously this
-                // duplicated only *half* of EndInteract()'s cleanup (Complete() + return-to-Exploration)
-                // and skipped FinishInteraction()'s OnInteractionStopped — by the time the player later
-                // released E, State was already Complete, so EndInteract()'s own guard short-circuited
-                // and OnInteractionStopped never fired at all. That event is the only thing that clears
-                // MonsterBrain.IsAwareOfFuse (via ObjectiveManager), so completing a single fuse the
-                // normal way (holding to completion, not releasing early) left the monster "aware of a
-                // fuse" — and passively gaining anger from it (TGD section 36) — for the rest of the
-                // run. Found via careful code audit, not runtime reproduction (see chat).
-                Complete();
-                FinishInteraction();
-            }
+            // RoundsCompleted is untouched here — only HandleRoundComplete increments it, so rounds
+            // finished before this cancel are preserved (prompt section 15), only the in-progress round
+            // was discarded (inside the minigame itself, before this callback fires).
+            State = FuseBoxState.Incomplete;
+            FinishInteraction();
         }
 
-        private void Complete()
-        {
-            State = FuseBoxState.Complete;
-            holdProgress = holdDurationSeconds;
-            OnCompleted?.Invoke();
-        }
-
-        /// <summary>Shared "the player is no longer actively working this fuse" side effects — same call in both the normal-release and auto-complete paths, so they can't drift out of sync again.</summary>
+        /// <summary>
+        /// Shared "the player is no longer actively working this fuse" side effects. Guarded against
+        /// GameManager.DeathState (see chat — Unity MCP testing found the monster killing the player
+        /// mid-minigame, then SceneWiring force-cancelling the minigame via this same path, would
+        /// unconditionally shove GameManager straight back to ExplorationState immediately after Death
+        /// had just been entered — silently un-killing the player from the game-flow's perspective).
+        /// This is the one place that check belongs: FinishInteraction is the only code path that ever
+        /// asks for Exploration, whether the fuse finished normally, was ESC-cancelled, or was
+        /// force-cancelled by death.
+        /// </summary>
         private void FinishInteraction()
         {
-            gameManager?.ChangeState(gameManager.ExplorationState);
+            if (gameManager != null && gameManager.CurrentStateName != nameof(DeathState))
+            {
+                gameManager.ChangeState(gameManager.ExplorationState);
+            }
             OnInteractionStopped?.Invoke();
         }
     }

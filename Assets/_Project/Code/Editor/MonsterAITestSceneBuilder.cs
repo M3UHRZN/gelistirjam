@@ -5,6 +5,9 @@ using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.AI;
 using UnityEngine.SceneManagement;
+using UnityEngine.UI;
+using UnityEngine.EventSystems;
+using UnityEngine.InputSystem.UI;
 
 using Game.Core;
 using Game.Gameplay;
@@ -146,13 +149,19 @@ namespace Game.Editor
             ObjectiveManager objectiveManager = debugRoot.AddComponent<ObjectiveManager>();
             objectiveManager.SetRequiredCount(3);
 
+            // Fuse Memory Minigame UI (see chat) — one shared Canvas/panel/controller for all fuses,
+            // built before the FuseBoxes below so each one can be wired to it directly.
+            FuseMiniGameController miniGame = BuildFuseMiniGameUI(debugRoot.transform);
+
             // Fuse rooms now live in the East Wing (Faz 4 map extension — see chat), not bare in the
             // Start/Central rooms, matching TGD section 40's "fuse rooms" requirement.
             // TGD section 33 specifies 3 fuses (see chat: TGD comparison found we only had 2). Third
             // box shares Fuse Room A rather than new geometry — cheap to add, no new wall coordinates.
-            BuildFuseBox(level.transform, wallMat, new Vector3(21f, 1f, 17.5f), gameManager, objectiveManager);
-            BuildFuseBox(level.transform, wallMat, new Vector3(19.5f, 1f, 18.5f), gameManager, objectiveManager);
-            BuildFuseBox(level.transform, wallMat, new Vector3(21f, 1f, -3.5f), gameManager, objectiveManager);
+            // Round counts follow the Fuse Memory Minigame prompt's default split (Fuse 1/2/3 = 1/2/3
+            // rounds, 6 total).
+            BuildFuseBox(level.transform, wallMat, new Vector3(21f, 1f, 17.5f), gameManager, objectiveManager, miniGame, 1);
+            BuildFuseBox(level.transform, wallMat, new Vector3(19.5f, 1f, 18.5f), gameManager, objectiveManager, miniGame, 2);
+            BuildFuseBox(level.transform, wallMat, new Vector3(21f, 1f, -3.5f), gameManager, objectiveManager, miniGame, 3);
 
             ExitController exitController = BuildExit(level.transform, wallMat, new Vector3(32f, 1f, 7f));
             exitController.Bind(gameManager);
@@ -165,7 +174,7 @@ namespace Game.Editor
             GameObject wiringGO = new GameObject("SceneWiring");
             SceneWiring sceneWiring = wiringGO.AddComponent<SceneWiring>();
             sceneWiring.Bind(brain, gameManager, objectiveManager, exitController,
-                new[] { zoneStart, zoneDeadEnd, zoneEastWing, zoneRing }, config);
+                new[] { zoneStart, zoneDeadEnd, zoneEastWing, zoneRing }, config, miniGame);
 
             MonsterDebugHUD hud = debugRoot.AddComponent<MonsterDebugHUD>();
             hud.Bind(brain, playerController, gameManager, objectiveManager);
@@ -492,7 +501,8 @@ namespace Game.Editor
         }
 
         private static void BuildFuseBox(Transform parent, Material material, Vector3 position,
-            GameManager gameManager, ObjectiveManager objectiveManager)
+            GameManager gameManager, ObjectiveManager objectiveManager, FuseMiniGameController miniGame,
+            int roundsRequired)
         {
             GameObject go = GameObject.CreatePrimitive(PrimitiveType.Cube);
             go.name = "FuseBox";
@@ -502,7 +512,170 @@ namespace Game.Editor
             go.GetComponent<MeshRenderer>().sharedMaterial = material;
 
             FuseBox fuseBox = go.AddComponent<FuseBox>();
-            fuseBox.Bind(gameManager, objectiveManager);
+            fuseBox.SetRoundsRequired(roundsRequired);
+            fuseBox.Bind(gameManager, objectiveManager, miniGame);
+        }
+
+        /// <summary>
+        /// Builds the shared Fuse Memory Minigame Canvas/panel (Fuse Memory Minigame prompt, sections
+        /// 10/19/30). One instance serves every FuseBox in the scene (prompt section 17 — only one
+        /// interaction active at a time makes a single shared UI correct, not a limitation). No
+        /// TextMeshPro (not an installed package in this project — see chat) or DOTween (not installed,
+        /// and the prompt explicitly forbids adding a new tween library) — legacy UnityEngine.UI.Text
+        /// and coroutine-driven lerps only, matching what's already available.
+        /// </summary>
+        private static FuseMiniGameController BuildFuseMiniGameUI(Transform parent)
+        {
+            if (Object.FindFirstObjectByType<EventSystem>() == null)
+            {
+                GameObject eventSystemGO = new GameObject("EventSystem");
+                eventSystemGO.AddComponent<EventSystem>();
+                eventSystemGO.AddComponent<InputSystemUIInputModule>();
+            }
+
+            GameObject canvasGO = new GameObject("FuseMiniGameCanvas");
+            Canvas canvas = canvasGO.AddComponent<Canvas>();
+            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+            CanvasScaler scaler = canvasGO.AddComponent<CanvasScaler>();
+            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+            scaler.referenceResolution = new Vector2(1920f, 1080f);
+            scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
+            scaler.matchWidthOrHeight = 0.5f;
+            canvasGO.AddComponent<GraphicRaycaster>();
+
+            Font uiFont = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+
+            // Darken overlay — full-screen, behind the panel, faded in/out by the controller.
+            GameObject overlayGO = NewUIObject("DarkenOverlay", canvasGO.transform);
+            StretchFull(overlayGO);
+            Image overlayImage = overlayGO.AddComponent<Image>();
+            overlayImage.color = new Color(0f, 0f, 0f, 1f); // alpha itself is driven by the CanvasGroup
+            CanvasGroup overlayGroup = overlayGO.AddComponent<CanvasGroup>();
+            overlayGroup.alpha = 0f;
+            overlayGroup.blocksRaycasts = false;
+            overlayGroup.interactable = false;
+
+            // "Bruised Industrial" panel: dark worn-metal panel, four colored fuse buttons.
+            GameObject panelGO = NewUIObject("FusePanel", canvasGO.transform);
+            RectTransform panelRect = panelGO.GetComponent<RectTransform>();
+            panelRect.anchorMin = panelRect.anchorMax = new Vector2(0.5f, 0.5f);
+            panelRect.pivot = new Vector2(0.5f, 0.5f);
+            panelRect.sizeDelta = new Vector2(560f, 360f);
+            panelRect.anchoredPosition = Vector2.zero;
+            Image panelBg = panelGO.AddComponent<Image>();
+            panelBg.color = new Color(0.10f, 0.10f, 0.11f, 0.95f);
+            CanvasGroup panelGroup = panelGO.AddComponent<CanvasGroup>();
+            panelGroup.alpha = 0f;
+
+            Text progressText = NewText("ProgressText", panelGO.transform, uiFont, 22, TextAnchor.UpperCenter, new Color(0.78f, 0.82f, 0.85f));
+            RectTransform progressRect = progressText.GetComponent<RectTransform>();
+            progressRect.anchorMin = new Vector2(0f, 1f);
+            progressRect.anchorMax = new Vector2(1f, 1f);
+            progressRect.pivot = new Vector2(0.5f, 1f);
+            progressRect.sizeDelta = new Vector2(-40f, 60f);
+            progressRect.anchoredPosition = new Vector2(0f, -20f);
+
+            Text statusText = NewText("StatusText", panelGO.transform, uiFont, 20, TextAnchor.MiddleCenter, new Color(0.95f, 0.75f, 0.2f));
+            RectTransform statusRect = statusText.GetComponent<RectTransform>();
+            statusRect.anchorMin = new Vector2(0f, 0f);
+            statusRect.anchorMax = new Vector2(1f, 0f);
+            statusRect.pivot = new Vector2(0.5f, 0f);
+            statusRect.sizeDelta = new Vector2(-40f, 40f);
+            statusRect.anchoredPosition = new Vector2(0f, 24f);
+
+            // 2x2 grid (see chat — a single row read as flat/lifeless; a square block of 4 reads more
+            // like a physical fuse panel and matches the "4 button" concept more literally).
+            GameObject buttonRowGO = NewUIObject("ButtonGrid", panelGO.transform);
+            RectTransform buttonRowRect = buttonRowGO.GetComponent<RectTransform>();
+            buttonRowRect.anchorMin = new Vector2(0.5f, 0.5f);
+            buttonRowRect.anchorMax = new Vector2(0.5f, 0.5f);
+            buttonRowRect.pivot = new Vector2(0.5f, 0.5f);
+            buttonRowRect.sizeDelta = new Vector2(232f, 232f);
+            buttonRowRect.anchoredPosition = new Vector2(0f, -10f);
+            GridLayoutGroup layout = buttonRowGO.AddComponent<GridLayoutGroup>();
+            layout.cellSize = new Vector2(108f, 108f);
+            layout.spacing = new Vector2(16f, 16f);
+            layout.childAlignment = TextAnchor.MiddleCenter;
+            layout.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
+            layout.constraintCount = 2;
+
+            // Grid reading order top-left, top-right, bottom-left, bottom-right — Red/Blue/Green/Yellow.
+            string[] buttonNames = { "Button_Red", "Button_Blue", "Button_Green", "Button_Yellow" };
+            Button[] buttons = new Button[buttonNames.Length];
+            Image[] buttonImages = new Image[buttonNames.Length];
+            for (int i = 0; i < buttonNames.Length; i++)
+            {
+                GameObject buttonGO = NewUIObject(buttonNames[i], buttonRowGO.transform);
+                Image image = buttonGO.AddComponent<Image>();
+                image.color = Color.white; // actual per-button color is set at runtime by the controller
+                Button button = buttonGO.AddComponent<Button>();
+                button.targetGraphic = image;
+                buttons[i] = button;
+                buttonImages[i] = image;
+            }
+
+            GameObject controllerGO = new GameObject("FuseMiniGameController");
+            controllerGO.transform.SetParent(parent, false);
+            FuseMiniGameController controller = controllerGO.AddComponent<FuseMiniGameController>();
+            BindFuseMiniGameController(controller, panelGO, overlayGroup, panelGroup, progressText, statusText, buttons, buttonImages);
+
+            return controller;
+        }
+
+        private static GameObject NewUIObject(string name, Transform parent)
+        {
+            GameObject go = new GameObject(name, typeof(RectTransform));
+            go.transform.SetParent(parent, false);
+            return go;
+        }
+
+        private static RectTransform StretchFull(GameObject go)
+        {
+            RectTransform rect = go.GetComponent<RectTransform>();
+            rect.anchorMin = Vector2.zero;
+            rect.anchorMax = Vector2.one;
+            rect.offsetMin = Vector2.zero;
+            rect.offsetMax = Vector2.zero;
+            return rect;
+        }
+
+        private static Text NewText(string name, Transform parent, Font font, int fontSize, TextAnchor alignment, Color color)
+        {
+            GameObject go = NewUIObject(name, parent);
+            Text text = go.AddComponent<Text>();
+            text.font = font;
+            text.fontSize = fontSize;
+            text.alignment = alignment;
+            text.color = color;
+            text.text = string.Empty;
+            return text;
+        }
+
+        // Reflection-free SerializedObject write would need UnityEditor.Editor machinery for private
+        // fields; simplest here is a small internal setter on the controller itself, kept in this
+        // Editor-only method rather than exposed as a general-purpose public API on the runtime class.
+        private static void BindFuseMiniGameController(FuseMiniGameController controller, GameObject panelRoot,
+            CanvasGroup darkenOverlay, CanvasGroup panelGroup, Text progressText, Text statusText,
+            Button[] buttons, Image[] buttonImages)
+        {
+            SerializedObject so = new SerializedObject(controller);
+            so.FindProperty("panelRoot").objectReferenceValue = panelRoot;
+            so.FindProperty("darkenOverlay").objectReferenceValue = darkenOverlay;
+            so.FindProperty("panelGroup").objectReferenceValue = panelGroup;
+            so.FindProperty("progressText").objectReferenceValue = progressText;
+            so.FindProperty("statusText").objectReferenceValue = statusText;
+
+            SerializedProperty buttonsProp = so.FindProperty("buttons");
+            SerializedProperty imagesProp = so.FindProperty("buttonImages");
+            buttonsProp.arraySize = buttons.Length;
+            imagesProp.arraySize = buttonImages.Length;
+            for (int i = 0; i < buttons.Length; i++)
+            {
+                buttonsProp.GetArrayElementAtIndex(i).objectReferenceValue = buttons[i];
+                imagesProp.GetArrayElementAtIndex(i).objectReferenceValue = buttonImages[i];
+            }
+
+            so.ApplyModifiedPropertiesWithoutUndo();
         }
 
         private static ExitController BuildExit(Transform parent, Material material, Vector3 position)

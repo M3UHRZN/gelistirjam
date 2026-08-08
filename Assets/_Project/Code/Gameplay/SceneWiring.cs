@@ -25,12 +25,14 @@ namespace Game.Gameplay
         [SerializeField] private ExitController exitController;
         [SerializeField] private LightZone[] lightShutdownOrder;
         [SerializeField] private MonsterConfig config;
+        [SerializeField] private FuseMiniGameController fuseMiniGame;
 
         private readonly LightDirector lightDirector = new LightDirector();
         private bool wired;
 
         public void Bind(MonsterBrain monsterBrain, GameManager manager, ObjectiveManager objectives,
-            ExitController exit, LightZone[] shutdownOrder, MonsterConfig monsterConfig)
+            ExitController exit, LightZone[] shutdownOrder, MonsterConfig monsterConfig,
+            FuseMiniGameController miniGame)
         {
             brain = monsterBrain;
             gameManager = manager;
@@ -38,6 +40,7 @@ namespace Game.Gameplay
             exitController = exit;
             lightShutdownOrder = shutdownOrder;
             config = monsterConfig;
+            fuseMiniGame = miniGame;
             Wire();
         }
 
@@ -49,7 +52,7 @@ namespace Game.Gameplay
         private void Wire()
         {
             if (wired) return;
-            if (brain == null || gameManager == null || objectiveManager == null || exitController == null || config == null) return;
+            if (brain == null || gameManager == null || objectiveManager == null || exitController == null || config == null || fuseMiniGame == null) return;
             wired = true;
 
             lightDirector.SetShutdownOrder(lightShutdownOrder);
@@ -79,6 +82,16 @@ namespace Game.Gameplay
                 lightDirector.ShutdownAll();
                 brain.IsRelentless = true;
                 brain.ChangeState(brain.AggressiveState);
+            };
+
+            // Death mid-minigame (prompt section 27, found live via Unity MCP testing — see chat): the
+            // Fuse popup has no way to know the player died on its own, so it just sat open forever,
+            // fighting visually with the death sequence. ForceCancel runs the same graceful
+            // close/cursor-restore path as an ESC press.
+            gameManager.OnStateChanged += stateName =>
+            {
+                if (stateName != nameof(DeathState)) return;
+                fuseMiniGame.ForceCancel();
             };
         }
     }

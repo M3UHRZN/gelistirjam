@@ -5,7 +5,9 @@
         "Game.Core",
         "Game.Gameplay",
         "Game.DebugTools",
-        "Unity.AI.Navigation"
+        "Unity.AI.Navigation",
+        "Unity.InputSystem",
+        "UnityEngine.UI"
     ],
     "includePlatforms": [
         "Editor"
