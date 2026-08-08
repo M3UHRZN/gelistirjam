@@ -134,10 +134,39 @@ namespace Gloomveil.MapGeneration
             registry?.Clear();
             navMeshController?.Clear();
             builder?.DestroyGeneratedRoot();
+            DestroyOrphanedGeneratedRoots();
             builder = null;
             LastLayout = null;
             LastRuntimeData = null;
             LastRuntimeValidation = null;
+        }
+
+        private void DestroyOrphanedGeneratedRoots()
+        {
+            if (navMeshController == null)
+            {
+                return;
+            }
+
+            Transform contentRoot = navMeshController.ContentRoot;
+            for (int index = contentRoot.childCount - 1; index >= 0; index--)
+            {
+                GameObject child = contentRoot.GetChild(index).gameObject;
+                if (!child.name.StartsWith("GeneratedMap_", StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                child.SetActive(false);
+                if (Application.isPlaying)
+                {
+                    Destroy(child);
+                }
+                else
+                {
+                    DestroyImmediate(child);
+                }
+            }
         }
 
         private void Awake()
