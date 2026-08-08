@@ -82,7 +82,16 @@ namespace Game.Gameplay.Monster
         private bool TryRescore()
         {
             AngerStageTuning tuning = brain.Tuning;
-            rescoreTimer = brain.Config.RepositionInterval * tuning.RepositionIntervalMultiplier;
+
+            // TGD section 38: "Reposition cooldown azalır" during FinalChase — layered on top of the
+            // anger-stage multiplier, not instead of it (a relentless monster is also necessarily at
+            // Furious anger already, but the two multipliers are separate documented mechanisms).
+            float intervalMultiplier = tuning.RepositionIntervalMultiplier;
+            if (brain.IsRelentless) intervalMultiplier *= brain.Config.FinalChaseRepositionIntervalMultiplier;
+            rescoreTimer = brain.Config.RepositionInterval * intervalMultiplier;
+
+            // TGD section 38: "Monster daha yakın candidate point'leri seçer" during FinalChase.
+            float distanceWeightMultiplier = brain.IsRelentless ? brain.Config.FinalChaseDistanceWeightMultiplier : 1f;
 
             Vector3 predicted = brain.Perception.PredictedPlayerPosition(brain.Config.PredictionSeconds);
 
@@ -94,7 +103,8 @@ namespace Game.Gameplay.Monster
                 brain.transform.position,
                 brain.VisionModel,
                 brain.Navigator,
-                tuning.VisibilityRiskTolerance);
+                tuning.VisibilityRiskTolerance,
+                distanceWeightMultiplier: distanceWeightMultiplier);
 
             if (best == null) return false;
 

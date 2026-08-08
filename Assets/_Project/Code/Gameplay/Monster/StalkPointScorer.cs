@@ -113,13 +113,21 @@ namespace Game.Gameplay.Monster
         public static StalkPoint PickBest(StalkPointRuntimeSet points, Vector3 playerPosition,
             Vector3 predictedPlayerPosition, Vector3 playerFacing, Vector3 monsterPosition,
             PlayerVisionModel visionModel, MonsterNavigator navigator, float visibilityRiskTolerance,
-            StalkPoint excluded = null, bool requireAmbushAllowed = false)
+            StalkPoint excluded = null, bool requireAmbushAllowed = false, float distanceWeightMultiplier = 1f)
         {
             if (points == null) return null;
 
             StalkPoint best = null;
             float bestScore = float.NegativeInfinity;
             Weights weights = Weights.Default;
+
+            // TGD section 38: "Monster daha yakın candidate point'leri seçer" during FinalChase —
+            // scaling both distance-penalty terms up makes farther points lose relatively more,
+            // biasing the winner toward whatever is closest without touching any of the concealment
+            // terms (darkness/corner/visibility still matter exactly as much).
+            weights.PlayerDistancePenalty *= distanceWeightMultiplier;
+            weights.MonsterDistancePenalty *= distanceWeightMultiplier;
+
             var items = points.Items;
 
             for (int i = 0; i < items.Count; i++)

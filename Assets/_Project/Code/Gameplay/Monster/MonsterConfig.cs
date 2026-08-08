@@ -75,8 +75,8 @@ namespace Game.Gameplay.Monster
         [SerializeField, Range(3, 9)] private int gazeRayCount = 5;
         [SerializeField, Tooltip("Of the rays cast, how many must hit the eyes for a look to register.")]
         private int gazeRequiredHits = 3;
-        [SerializeField, Tooltip("Half-angle in degrees of the ray cluster spread around screen center.")]
-        private float gazeConeHalfAngleDegrees = 3f;
+        [SerializeField, Tooltip("TGD section 23: the 5 rays originate from separate points spread around the camera center and travel straight forward (parallel), rather than diverging from a single point at an angle. This is the spread radius, in meters, of that origin cluster.")]
+        private float gazeRayOriginSpread = 0.15f;
         [SerializeField] private float gazeMaxDistance = 25f;
         [SerializeField, Tooltip("A single continuous stare this long forces Aggressive outright, bypassing the anger-chance roll (\"staring too long WILL retaliate\").")]
         private float gazeAggroHardCap = 4f;
@@ -100,6 +100,10 @@ namespace Game.Gameplay.Monster
         private float predictionSeconds = 1.5f;
         [SerializeField, Range(0.4f, 0.8f), Tooltip("How often a repositioning monster re-scores candidate StalkPoints (TGD section 14: 0.4-0.8s — explicitly NOT every frame).")]
         private float repositionInterval = 0.6f;
+        [SerializeField, Range(0.1f, 1f), Tooltip("TGD section 38: 'Reposition cooldown azalır' during FinalChase (MonsterBrain.IsRelentless). Multiplies RepositionInterval on top of the anger-stage multiplier.")]
+        private float finalChaseRepositionIntervalMultiplier = 0.5f;
+        [SerializeField, Tooltip("TGD section 38: 'Monster daha yakın candidate point'leri seçer' during FinalChase. Multiplies StalkPointScorer's distance-penalty weights so nearer points score relatively higher.")]
+        private float finalChaseDistanceWeightMultiplier = 2.5f;
         [SerializeField, Tooltip("Lateral offset distance used when picking a Flank point relative to the player's path.")]
         private float flankOffsetDistance = 5f;
         [SerializeField, Tooltip("Radius around an Ambush point that triggers a Commit rush once the player enters it.")]
@@ -171,7 +175,7 @@ namespace Game.Gameplay.Monster
 
         public int GazeRayCount => gazeRayCount;
         public int GazeRequiredHits => gazeRequiredHits;
-        public float GazeConeHalfAngleDegrees => gazeConeHalfAngleDegrees;
+        public float GazeRayOriginSpread => gazeRayOriginSpread;
         public float GazeMaxDistance => gazeMaxDistance;
         public float GazeAggroHardCap => gazeAggroHardCap;
 
@@ -188,6 +192,8 @@ namespace Game.Gameplay.Monster
         public float RepositionChance => repositionChance;
         public float PredictionSeconds => predictionSeconds;
         public float RepositionInterval => repositionInterval;
+        public float FinalChaseRepositionIntervalMultiplier => finalChaseRepositionIntervalMultiplier;
+        public float FinalChaseDistanceWeightMultiplier => finalChaseDistanceWeightMultiplier;
 
         /// <summary>Tuning for the given anger bracket (TGD section 20). Falls back to neutral defaults if the array was shortened in the Inspector.</summary>
         public AngerStageTuning TuningFor(AngerStage stage)
@@ -232,6 +238,7 @@ namespace Game.Gameplay.Monster
             loseInterestRadius = Mathf.Max(detectionRadius, loseInterestRadius);
             gazeRequiredHits = Mathf.Clamp(gazeRequiredHits, 1, gazeRayCount);
             gazeMaxDistance = Mathf.Max(0.1f, gazeMaxDistance);
+            gazeRayOriginSpread = Mathf.Max(0f, gazeRayOriginSpread);
             gazeAggroHardCap = Mathf.Max(0.1f, gazeAggroHardCap);
             angerPerSpotted = Mathf.Max(1, angerPerSpotted);
             maxAnger = Mathf.Max(1, maxAnger);
@@ -248,6 +255,8 @@ namespace Game.Gameplay.Monster
 
             angerSpeedMultiplierMax = Mathf.Max(1f, angerSpeedMultiplierMax);
             repositionInterval = Mathf.Clamp(repositionInterval, 0.4f, 0.8f); // TGD section 14's stated band
+            finalChaseRepositionIntervalMultiplier = Mathf.Clamp(finalChaseRepositionIntervalMultiplier, 0.1f, 1f);
+            finalChaseDistanceWeightMultiplier = Mathf.Max(1f, finalChaseDistanceWeightMultiplier);
             ambushMaxDurationSeconds = Mathf.Max(1f, ambushMaxDurationSeconds);
             safeZoneCampDistance = Mathf.Max(1f, safeZoneCampDistance);
             safeZoneCampDuration = Mathf.Max(1f, safeZoneCampDuration);
