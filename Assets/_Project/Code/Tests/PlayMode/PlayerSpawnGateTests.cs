@@ -25,7 +25,6 @@ namespace Game.Gameplay.Tests
             try
             {
                 fixture.Bootstrap.Generate(2024);
-                yield return null;
 
                 Assert.That(fixture.Registry.IsReady, Is.True);
                 Transform startAnchor = fixture.Registry.Current.StartAnchor;
@@ -46,6 +45,8 @@ namespace Game.Gameplay.Tests
             {
                 fixture.Dispose();
             }
+
+            yield break;
         }
 
         private static Fixture CreateFixture()
