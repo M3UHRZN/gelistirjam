@@ -17,7 +17,7 @@ MonoBehaviour:
   moduleCatalog: {fileID: 11400000, guid: 9386987e85e35184ca6cca74bd012df1, type: 2}
   widthUnits: 16
   depthUnits: 16
-  floorCount: 2
+  floorCount: 5
   minRoomsPerFloor: 10
   maxRoomsPerFloor: 18
   roomClearanceUnits: 1
