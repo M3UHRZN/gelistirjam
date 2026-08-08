@@ -1,0 +1,16 @@
+{
+  "name": "Game.Gameplay.PlayModeTests",
+  "rootNamespace": "Game.Gameplay.Tests",
+  "references": [
+    "Game.Gameplay",
+    "Game.Core",
+    "Gloomveil.MapGeneration",
+    "Unity.AI.Navigation"
+  ],
+  "defineConstraints": [
+    "UNITY_EDITOR"
+  ],
+  "optionalUnityReferences": [
+    "TestAssemblies"
+  ]
+}
