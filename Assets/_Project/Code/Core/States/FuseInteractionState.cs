@@ -9,20 +9,20 @@ namespace Game.Core
     /// </summary>
     public class FuseInteractionState : IGameState
     {
-        private readonly GameManager manager;
+        private readonly GameFlowController flow;
 
-        public FuseInteractionState(GameManager manager) => this.manager = manager;
+        public FuseInteractionState(GameFlowController flow) => this.flow = flow;
 
         public void Enter()
         {
-            manager.SetPlayerControlEnabled(false);
+            flow.SetPlayerControlEnabled(false);
         }
 
         public void Tick(float deltaTime) { }
 
         public void Exit()
         {
-            manager.SetPlayerControlEnabled(true);
+            flow.SetPlayerControlEnabled(true);
         }
     }
 }

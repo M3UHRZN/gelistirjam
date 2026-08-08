@@ -3,13 +3,13 @@ namespace Game.Core
     /// <summary>Normal gameplay (TGD section 4). Player has full control; monster runs its own FSM independently.</summary>
     public class ExplorationState : IGameState
     {
-        private readonly GameManager manager;
+        private readonly GameFlowController flow;
 
-        public ExplorationState(GameManager manager) => this.manager = manager;
+        public ExplorationState(GameFlowController flow) => this.flow = flow;
 
         public void Enter()
         {
-            manager.SetPlayerControlEnabled(true);
+            flow.SetPlayerControlEnabled(true);
         }
 
         public void Tick(float deltaTime) { } // Faz 2 (ObjectiveManager) will drive FuseInteraction from here

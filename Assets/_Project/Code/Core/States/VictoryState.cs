@@ -5,14 +5,14 @@ namespace Game.Core
     /// <summary>Terminal state: the player escaped (TGD section 4). Placeholder for a real victory sequence/UI.</summary>
     public class VictoryState : IGameState
     {
-        private readonly GameManager manager;
+        private readonly GameFlowController flow;
 
-        public VictoryState(GameManager manager) => this.manager = manager;
+        public VictoryState(GameFlowController flow) => this.flow = flow;
 
         public void Enter()
         {
-            manager.SetPlayerControlEnabled(false);
-            Debug.Log("[GameManager] Victory — placeholder for a real victory sequence/UI.");
+            flow.SetPlayerControlEnabled(false);
+            Debug.Log("[GameFlow] Victory — placeholder for a real victory sequence/UI.");
         }
 
         public void Tick(float deltaTime) { }

@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.Serialization;
 
 using Game.Core;
 using Game.Gameplay.Monster;
@@ -14,14 +15,14 @@ namespace Game.Gameplay.DebugTools
     {
         [SerializeField] private MonsterBrain brain;
         [SerializeField] private TestPlayerController player;
-        [SerializeField] private GameManager gameManager;
+        [SerializeField, FormerlySerializedAs("gameManager")] private GameFlowController gameFlow;
         [SerializeField] private ObjectiveManager objectiveManager;
 
-        public void Bind(MonsterBrain monsterBrain, TestPlayerController testPlayer, GameManager manager, ObjectiveManager objectives)
+        public void Bind(MonsterBrain monsterBrain, TestPlayerController testPlayer, GameFlowController flow, ObjectiveManager objectives)
         {
             brain = monsterBrain;
             player = testPlayer;
-            gameManager = manager;
+            gameFlow = flow;
             objectiveManager = objectives;
         }
 
@@ -41,9 +42,9 @@ namespace Game.Gameplay.DebugTools
             GUI.Label(new Rect(10, 70, 460, 20), $"Gazed at now: {brain.IsGazedAtNow}");
             GUI.Label(new Rect(10, 90, 600, 20), $"Last decision: {brain.LastDecisionReason}");
 
-            if (gameManager != null)
+            if (gameFlow != null)
             {
-                GUI.Label(new Rect(10, 110, 460, 20), $"Game state: {gameManager.CurrentStateName}");
+                GUI.Label(new Rect(10, 110, 460, 20), $"Game state: {gameFlow.CurrentStateName}");
             }
 
             if (objectiveManager != null)

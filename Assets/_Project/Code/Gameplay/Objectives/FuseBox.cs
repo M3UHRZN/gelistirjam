@@ -2,6 +2,7 @@ using System;
 using Game.Core;
 using Game.Gameplay.Interaction;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 namespace Game.Gameplay.Objectives
 {
@@ -17,7 +18,7 @@ namespace Game.Gameplay.Objectives
     {
         [SerializeField, Tooltip("Placeholder minigame duration (TGD section 34: real minigame targets 5-8s).")]
         private float holdDurationSeconds = 6f;
-        [SerializeField] private GameManager gameManager;
+        [SerializeField, FormerlySerializedAs("gameManager")] private GameFlowController gameFlow;
         [SerializeField] private ObjectiveManager objectiveManager;
 
         public FuseBoxState State { get; private set; } = FuseBoxState.Incomplete;
@@ -40,9 +41,9 @@ namespace Game.Gameplay.Objectives
         // Registers immediately in addition to OnEnable, same defensive pattern as SafeZone/StalkPoint:
         // the editor scene builder creates this GameObject already active, so OnEnable can fire before
         // Bind() runs. Register() must therefore be idempotent, which ObjectiveManager guarantees.
-        public void Bind(GameManager manager, ObjectiveManager objectives)
+        public void Bind(GameFlowController flow, ObjectiveManager objectives)
         {
-            gameManager = manager;
+            gameFlow = flow;
             objectiveManager = objectives;
             if (isActiveAndEnabled) objectiveManager.Register(this);
         }
@@ -70,7 +71,7 @@ namespace Game.Gameplay.Objectives
             if (!CanInteract) return;
             State = FuseBoxState.Active;
             holdProgress = 0f;
-            gameManager?.ChangeState(gameManager.FuseInteractionState);
+            gameFlow?.ChangeState(gameFlow.FuseInteractionState);
             OnInteractionStarted?.Invoke(transform.position);
         }
 
@@ -123,7 +124,7 @@ namespace Game.Gameplay.Objectives
         /// <summary>Shared "the player is no longer actively working this fuse" side effects — same call in both the normal-release and auto-complete paths, so they can't drift out of sync again.</summary>
         private void FinishInteraction()
         {
-            gameManager?.ChangeState(gameManager.ExplorationState);
+            gameFlow?.ChangeState(gameFlow.ExplorationState);
             OnInteractionStopped?.Invoke();
         }
     }

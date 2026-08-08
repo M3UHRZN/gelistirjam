@@ -1,6 +1,6 @@
 namespace Game.Gameplay.Monster
 {
-    /// <summary>Terminal state: attack lands. A future GameManager should subscribe to MonsterBrain.OnKill (TGD section 12).</summary>
+    /// <summary>Terminal state: attack lands. A future GameFlowController should subscribe to MonsterBrain.OnKill (TGD section 12).</summary>
     public class KillState : IMonsterState
     {
         private readonly MonsterBrain brain;
