@@ -4,11 +4,13 @@
     "references": [
         "Game.Core",
         "Game.Gameplay",
+        "Game.UI",
         "Game.DebugTools",
         "Unity.AI.Navigation",
         "Unity.InputSystem",
         "UnityEngine.UI",
-        "Gloomveil.MapGeneration"
+        "Gloomveil.MapGeneration",
+        "Unity.TextMeshPro"
     ],
     "includePlatforms": [
         "Editor"
