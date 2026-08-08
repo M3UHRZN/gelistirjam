@@ -4,10 +4,12 @@
     "references": [
         "Game.Core",
         "Game.Gameplay",
+        "Game.UI",
         "Game.DebugTools",
         "Unity.AI.Navigation",
         "Unity.InputSystem",
-        "UnityEngine.UI"
+        "UnityEngine.UI",
+        "Unity.TextMeshPro"
     ],
     "includePlatforms": [
         "Editor"
