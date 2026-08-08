@@ -140,6 +140,7 @@ GameObject:
   - component: {fileID: 1315236316056598838}
   - component: {fileID: 7400550718990696958}
   - component: {fileID: 6640509160967288797}
+  - component: {fileID: 9034873108586501119}
   m_Layer: 0
   m_Name: Player
   m_TagString: Player
@@ -259,6 +260,19 @@ MonoBehaviour:
   staminaRegenPerSecond: 0.7
   flashlight: {fileID: 7400550718990696958}
   manageCursor: 1
+--- !u!114 &9034873108586501119
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7110461859708860221}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: df3aaeedf05795c47a291878a16e666e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Game.Gameplay::Game.Gameplay.Player.PlayerJump
+  jumpHeight: 1
 --- !u!1 &7282632043529800239
 GameObject:
   m_ObjectHideFlags: 0

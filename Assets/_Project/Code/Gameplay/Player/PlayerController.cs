@@ -65,6 +65,7 @@ namespace Game.Gameplay.Player
         private GameInputActions actions;
         private Rigidbody rb;
         private CapsuleCollider capsule;
+        private PlayerJump jump;
 
         private float yaw;
         private float pitch;
@@ -117,6 +118,7 @@ namespace Game.Gameplay.Player
         {
             rb = GetComponent<Rigidbody>();
             capsule = GetComponent<CapsuleCollider>();
+            jump = GetComponent<PlayerJump>(); // optional -- null if the Player prefab doesn't have jump attached
             ConfigureRigidbody();
 
             actions = new GameInputActions();
@@ -168,7 +170,15 @@ namespace Game.Gameplay.Player
         private void FixedUpdate()
         {
             ProbeGround();
-            ReadMoveAndApply();
+
+            bool jumping = false;
+            if (jump != null)
+            {
+                jumping = jump.Evaluate(IsGrounded, verticalVelocity, gravity, out float overrideVerticalVelocity);
+                if (jumping) verticalVelocity = overrideVerticalVelocity;
+            }
+
+            ReadMoveAndApply(jumping);
         }
 
         private void HandleLook()
@@ -231,7 +241,7 @@ namespace Game.Gameplay.Player
             GroundGap = gap;
         }
 
-        private void ReadMoveAndApply()
+        private void ReadMoveAndApply(bool jumping)
         {
             Vector2 rawInput = actions.Player.Move.ReadValue<Vector2>();
             Vector2 input = Vector2.ClampMagnitude(rawInput, 1f);
@@ -261,7 +271,7 @@ namespace Game.Gameplay.Player
 
             Vector3 wish = YawRotation * new Vector3(input.x, 0f, input.y);
 
-            if (IsGrounded)
+            if (IsGrounded && !jumping)
             {
                 Vector3 dir = Vector3.ProjectOnPlane(wish, GroundNormal);
                 dir = dir.sqrMagnitude > 1e-6f ? dir.normalized : Vector3.zero;
@@ -312,6 +322,7 @@ namespace Game.Gameplay.Player
         {
             currentSpeed = walkSpeed;
             verticalVelocity = 0f;
+            jump?.ResetState();
             if (rb == null) return;
             rb.linearVelocity = Vector3.zero;
             rb.angularVelocity = Vector3.zero;
