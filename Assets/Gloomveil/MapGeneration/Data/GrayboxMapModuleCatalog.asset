@@ -20,7 +20,7 @@ MonoBehaviour:
     canonicalDepthUnits: 2
     corridorShape: 4
     allowedRoomRoles: 31
-    prefab: {fileID: 2357852440110694156, guid: 8d68e9f32e8a703438ba1e12f82ceb51, type: 3}
+    prefab: {fileID: 284877476764406860, guid: eb031c4d20516c547af331e4d98829da, type: 3}
     weight: 1
     allowQuarterTurns: 1
     usesDynamicSockets: 1
@@ -31,7 +31,7 @@ MonoBehaviour:
     canonicalDepthUnits: 2
     corridorShape: 4
     allowedRoomRoles: 31
-    prefab: {fileID: 4455576308697797023, guid: 20672cf5381bc7f469499f285f1606b2, type: 3}
+    prefab: {fileID: 4339763232545436700, guid: bd9e519dc4c37a24d8c8693c0a1446e5, type: 3}
     weight: 1
     allowQuarterTurns: 1
     usesDynamicSockets: 1
@@ -42,7 +42,7 @@ MonoBehaviour:
     canonicalDepthUnits: 3
     corridorShape: 4
     allowedRoomRoles: 31
-    prefab: {fileID: 5823311098230459483, guid: 656d7d93088981249813330167463c38, type: 3}
+    prefab: {fileID: 7048695093905913887, guid: 523075e09649a934c85e8035add70d0d, type: 3}
     weight: 1
     allowQuarterTurns: 1
     usesDynamicSockets: 1
@@ -53,7 +53,7 @@ MonoBehaviour:
     canonicalDepthUnits: 1
     corridorShape: 0
     allowedRoomRoles: 0
-    prefab: {fileID: 5877573915988438616, guid: df5ef2001ef80d141ab727b1eabb07b7, type: 3}
+    prefab: {fileID: 6964794093689628915, guid: 32352c3486e07fc409c4efda8228632b, type: 3}
     weight: 1
     allowQuarterTurns: 1
     usesDynamicSockets: 0
@@ -64,7 +64,7 @@ MonoBehaviour:
     canonicalDepthUnits: 2
     corridorShape: 0
     allowedRoomRoles: 0
-    prefab: {fileID: 1495850746220133401, guid: 41903a84004730e4c9a29e818b3602b8, type: 3}
+    prefab: {fileID: 4332511556235647668, guid: dfa593f097d12244a8817625d6d7a9f3, type: 3}
     weight: 1
     allowQuarterTurns: 1
     usesDynamicSockets: 0
@@ -75,7 +75,7 @@ MonoBehaviour:
     canonicalDepthUnits: 3
     corridorShape: 0
     allowedRoomRoles: 0
-    prefab: {fileID: 1129778583320957463, guid: a851d0646c02f354ebefbe5f9e1f37e3, type: 3}
+    prefab: {fileID: 3313290314567432676, guid: 426c80176a352fd459eb436003f11159, type: 3}
     weight: 1
     allowQuarterTurns: 1
     usesDynamicSockets: 0
@@ -97,7 +97,7 @@ MonoBehaviour:
     canonicalDepthUnits: 1
     corridorShape: 2
     allowedRoomRoles: 0
-    prefab: {fileID: 7040863297547185500, guid: 9fc674fdef694af4993d25275c157dec, type: 3}
+    prefab: {fileID: 1761218546647118874, guid: 17f47a703f1256442a683c0bcaae88e1, type: 3}
     weight: 1
     allowQuarterTurns: 1
     usesDynamicSockets: 0
@@ -119,7 +119,7 @@ MonoBehaviour:
     canonicalDepthUnits: 1
     corridorShape: 4
     allowedRoomRoles: 0
-    prefab: {fileID: 8947697035482816855, guid: d34a6c2845ce45548ae9572a2f3a0ca7, type: 3}
+    prefab: {fileID: 7557611991659902987, guid: 2c33046116d9d3f4b905f2db6d046c07, type: 3}
     weight: 1
     allowQuarterTurns: 1
     usesDynamicSockets: 0
@@ -130,7 +130,7 @@ MonoBehaviour:
     canonicalDepthUnits: 1
     corridorShape: 5
     allowedRoomRoles: 0
-    prefab: {fileID: 3303638783437949762, guid: 531eae5aede21d34fbf3118fc2453877, type: 3}
+    prefab: {fileID: 2050360245639288814, guid: 9b54a0c6d9ff45b43859b628bf426923, type: 3}
     weight: 1
     allowQuarterTurns: 1
     usesDynamicSockets: 0
@@ -141,7 +141,7 @@ MonoBehaviour:
     canonicalDepthUnits: 2
     corridorShape: 4
     allowedRoomRoles: 0
-    prefab: {fileID: 7577848383870419297, guid: 08b6a19a35f3b46419908cc009296749, type: 3}
+    prefab: {fileID: 2240647270405131626, guid: 7c824cc759121aa47a620835590d39a6, type: 3}
     weight: 1
     allowQuarterTurns: 1
     usesDynamicSockets: 0
@@ -152,7 +152,7 @@ MonoBehaviour:
     canonicalDepthUnits: 2
     corridorShape: 4
     allowedRoomRoles: 0
-    prefab: {fileID: 7626903709979134021, guid: 84309d11c58e5ea41b6dadf6d4cca4ca, type: 3}
+    prefab: {fileID: 373957789057356488, guid: c7e84e4d0217f2a4b84285f583680333, type: 3}
     weight: 1
     allowQuarterTurns: 1
     usesDynamicSockets: 0
