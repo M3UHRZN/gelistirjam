@@ -26,6 +26,21 @@ namespace Game.Gameplay.World
         [SerializeField, Tooltip("Optional visual spawned at each anchor. A plain placeholder cube is built when empty.")]
         private GameObject fuseBoxPrefab;
 
+        [SerializeField, Tooltip("Mount each fuse on a closed wall socket instead of leaving it at the room's centre anchor.")]
+        private bool placeOnClosedWall = true;
+
+        [SerializeField, Tooltip("Height of the visual's bottom above the room floor/socket level.")]
+        private float mountHeight = 1.25f;
+
+        [SerializeField, Tooltip("Gap between the visual's back face and the wall's inner face.")]
+        private float wallClearance = 0.02f;
+
+        [SerializeField, Tooltip("Final wall-frame nudge: X along the wall, Y upward, Z into the room.")]
+        private Vector3 wallOffset;
+
+        [SerializeField, Tooltip("Local Euler correction applied after the visual faces into the room. Use this to correct the tablet model's authored axes.")]
+        private Vector3 rotationOffsetEuler;
+
         [SerializeField, Tooltip("Round counts assigned to fuse anchors in order, cycling if there are more anchors than entries (TGD section 33 default: 1, 2, 3 = 6 total rounds).")]
         private int[] roundsPattern = { 1, 2, 3 };
 
@@ -91,9 +106,24 @@ namespace Game.Gameplay.World
                 Transform anchor = data.FuseAnchors[i];
                 if (anchor == null) continue;
 
+                Transform socket = null;
+                Vector3 intoRoom = default;
+                bool mounted = placeOnClosedWall &&
+                               TryResolveWallPlacement(anchor, out socket, out intoRoom, out Renderer _);
                 GameObject instance = fuseBoxPrefab != null
-                    ? Instantiate(fuseBoxPrefab, anchor.position, anchor.rotation, anchor)
-                    : BuildDefaultFuseVisual(anchor);
+                    ? Instantiate(fuseBoxPrefab, transform, false)
+                    : BuildDefaultFuseVisual();
+                if (fuseBoxPrefab != null)
+                {
+                    instance.name = fuseBoxPrefab.name;
+                }
+
+                Quaternion baseRotation = mounted
+                    ? Quaternion.LookRotation(intoRoom, Vector3.up)
+                    : anchor.rotation;
+                instance.transform.SetPositionAndRotation(
+                    mounted ? socket.position : anchor.position,
+                    baseRotation * Quaternion.Euler(rotationOffsetEuler));
 
                 if (instance.GetComponent<Collider>() == null)
                 {
@@ -121,14 +151,106 @@ namespace Game.Gameplay.World
         // support negative scale or size" and its physics become undefined (found live via Unity MCP
         // testing — see chat). Position/rotation still match the anchor exactly; only the scale
         // inheritance is avoided.
-        private GameObject BuildDefaultFuseVisual(Transform anchor)
+        private GameObject BuildDefaultFuseVisual()
         {
             GameObject go = GameObject.CreatePrimitive(PrimitiveType.Cube);
             go.name = "FuseBox";
             go.transform.SetParent(transform, false);
-            go.transform.SetPositionAndRotation(anchor.position, anchor.rotation);
             go.transform.localScale = new Vector3(0.5f, 0.7f, 0.3f);
             return go;
+        }
+
+        private static bool TryResolveWallPlacement(
+            Transform anchor,
+            out Transform socket,
+            out Vector3 intoRoom,
+            out Renderer wallSurface)
+        {
+            socket = null;
+            intoRoom = default;
+            wallSurface = null;
+
+            GeneratedMapModule module = anchor.GetComponentInParent<GeneratedMapModule>();
+            if (module == null)
+            {
+                return false;
+            }
+
+            var sockets = new Dictionary<SocketKey, Transform>();
+            var cappedKeys = new HashSet<SocketKey>();
+            var openDoorways = new List<Vector3>();
+            foreach (Transform child in module.GetComponentsInChildren<Transform>(true))
+            {
+                if (ModuleSocketController.TryParse(child.name, "Socket_", out SocketKey socketKey))
+                {
+                    sockets[socketKey] = child;
+                }
+                else if (ModuleSocketController.TryParse(child.name, "WallCap_", out SocketKey capKey))
+                {
+                    if (child.gameObject.activeInHierarchy)
+                    {
+                        cappedKeys.Add(capKey);
+                    }
+                }
+                else if (ModuleSocketController.TryParse(child.name, "Portal_", out SocketKey _) &&
+                         child.gameObject.activeInHierarchy)
+                {
+                    openDoorways.Add(child.position);
+                }
+            }
+
+            float bestScore = float.NegativeInfinity;
+            foreach (KeyValuePair<SocketKey, Transform> entry in sockets)
+            {
+                if (!cappedKeys.Contains(entry.Key))
+                {
+                    continue;
+                }
+
+                float score = float.MaxValue;
+                foreach (Vector3 doorway in openDoorways)
+                {
+                    score = Mathf.Min(score, Vector3.Distance(entry.Value.position, doorway));
+                }
+
+                if (score > bestScore ||
+                    (Mathf.Approximately(score, bestScore) && socket != null &&
+                     string.CompareOrdinal(entry.Value.name, socket.name) < 0))
+                {
+                    bestScore = score;
+                    socket = entry.Value;
+                }
+            }
+
+            if (socket == null)
+            {
+                return false;
+            }
+
+            Vector3 outward = Vector3.ProjectOnPlane(socket.forward, Vector3.up);
+            if (outward.sqrMagnitude < 0.001f)
+            {
+                socket = null;
+                return false;
+            }
+
+            intoRoom = -outward.normalized;
+            wallSurface = FindWallRenderer(module.transform, socket);
+            return true;
+        }
+
+        private static Renderer FindWallRenderer(Transform module, Transform socket)
+        {
+            string suffix = socket.name.Substring("Socket_".Length);
+            foreach (Transform child in module.GetComponentsInChildren<Transform>(true))
+            {
+                if (child.name == "WallCap_" + suffix)
+                {
+                    return child.GetComponentInChildren<Renderer>(true);
+                }
+            }
+
+            return null;
         }
 
         private void ClearSpawned()
