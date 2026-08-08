@@ -45,6 +45,9 @@ namespace Game.Gameplay.World
         [SerializeField, Tooltip("Gap left between the wall surface and the back of the exit.")]
         private float wallClearance = 0.02f;
 
+        [SerializeField, Tooltip("Manual nudge in the wall's own frame, applied last: X slides along the wall, Y up, Z into the room. Leave at zero to use the automatic fit.")]
+        private Vector3 wallOffset;
+
         [SerializeField, Tooltip("Shrink the exit uniformly if it is taller than the wall it sits in, so it never pokes through the ceiling. Never enlarges it.")]
         private bool fitToWallHeight = true;
 
@@ -181,9 +184,26 @@ namespace Game.Gameplay.World
             {
                 ShrinkToWallHeight(instance, wallSurface);
                 SitOnFloorAgainstWall(instance, position.y, intoRoom, wallSurface);
+                instance.transform.position += WallFrameOffset(intoRoom);
             }
 
             AttachRelay(FindOrCreateTrigger(instance));
+        }
+
+        /// <summary>
+        /// Turns wallOffset into a world nudge: X along the wall, Y up, Z into the room. Expressed in
+        /// the wall's frame rather than world space so the same value reads the same on every seed,
+        /// whichever compass direction the chosen wall happens to face.
+        /// </summary>
+        private Vector3 WallFrameOffset(Vector3 intoRoom)
+        {
+            if (wallOffset == Vector3.zero)
+            {
+                return Vector3.zero;
+            }
+
+            Vector3 alongWall = Vector3.Cross(Vector3.up, intoRoom).normalized;
+            return (alongWall * wallOffset.x) + (Vector3.up * wallOffset.y) + (intoRoom * wallOffset.z);
         }
 
         /// <summary>
