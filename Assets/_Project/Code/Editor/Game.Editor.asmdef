@@ -8,7 +8,8 @@
         "Game.DebugTools",
         "Unity.AI.Navigation",
         "Unity.InputSystem",
-        "UnityEngine.UI"
+        "UnityEngine.UI",
+        "Unity.TextMeshPro"
     ],
     "includePlatforms": [
         "Editor"
