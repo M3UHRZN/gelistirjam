@@ -108,8 +108,19 @@ namespace Game.Gameplay.World
 
                 Transform socket = null;
                 Vector3 intoRoom = default;
+                Renderer wallSurface = null;
                 bool mounted = placeOnClosedWall &&
-                               TryResolveWallPlacement(anchor, out socket, out intoRoom, out Renderer _);
+                               TryResolveWallPlacement(anchor, out socket, out intoRoom, out wallSurface);
+                if (placeOnClosedWall && !mounted)
+                {
+                    GeneratedMapModule module = anchor.GetComponentInParent<GeneratedMapModule>();
+                    string moduleName = module != null ? module.name : "<none>";
+                    Debug.LogWarning(
+                        $"MapFuseGate could not resolve a closed wall for anchor '{anchor.name}' " +
+                        $"in module '{moduleName}'; using the anchor fallback.",
+                        this);
+                }
+
                 GameObject instance = fuseBoxPrefab != null
                     ? Instantiate(fuseBoxPrefab, transform, false)
                     : BuildDefaultFuseVisual();
@@ -124,6 +135,11 @@ namespace Game.Gameplay.World
                 instance.transform.SetPositionAndRotation(
                     mounted ? socket.position : anchor.position,
                     baseRotation * Quaternion.Euler(rotationOffsetEuler));
+
+                if (mounted)
+                {
+                    MountAgainstWall(instance, socket.position.y, intoRoom, wallSurface);
+                }
 
                 if (instance.GetComponent<Collider>() == null)
                 {
@@ -252,6 +268,66 @@ namespace Game.Gameplay.World
 
             return null;
         }
+
+        private void MountAgainstWall(
+            GameObject instance,
+            float floorY,
+            Vector3 intoRoom,
+            Renderer wallSurface)
+        {
+            Vector3 shift = intoRoom * wallClearance;
+            if (TryGetWorldBounds(instance, out Bounds bounds))
+            {
+                shift = Vector3.up * ((floorY + mountHeight) - bounds.min.y);
+                if (wallSurface != null)
+                {
+                    float wallInnerFace = Vector3.Dot(wallSurface.bounds.center, intoRoom) +
+                                          ProjectedExtent(wallSurface.bounds, intoRoom);
+                    float visualBackFace = Vector3.Dot(bounds.center, intoRoom) -
+                                           ProjectedExtent(bounds, intoRoom);
+                    shift += intoRoom * (wallInnerFace + wallClearance - visualBackFace);
+                }
+                else
+                {
+                    shift += intoRoom * wallClearance;
+                }
+            }
+
+            instance.transform.position += shift + WallFrameOffset(intoRoom);
+        }
+
+        private Vector3 WallFrameOffset(Vector3 intoRoom)
+        {
+            Vector3 alongWall = Vector3.Cross(Vector3.up, intoRoom).normalized;
+            return (alongWall * wallOffset.x) +
+                   (Vector3.up * wallOffset.y) +
+                   (intoRoom * wallOffset.z);
+        }
+
+        private static bool TryGetWorldBounds(GameObject instance, out Bounds bounds)
+        {
+            bounds = default;
+            bool any = false;
+            foreach (Renderer renderer in instance.GetComponentsInChildren<Renderer>(true))
+            {
+                if (any)
+                {
+                    bounds.Encapsulate(renderer.bounds);
+                }
+                else
+                {
+                    bounds = renderer.bounds;
+                    any = true;
+                }
+            }
+
+            return any;
+        }
+
+        private static float ProjectedExtent(Bounds bounds, Vector3 direction) =>
+            Mathf.Abs(direction.x) * bounds.extents.x +
+            Mathf.Abs(direction.y) * bounds.extents.y +
+            Mathf.Abs(direction.z) * bounds.extents.z;
 
         private void ClearSpawned()
         {

@@ -38,6 +38,142 @@ namespace Game.Gameplay.Tests
             yield break;
         }
 
+        [UnityTest]
+        public IEnumerator OnMapReady_EqualScoresChooseOrdinalSocketName()
+        {
+            Fixture fixture = CreateFixture();
+
+            try
+            {
+                fixture.AddClosedSocket("W_00", new Vector3(-4f, 0f, 0f), Vector3.left);
+                fixture.AddClosedSocket("E_00", new Vector3(4f, 0f, 0f), Vector3.right);
+
+                fixture.Publish();
+
+                Assert.That(
+                    fixture.Gate.SpawnedFuseBoxes.Single().transform.position.x,
+                    Is.GreaterThan(0f));
+            }
+            finally
+            {
+                fixture.Dispose();
+            }
+
+            yield break;
+        }
+
+        [UnityTest]
+        public IEnumerator OnMapReady_NoClosedWallWarnsAndFallsBackToFuseAnchor()
+        {
+            Fixture fixture = CreateFixture();
+
+            try
+            {
+                LogAssert.Expect(
+                    LogType.Warning,
+                    "MapFuseGate could not resolve a closed wall for anchor 'Anchor_Fuse_00' " +
+                    "in module 'FuseRoom'; using the anchor fallback.");
+
+                fixture.Publish();
+
+                Assert.That(
+                    Vector3.Distance(
+                        fixture.Gate.SpawnedFuseBoxes.Single().transform.position,
+                        fixture.Anchor.position),
+                    Is.LessThan(0.01f));
+            }
+            finally
+            {
+                fixture.Dispose();
+            }
+
+            yield break;
+        }
+
+        [UnityTest]
+        public IEnumerator OnMapReady_ComposesRotationOffsetAfterFacingIntoRoom()
+        {
+            Fixture fixture = CreateFixture();
+
+            try
+            {
+                fixture.AddClosedSocket("N_00", new Vector3(0f, 0f, 4f), Vector3.forward);
+                fixture.SetMountSettings(0f, 0f, Vector3.zero, new Vector3(0f, 90f, 0f));
+
+                fixture.Publish();
+
+                Transform spawned = fixture.Gate.SpawnedFuseBoxes.Single().transform;
+                Quaternion expected = Quaternion.LookRotation(Vector3.back, Vector3.up) *
+                                      Quaternion.Euler(0f, 90f, 0f);
+                Assert.That(Quaternion.Angle(spawned.rotation, expected), Is.LessThan(0.01f));
+            }
+            finally
+            {
+                fixture.Dispose();
+            }
+
+            yield break;
+        }
+
+        [UnityTest]
+        public IEnumerator OnMapReady_AppliesOffsetInChosenWallFrame()
+        {
+            Fixture fixture = CreateFixture();
+
+            try
+            {
+                fixture.AddClosedSocket("N_00", new Vector3(0f, 0f, 4f), Vector3.forward);
+                fixture.SetMountSettings(0f, 0f, new Vector3(1f, 2f, 3f), Vector3.zero);
+
+                fixture.Publish();
+
+                Vector3 expected = new Vector3(-1f, 2f, 1f);
+                Assert.That(
+                    Vector3.Distance(
+                        fixture.Gate.SpawnedFuseBoxes.Single().transform.position,
+                        expected),
+                    Is.LessThan(0.01f));
+            }
+            finally
+            {
+                fixture.Dispose();
+            }
+
+            yield break;
+        }
+
+        [UnityTest]
+        public IEnumerator OnMapReady_RenderedVisualSitsAtHeightAndFlushWithWall()
+        {
+            Fixture fixture = CreateFixture();
+
+            try
+            {
+                Renderer wall = fixture.AddClosedSocket(
+                    "N_00",
+                    new Vector3(0f, 0f, 4f),
+                    Vector3.forward,
+                    addRenderer: true);
+                fixture.UseRenderedVisual(new Vector3(1f, 0.5f, 0.2f));
+                fixture.SetMountSettings(1.25f, 0.02f, Vector3.zero, Vector3.zero);
+
+                fixture.Publish();
+
+                Renderer visual = fixture.Gate.SpawnedFuseBoxes.Single()
+                    .GetComponentInChildren<Renderer>();
+                Assert.That(Mathf.Abs(visual.bounds.min.y - 1.25f), Is.LessThan(0.01f));
+                Assert.That(
+                    Mathf.Abs(visual.bounds.max.z - (wall.bounds.min.z - 0.02f)),
+                    Is.LessThan(0.01f));
+            }
+            finally
+            {
+                fixture.Dispose();
+            }
+
+            yield break;
+        }
+
         private static Fixture CreateFixture()
         {
             var mapRoot = new GameObject("MapFuseGateFixture_Map");
@@ -120,15 +256,54 @@ namespace Game.Gameplay.Tests
                 Gate = gate;
             }
 
-            public void AddClosedSocket(string suffix, Vector3 position, Vector3 outward)
+            public Renderer AddClosedSocket(
+                string suffix,
+                Vector3 position,
+                Vector3 outward,
+                bool addRenderer = false)
             {
                 Transform socket = NewModuleChild("Socket_" + suffix, position);
                 socket.rotation = Quaternion.LookRotation(outward, Vector3.up);
-                NewModuleChild("WallCap_" + suffix, position);
+
+                if (!addRenderer)
+                {
+                    NewModuleChild("WallCap_" + suffix, position);
+                    return null;
+                }
+
+                GameObject wall = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                wall.name = "WallCap_" + suffix;
+                wall.transform.SetParent(module.transform, false);
+                wall.transform.position = position;
+                wall.transform.rotation = socket.rotation;
+                wall.transform.localScale = new Vector3(4f, 3f, 0.2f);
+                return wall.GetComponent<Renderer>();
             }
 
             public void AddPortal(string suffix, Vector3 position) =>
                 NewModuleChild("Portal_" + suffix, position);
+
+            public void UseRenderedVisual(Vector3 size)
+            {
+                GameObject visual = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                visual.name = "Visual";
+                visual.transform.SetParent(visualPrefab.transform, false);
+                visual.transform.localScale = size;
+            }
+
+            public void SetMountSettings(
+                float height,
+                float clearance,
+                Vector3 offset,
+                Vector3 euler)
+            {
+                var serializedGate = new SerializedObject(Gate);
+                serializedGate.FindProperty("mountHeight").floatValue = height;
+                serializedGate.FindProperty("wallClearance").floatValue = clearance;
+                serializedGate.FindProperty("wallOffset").vector3Value = offset;
+                serializedGate.FindProperty("rotationOffsetEuler").vector3Value = euler;
+                serializedGate.ApplyModifiedPropertiesWithoutUndo();
+            }
 
             public void Publish()
             {
