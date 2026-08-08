@@ -2,6 +2,7 @@ using System;
 using Game.Core;
 using Game.Gameplay.Interaction;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 namespace Game.Gameplay.Objectives
 {
@@ -20,7 +21,7 @@ namespace Game.Gameplay.Objectives
     {
         [SerializeField, Tooltip("How many memory-sequence rounds this fuse requires (TGD section 33 default split: Fuse 1 = 1, Fuse 2 = 2, Fuse 3 = 3).")]
         private int roundsRequired = 1;
-        [SerializeField] private GameManager gameManager;
+        [SerializeField, FormerlySerializedAs("gameManager")] private GameFlowController gameFlow;
         [SerializeField] private ObjectiveManager objectiveManager;
         [SerializeField] private FuseMiniGameController miniGame;
 
@@ -48,9 +49,9 @@ namespace Game.Gameplay.Objectives
         // Registers immediately in addition to OnEnable, same defensive pattern as SafeZone/StalkPoint:
         // the editor scene builder creates this GameObject already active, so OnEnable can fire before
         // Bind() runs. Register() must therefore be idempotent, which ObjectiveManager guarantees.
-        public void Bind(GameManager manager, ObjectiveManager objectives, FuseMiniGameController miniGameController)
+        public void Bind(GameFlowController flow, ObjectiveManager objectives, FuseMiniGameController miniGameController)
         {
-            gameManager = manager;
+            gameFlow = flow;
             objectiveManager = objectives;
             miniGame = miniGameController;
             if (isActiveAndEnabled) objectiveManager.Register(this);
@@ -80,7 +81,7 @@ namespace Game.Gameplay.Objectives
             if (miniGame == null || miniGame.IsActive) return; // prompt section 17: only one fuse interaction at a time
 
             State = FuseBoxState.Active;
-            gameManager?.ChangeState(gameManager.FuseInteractionState);
+            gameFlow?.ChangeState(gameFlow.FuseInteractionState);
             OnInteractionStarted?.Invoke(transform.position);
 
             miniGame.Begin(roundsRequired, RoundsCompleted, name,
@@ -119,9 +120,9 @@ namespace Game.Gameplay.Objectives
 
         /// <summary>
         /// Shared "the player is no longer actively working this fuse" side effects. Guarded against
-        /// GameManager.DeathState (see chat — Unity MCP testing found the monster killing the player
+        /// GameFlowController.DeathState (see chat — Unity MCP testing found the monster killing the player
         /// mid-minigame, then SceneWiring force-cancelling the minigame via this same path, would
-        /// unconditionally shove GameManager straight back to ExplorationState immediately after Death
+        /// unconditionally shove GameFlowController straight back to ExplorationState immediately after Death
         /// had just been entered — silently un-killing the player from the game-flow's perspective).
         /// This is the one place that check belongs: FinishInteraction is the only code path that ever
         /// asks for Exploration, whether the fuse finished normally, was ESC-cancelled, or was
@@ -129,9 +130,9 @@ namespace Game.Gameplay.Objectives
         /// </summary>
         private void FinishInteraction()
         {
-            if (gameManager != null && gameManager.CurrentStateName != nameof(DeathState))
+            if (gameFlow != null && gameFlow.CurrentStateName != nameof(DeathState))
             {
-                gameManager.ChangeState(gameManager.ExplorationState);
+                gameFlow.ChangeState(gameFlow.ExplorationState);
             }
             OnInteractionStopped?.Invoke();
         }

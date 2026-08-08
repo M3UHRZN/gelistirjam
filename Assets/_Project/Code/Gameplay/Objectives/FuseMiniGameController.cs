@@ -8,14 +8,14 @@ namespace Game.Gameplay.Objectives
 {
     /// <summary>
     /// Generic 4-button memory-sequence minigame runner (Fuse Memory Minigame prompt, sections 7-14).
-    /// Deliberately knows nothing about FuseBox, ObjectiveManager, MonsterBrain, or GameManager — it
+    /// Deliberately knows nothing about FuseBox, ObjectiveManager, MonsterBrain, or GameFlowController — it
     /// only exposes Begin(...) with plain data + callbacks, so any future caller (not just fuses) could
     /// reuse it (prompt section 4/45: no hard-reference from the fuse system down into gameplay
     /// systems). A single shared instance lives in the scene; FuseBox.BeginInteract() is what actually
     /// calls Begin() and translates the outcome into fuse-specific state.
     ///
     /// State machine (prompt section 32, enum+coroutine rather than class-per-state — these states are
-    /// almost entirely timers/waiting, not rich individual behaviors like the Monster/GameManager
+    /// almost entirely timers/waiting, not rich individual behaviors like the Monster/GameFlowController
     /// FSMs, so a class-per-state split would just be ceremony without payoff — see chat):
     /// Idle -> ShowingSequence -> WaitingForInput -> (Correct -> next input | Wrong -> Penalty -> new
     /// sequence -> ShowingSequence) -> RoundComplete -> (more rounds -> ShowingSequence | FuseCompleted).
@@ -101,9 +101,9 @@ namespace Game.Gameplay.Objectives
         /// for the case found live via Unity MCP testing (see chat): the monster killing the player
         /// mid-minigame left the panel open, cursor unlocked, and the coroutine waiting forever for
         /// input that would never come, fighting visually with the death sequence (prompt section 27
-        /// explicitly warns against exactly this). The caller (SceneWiring, on GameManager entering
+        /// explicitly warns against exactly this). The caller (SceneWiring, on GameFlowController entering
         /// DeathState) is responsible for deciding *when* to call this — this class still knows nothing
-        /// about GameManager or death itself.
+        /// about GameFlowController or death itself.
         /// </summary>
         public void ForceCancel()
         {

@@ -140,11 +140,11 @@ namespace Game.Editor
             MonsterDebugGizmos gizmos = monster.AddComponent<MonsterDebugGizmos>();
             gizmos.Bind(brain);
 
-            GameObject gameManagerGO = new GameObject("GameManager");
-            gameManagerGO.SetActive(false); // Bind() before OnEnable — same pattern as the monster
-            GameManager gameManager = gameManagerGO.AddComponent<GameManager>();
-            gameManager.Bind(playerController); // TestPlayerController implements IPlayerControlGate
-            gameManagerGO.SetActive(true);
+            GameObject gameFlowGO = new GameObject("GameFlowController");
+            gameFlowGO.SetActive(false); // Bind() before OnEnable — same pattern as the monster
+            GameFlowController gameFlow = gameFlowGO.AddComponent<GameFlowController>();
+            gameFlow.Bind(playerController); // TestPlayerController implements IPlayerControlGate
+            gameFlowGO.SetActive(true);
 
             ObjectiveManager objectiveManager = debugRoot.AddComponent<ObjectiveManager>();
             objectiveManager.SetRequiredCount(3);
@@ -159,12 +159,12 @@ namespace Game.Editor
             // box shares Fuse Room A rather than new geometry — cheap to add, no new wall coordinates.
             // Round counts follow the Fuse Memory Minigame prompt's default split (Fuse 1/2/3 = 1/2/3
             // rounds, 6 total).
-            BuildFuseBox(level.transform, wallMat, new Vector3(21f, 1f, 17.5f), gameManager, objectiveManager, miniGame, 1);
-            BuildFuseBox(level.transform, wallMat, new Vector3(19.5f, 1f, 18.5f), gameManager, objectiveManager, miniGame, 2);
-            BuildFuseBox(level.transform, wallMat, new Vector3(21f, 1f, -3.5f), gameManager, objectiveManager, miniGame, 3);
+            BuildFuseBox(level.transform, wallMat, new Vector3(21f, 1f, 17.5f), gameFlow, objectiveManager, miniGame, 1);
+            BuildFuseBox(level.transform, wallMat, new Vector3(19.5f, 1f, 18.5f), gameFlow, objectiveManager, miniGame, 2);
+            BuildFuseBox(level.transform, wallMat, new Vector3(21f, 1f, -3.5f), gameFlow, objectiveManager, miniGame, 3);
 
             ExitController exitController = BuildExit(level.transform, wallMat, new Vector3(32f, 1f, 7f));
-            exitController.Bind(gameManager);
+            exitController.Bind(gameFlow);
 
             // Real runtime wiring lives in SceneWiring (a scene component), not here — C# event
             // subscriptions are never serialized by Unity, so setting them up only in this Editor
@@ -173,11 +173,11 @@ namespace Game.Editor
             // (Start, then DeadEnd); Ring and the East Wing stay lit until FinalChase kills everything.
             GameObject wiringGO = new GameObject("SceneWiring");
             SceneWiring sceneWiring = wiringGO.AddComponent<SceneWiring>();
-            sceneWiring.Bind(brain, gameManager, objectiveManager, exitController,
+            sceneWiring.Bind(brain, gameFlow, objectiveManager, exitController,
                 new[] { zoneStart, zoneDeadEnd, zoneEastWing, zoneRing }, config, miniGame);
 
             MonsterDebugHUD hud = debugRoot.AddComponent<MonsterDebugHUD>();
-            hud.Bind(brain, playerController, gameManager, objectiveManager);
+            hud.Bind(brain, playerController, gameFlow, objectiveManager);
 
             // Press R in Play Mode to instantly reload the scene (see chat — Editor Stop/Play was slow
             // and occasionally got stuck mid-transition during AI playtesting).
@@ -501,7 +501,7 @@ namespace Game.Editor
         }
 
         private static void BuildFuseBox(Transform parent, Material material, Vector3 position,
-            GameManager gameManager, ObjectiveManager objectiveManager, FuseMiniGameController miniGame,
+            GameFlowController gameFlow, ObjectiveManager objectiveManager, FuseMiniGameController miniGame,
             int roundsRequired)
         {
             GameObject go = GameObject.CreatePrimitive(PrimitiveType.Cube);
@@ -513,7 +513,7 @@ namespace Game.Editor
 
             FuseBox fuseBox = go.AddComponent<FuseBox>();
             fuseBox.SetRoundsRequired(roundsRequired);
-            fuseBox.Bind(gameManager, objectiveManager, miniGame);
+            fuseBox.Bind(gameFlow, objectiveManager, miniGame);
         }
 
         /// <summary>
