@@ -50,13 +50,21 @@ namespace Game.Gameplay.Monster
         /// </summary>
         public static float Score(StalkPoint point, Vector3 playerPosition, Vector3 predictedPlayerPosition,
             Vector3 playerFacing, Vector3 monsterPosition, PlayerVisionModel visionModel,
-            MonsterNavigator navigator, float visibilityRiskTolerance, Weights weights)
+            MonsterNavigator navigator, float visibilityRiskTolerance, Weights weights,
+            StalkPoint stickyPoint = null, float stickyBonus = 0f)
         {
             // "-Invalid" terms first — these are disqualifications, not penalties.
             if (navigator != null && !navigator.IsReachable(point.Position)) return float.NegativeInfinity;
 
             Vector3 position = point.Position;
             float score = 0f;
+
+            // Hysteresis: the point the monster is already committed to gets a flat bonus so a
+            // marginally-better candidate (a fraction of a point, from the player simply taking one
+            // more step) doesn't yank the destination away mid-approach every rescore tick. Without
+            // this a close scoring race between two candidates reads as the monster flip-flopping
+            // between two spots instead of committing to one (see chat).
+            if (stickyPoint != null && point == stickyPoint) score += stickyBonus;
 
             score += point.DarknessLevel * weights.Darkness;
             if (point.IsNearCorner) score += weights.Corner;
@@ -113,7 +121,8 @@ namespace Game.Gameplay.Monster
         public static StalkPoint PickBest(StalkPointRuntimeSet points, Vector3 playerPosition,
             Vector3 predictedPlayerPosition, Vector3 playerFacing, Vector3 monsterPosition,
             PlayerVisionModel visionModel, MonsterNavigator navigator, float visibilityRiskTolerance,
-            StalkPoint excluded = null, bool requireAmbushAllowed = false, float distanceWeightMultiplier = 1f)
+            StalkPoint excluded = null, bool requireAmbushAllowed = false, float distanceWeightMultiplier = 1f,
+            StalkPoint stickyPoint = null, float stickyBonus = 0f)
         {
             if (points == null) return null;
 
@@ -137,7 +146,8 @@ namespace Game.Gameplay.Monster
                 if (requireAmbushAllowed && !candidate.AmbushAllowed) continue;
 
                 float score = Score(candidate, playerPosition, predictedPlayerPosition, playerFacing,
-                    monsterPosition, visionModel, navigator, visibilityRiskTolerance, weights);
+                    monsterPosition, visionModel, navigator, visibilityRiskTolerance, weights,
+                    stickyPoint, stickyBonus);
 
                 if (float.IsNegativeInfinity(score)) continue; // "-Invalid"
                 if (score <= bestScore) continue;

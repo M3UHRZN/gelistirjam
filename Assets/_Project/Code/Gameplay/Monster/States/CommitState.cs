@@ -30,7 +30,10 @@ namespace Game.Gameplay.Monster
             // contradicts TGD section 19 ("her başarılı bakış +1") and guts design pillar 2.2,
             // "Information Has a Cost" (see chat). Anger is earned by gaze alone.
             lastTargetedPosition = brain.Player.position;
-            brain.Navigator.SetDestination(lastTargetedPosition);
+            // Validated, not raw: same wall-grinding risk as AggressiveState (see its Enter() comment)
+            // — Commit is entered at close range where the player's exact footing relative to the
+            // NavMesh edge matters even more.
+            brain.Navigator.TrySetValidatedDestination(lastTargetedPosition);
         }
 
         public void Tick(float deltaTime)
@@ -45,8 +48,11 @@ namespace Game.Gameplay.Monster
             // recompute constantly and shows up as visible micro-stutter.
             if (Vector3.Distance(lastTargetedPosition, brain.Player.position) > RetargetDistanceThreshold)
             {
-                lastTargetedPosition = brain.Player.position;
-                brain.Navigator.SetDestination(lastTargetedPosition);
+                Vector3 candidate = brain.Player.position;
+                if (brain.Navigator.TrySetValidatedDestination(candidate))
+                {
+                    lastTargetedPosition = candidate;
+                }
             }
         }
 

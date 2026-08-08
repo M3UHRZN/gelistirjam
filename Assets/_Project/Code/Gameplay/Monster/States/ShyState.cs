@@ -15,14 +15,16 @@ namespace Game.Gameplay.Monster
         private const float FaceTurnSpeed = 360f;
 
         private readonly MonsterBrain brain;
+        private readonly MonsterStaredownController staredown;
         private float fleeTimer;
         private bool wasGazedLastFrame;
-        private float staredownTimer;
-        private float staredownCheckTimer;
-        private bool isStaredown;
         private bool triedFakeRetreat;
 
-        public ShyState(MonsterBrain brain) => this.brain = brain;
+        public ShyState(MonsterBrain brain)
+        {
+            this.brain = brain;
+            staredown = new MonsterStaredownController(brain);
+        }
 
         public void Enter()
         {
@@ -34,9 +36,7 @@ namespace Game.Gameplay.Monster
             brain.Navigator.SetFleeDestinationAwayFrom(brain.Player.position, brain.Config.ShyFleeRadius);
             fleeTimer = brain.Config.ShyFleeDuration;
             wasGazedLastFrame = false;
-            staredownTimer = 0f;
-            staredownCheckTimer = 0f;
-            isStaredown = false;
+            staredown.Reset();
             triedFakeRetreat = false;
         }
 
@@ -49,29 +49,9 @@ namespace Game.Gameplay.Monster
             {
                 fleeTimer = brain.Config.ShyFleeDuration; // eye contact resets phase-2's timer
 
-                if (!isStaredown)
+                if (staredown.TickWhileGazed(deltaTime))
                 {
-                    staredownCheckTimer -= deltaTime;
-                    if (staredownCheckTimer <= 0f)
-                    {
-                        staredownCheckTimer = brain.Config.StaredownCheckInterval;
-                        if (Random.value < brain.Config.StaredownChance)
-                        {
-                            isStaredown = true;
-                            staredownTimer = 0f;
-                            brain.Navigator.Stop();
-                        }
-                    }
-                }
-
-                if (isStaredown)
-                {
-                    staredownTimer += deltaTime;
-                    if (staredownTimer >= brain.Config.StaredownAngerInterval)
-                    {
-                        brain.Anger.AddAnger(1);
-                        staredownTimer = 0f;
-                    }
+                    brain.Navigator.Stop();
                 }
             }
             else
@@ -80,16 +60,23 @@ namespace Game.Gameplay.Monster
                 {
                     // Only an actual stopped staredown can fuel the anger roll. Merely watching a
                     // retreating monster keeps it away; it should not turn every glance into a chase.
-                    if (isStaredown && Random.value < brain.Anger.AggroChance)
+                    if (staredown.IsActive)
                     {
-                        brain.ChangeState(brain.AggressiveState);
-                        return;
+                        float aggroChance = brain.ComputeAggressionProbability(followedStaredown: true);
+                        bool aggro = Random.value < aggroChance;
+                        brain.SetDecisionReason(aggro
+                            ? $"Aggressive: Shy staredown broken, aggro roll succeeded ({aggroChance:P0} chance)"
+                            : $"Shy continues: staredown broken, aggro roll failed ({aggroChance:P0} chance)");
+                        if (aggro)
+                        {
+                            brain.ChangeState(brain.AggressiveState);
+                            return;
+                        }
                     }
 
                     brain.Navigator.Resume();
                     brain.Navigator.SetFleeDestinationAwayFrom(brain.Player.position, brain.Config.ShyFleeRadius);
-                    isStaredown = false;
-                    staredownCheckTimer = 0f;
+                    staredown.EndStaredown();
                 }
                 else if (brain.Navigator.HasArrived)
                 {

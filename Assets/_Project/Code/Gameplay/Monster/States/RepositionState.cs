@@ -31,11 +31,16 @@ namespace Game.Gameplay.Monster
             // patient flank/ambush. Rolled once per reposition, not per re-score.
             if (Random.value < brain.Tuning.CutOffPreference)
             {
+                brain.SetDecisionReason($"CutOff: anger-stage roll ({brain.Tuning.CutOffPreference:P0} chance at {brain.Anger.Stage})");
                 brain.ChangeState(brain.CutOffState);
                 return;
             }
 
-            if (!TryRescore()) brain.ChangeState(brain.InterestedState);
+            if (!TryRescore())
+            {
+                brain.SetDecisionReason("Reposition->Interested: no valid StalkPoint candidate on entry");
+                brain.ChangeState(brain.InterestedState);
+            }
         }
 
         public void Tick(float deltaTime)
@@ -57,6 +62,7 @@ namespace Game.Gameplay.Monster
             {
                 // Every candidate went invalid (unreachable, or the player moved such that the whole
                 // set scores badly). Fall back to plain behind-stalking rather than standing still.
+                brain.SetDecisionReason("Reposition->Interested: every candidate went invalid on rescore");
                 brain.ChangeState(brain.InterestedState);
                 return;
             }
@@ -68,10 +74,12 @@ namespace Game.Gameplay.Monster
             // attempt to get lateral of the player's route without being spotted.
             if (targetPoint.AmbushAllowed && (targetPoint.IsDeadEnd || targetPoint.IsNearCorner))
             {
+                brain.SetDecisionReason($"Ambush: arrived at {targetPoint.name} (dead-end/corner, ambush-allowed)");
                 brain.ChangeState(brain.AmbushState);
             }
             else
             {
+                brain.SetDecisionReason($"Flank: arrived at {targetPoint.name} (not a legal ambush spot)");
                 brain.ChangeState(brain.FlankState);
             }
         }
@@ -104,7 +112,11 @@ namespace Game.Gameplay.Monster
                 brain.VisionModel,
                 brain.Navigator,
                 tuning.VisibilityRiskTolerance,
-                distanceWeightMultiplier: distanceWeightMultiplier);
+                distanceWeightMultiplier: distanceWeightMultiplier,
+                // Hysteresis (see chat): bias toward the point already targeted so a near-tied rescore
+                // doesn't yank the destination to a different candidate every RepositionInterval tick.
+                stickyPoint: targetPoint,
+                stickyBonus: brain.Config.RepositionStickyBonus);
 
             if (best == null) return false;
 

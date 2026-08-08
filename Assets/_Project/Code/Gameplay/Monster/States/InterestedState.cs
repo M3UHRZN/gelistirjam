@@ -30,7 +30,15 @@ namespace Game.Gameplay.Monster
             brain.Navigator.SetStalkDestinationBehind(brain.Player, StalkDistanceForCurrentFacing());
             wasGazedLastFrame = false;
             continuousStareSeconds = 0f;
-            repathTimer = 0f;
+            // Was 0f, which re-rolled the RepositionChance check on the very next Tick. That mattered
+            // most exactly when Interested is (re-)entered as the fallback from a failed
+            // Reposition/Flank/CutOff attempt — the monster would immediately try again, and if the
+            // same candidate set kept failing (e.g. the player is standing somewhere with no good
+            // StalkPoint nearby) it visibly bounced Interested<->Reposition every frame instead of
+            // just calmly stalking for a beat (see chat — reported as "state geçişlerinde bozukluk").
+            // Starting the timer at the normal interval still repaths immediately via the
+            // SetStalkDestinationBehind call above; it only delays the *next* reposition roll.
+            repathTimer = brain.Config.StalkRepathInterval;
         }
 
         public void Tick(float deltaTime)
@@ -68,7 +76,14 @@ namespace Game.Gameplay.Monster
             {
                 // Gaze just broke — decide the reaction (tutorial's IsStaringTooLong, blended with
                 // the wiki's anger-chance roll instead of a hard binary threshold).
-                bool aggro = Random.value < brain.Anger.AggroChance;
+                // Interested's freeze-and-stare-back is itself a held confrontation (every gaze here
+                // freezes the monster, unlike a passive glance), so this counts as "followed a
+                // staredown" for the multi-factor probability (MASTER_PROMPT.md section 28).
+                float aggroChance = brain.ComputeAggressionProbability(followedStaredown: true);
+                bool aggro = Random.value < aggroChance;
+                brain.SetDecisionReason(aggro
+                    ? $"Aggressive: gaze-break aggro roll succeeded ({aggroChance:P0} chance)"
+                    : $"Shy: gaze-break aggro roll failed ({aggroChance:P0} chance)");
                 brain.ChangeState(aggro ? brain.AggressiveState : brain.ShyState);
                 return;
             }
