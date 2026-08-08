@@ -3,6 +3,7 @@ using Game.Gameplay;
 using Game.Gameplay.Objectives;
 using Game.Gameplay.World;
 using Gloomveil.MapGeneration;
+using TMPro;
 using Unity.Cinemachine;
 using UnityEditor;
 using UnityEditor.SceneManagement;
@@ -45,9 +46,15 @@ namespace Game.Editor
 
             // Optional: a missing brain only costs the tablet's blend-duration override (MapFuseGate's
             // Bind contract), so this setup tool must not fail when the scene doesn't have one yet.
-            CinemachineBrain cinemachineBrain = Object.FindFirstObjectByType<CinemachineBrain>();
+            CinemachineBrain brain = Object.FindFirstObjectByType<CinemachineBrain>();
+            if (brain == null)
+            {
+                Debug.LogWarning("Setup Main Scene Fuse System: no CinemachineBrain in the scene. " +
+                                 "Fuses will still work, but the camera will cut instead of blending. " +
+                                 "Add a CinemachineBrain to PlayerCamera and re-run.");
+            }
 
-            fuseGate.Bind(registry, gameFlow, objectiveManager, miniGame, cinemachineBrain);
+            fuseGate.Bind(registry, gameFlow, objectiveManager, miniGame, brain);
             wiring.Bind(gameFlow, objectiveManager, mapExit, miniGame);
 
             EditorUtility.SetDirty(fuseGate);
@@ -86,11 +93,10 @@ namespace Game.Editor
             return go.AddComponent<MainSceneWiring>();
         }
 
-        // ---------- Fuse Mini Game UI (adapted from MonsterAITestSceneBuilder.BuildFuseMiniGameUI —
-        // see chat: same "Bruised Industrial" panel, legacy UnityEngine.UI.Text (no TextMeshPro
-        // package installed), coroutine-driven feedback (no DOTween installed). Kept as a separate
-        // copy rather than a shared utility so this additive setup never risks the test scene's
-        // from-scratch builder, and vice versa. ----------
+        // ---------- Fuse Mini Game UI. Builds the world-space canvas the minigame parents onto each
+        // tablet's screen anchor, plus the screen-space crosshair overlay. TextMeshPro labels (legacy
+        // Text is unreadable at world-space scale) and coroutine-driven button feedback; DOTween is
+        // used only for the tablet lever, in FuseTabletPresenter. ----------
 
         private static FuseMiniGameController EnsureFuseMiniGameUI()
         {
@@ -106,62 +112,49 @@ namespace Game.Editor
 
             GameObject canvasGO = new GameObject("FuseMiniGameCanvas");
             Canvas canvas = canvasGO.AddComponent<Canvas>();
-            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-            CanvasScaler scaler = canvasGO.AddComponent<CanvasScaler>();
-            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-            scaler.referenceResolution = new Vector2(1920f, 1080f);
-            scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
-            scaler.matchWidthOrHeight = 0.5f;
-            canvasGO.AddComponent<GraphicRaycaster>();
-
-            Font uiFont = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-
-            GameObject overlayGO = NewUIObject("DarkenOverlay", canvasGO.transform);
-            StretchFull(overlayGO);
-            Image overlayImage = overlayGO.AddComponent<Image>();
-            overlayImage.color = new Color(0f, 0f, 0f, 1f);
-            CanvasGroup overlayGroup = overlayGO.AddComponent<CanvasGroup>();
-            overlayGroup.alpha = 0f;
-            overlayGroup.blocksRaycasts = false;
-            overlayGroup.interactable = false;
+            canvas.renderMode = RenderMode.WorldSpace;
+            RectTransform canvasRect = canvasGO.GetComponent<RectTransform>();
+            canvasRect.sizeDelta = new Vector2(400f, 300f);
+            canvasGO.transform.localScale = Vector3.one * 0.0012f;
+            GraphicRaycaster raycaster = canvasGO.AddComponent<GraphicRaycaster>();
 
             GameObject panelGO = NewUIObject("FusePanel", canvasGO.transform);
             RectTransform panelRect = panelGO.GetComponent<RectTransform>();
-            panelRect.anchorMin = panelRect.anchorMax = new Vector2(0.5f, 0.5f);
-            panelRect.pivot = new Vector2(0.5f, 0.5f);
-            panelRect.sizeDelta = new Vector2(560f, 360f);
-            panelRect.anchoredPosition = Vector2.zero;
+            panelRect.anchorMin = Vector2.zero;
+            panelRect.anchorMax = Vector2.one;
+            panelRect.offsetMin = Vector2.zero;
+            panelRect.offsetMax = Vector2.zero;
             Image panelBg = panelGO.AddComponent<Image>();
             panelBg.color = new Color(0.10f, 0.10f, 0.11f, 0.95f);
             CanvasGroup panelGroup = panelGO.AddComponent<CanvasGroup>();
             panelGroup.alpha = 0f;
 
-            Text progressText = NewText("ProgressText", panelGO.transform, uiFont, 22, TextAnchor.UpperCenter, new Color(0.78f, 0.82f, 0.85f));
+            TMP_Text progressText = NewLabel("ProgressText", panelGO.transform, 18f, TextAlignmentOptions.Top, new Color(0.78f, 0.82f, 0.85f));
             RectTransform progressRect = progressText.GetComponent<RectTransform>();
             progressRect.anchorMin = new Vector2(0f, 1f);
             progressRect.anchorMax = new Vector2(1f, 1f);
             progressRect.pivot = new Vector2(0.5f, 1f);
-            progressRect.sizeDelta = new Vector2(-40f, 60f);
-            progressRect.anchoredPosition = new Vector2(0f, -20f);
+            progressRect.sizeDelta = new Vector2(-20f, 48f);
+            progressRect.anchoredPosition = new Vector2(0f, -10f);
 
-            Text statusText = NewText("StatusText", panelGO.transform, uiFont, 20, TextAnchor.MiddleCenter, new Color(0.95f, 0.75f, 0.2f));
+            TMP_Text statusText = NewLabel("StatusText", panelGO.transform, 16f, TextAlignmentOptions.Center, new Color(0.95f, 0.75f, 0.2f));
             RectTransform statusRect = statusText.GetComponent<RectTransform>();
             statusRect.anchorMin = new Vector2(0f, 0f);
             statusRect.anchorMax = new Vector2(1f, 0f);
             statusRect.pivot = new Vector2(0.5f, 0f);
-            statusRect.sizeDelta = new Vector2(-40f, 40f);
-            statusRect.anchoredPosition = new Vector2(0f, 24f);
+            statusRect.sizeDelta = new Vector2(-20f, 32f);
+            statusRect.anchoredPosition = new Vector2(0f, 14f);
 
             GameObject buttonGridGO = NewUIObject("ButtonGrid", panelGO.transform);
             RectTransform buttonGridRect = buttonGridGO.GetComponent<RectTransform>();
             buttonGridRect.anchorMin = new Vector2(0.5f, 0.5f);
             buttonGridRect.anchorMax = new Vector2(0.5f, 0.5f);
             buttonGridRect.pivot = new Vector2(0.5f, 0.5f);
-            buttonGridRect.sizeDelta = new Vector2(232f, 232f);
+            buttonGridRect.sizeDelta = new Vector2(180f, 180f);
             buttonGridRect.anchoredPosition = new Vector2(0f, -10f);
             GridLayoutGroup layout = buttonGridGO.AddComponent<GridLayoutGroup>();
-            layout.cellSize = new Vector2(108f, 108f);
-            layout.spacing = new Vector2(16f, 16f);
+            layout.cellSize = new Vector2(82f, 82f);
+            layout.spacing = new Vector2(12f, 12f);
             layout.childAlignment = TextAnchor.MiddleCenter;
             layout.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
             layout.constraintCount = 2;
@@ -180,9 +173,33 @@ namespace Game.Editor
                 buttonImages[i] = image;
             }
 
+            GameObject crosshairCanvasGO = new GameObject("FuseCrosshairCanvas");
+            Canvas crosshairCanvas = crosshairCanvasGO.AddComponent<Canvas>();
+            crosshairCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
+            crosshairCanvas.sortingOrder = 100;
+            CanvasScaler crosshairScaler = crosshairCanvasGO.AddComponent<CanvasScaler>();
+            crosshairScaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+            crosshairScaler.referenceResolution = new Vector2(1920f, 1080f);
+
+            GameObject crosshairGO = NewUIObject("Crosshair", crosshairCanvasGO.transform);
+            RectTransform crosshairRect = crosshairGO.GetComponent<RectTransform>();
+            crosshairRect.anchorMin = crosshairRect.anchorMax = new Vector2(0.5f, 0.5f);
+            crosshairRect.pivot = new Vector2(0.5f, 0.5f);
+            crosshairRect.sizeDelta = new Vector2(8f, 8f);
+            crosshairRect.anchoredPosition = Vector2.zero;
+            Image crosshairImage = crosshairGO.AddComponent<Image>();
+            crosshairImage.color = new Color(0.95f, 0.95f, 0.95f, 0.85f);
+            crosshairImage.raycastTarget = false;
+            crosshairCanvasGO.SetActive(false);
+
+            GameObject pointerGO = new GameObject("FuseScreenPointer");
+            FuseScreenPointer pointer = pointerGO.AddComponent<FuseScreenPointer>();
+            pointer.Bind(raycaster);
+
             GameObject controllerGO = new GameObject("FuseMiniGameController");
             FuseMiniGameController controller = controllerGO.AddComponent<FuseMiniGameController>();
-            BindFuseMiniGameController(controller, panelGO, overlayGroup, panelGroup, progressText, statusText, buttons, buttonImages);
+            BindFuseMiniGameController(controller, canvas, panelGO, panelGroup, crosshairCanvasGO, pointer,
+                progressText, statusText, buttons, buttonImages);
 
             return controller;
         }
@@ -194,35 +211,29 @@ namespace Game.Editor
             return go;
         }
 
-        private static void StretchFull(GameObject go)
-        {
-            RectTransform rect = go.GetComponent<RectTransform>();
-            rect.anchorMin = Vector2.zero;
-            rect.anchorMax = Vector2.one;
-            rect.offsetMin = Vector2.zero;
-            rect.offsetMax = Vector2.zero;
-        }
-
-        private static Text NewText(string name, Transform parent, Font font, int fontSize, TextAnchor alignment, Color color)
+        private static TMP_Text NewLabel(string name, Transform parent, float fontSize,
+            TextAlignmentOptions alignment, Color color)
         {
             GameObject go = NewUIObject(name, parent);
-            Text text = go.AddComponent<Text>();
-            text.font = font;
+            TextMeshProUGUI text = go.AddComponent<TextMeshProUGUI>();
             text.fontSize = fontSize;
             text.alignment = alignment;
             text.color = color;
             text.text = string.Empty;
+            text.enableWordWrapping = false;
             return text;
         }
 
-        private static void BindFuseMiniGameController(FuseMiniGameController controller, GameObject panelRoot,
-            CanvasGroup darkenOverlay, CanvasGroup panelGroup, Text progressText, Text statusText,
-            Button[] buttons, Image[] buttonImages)
+        private static void BindFuseMiniGameController(FuseMiniGameController controller, Canvas worldCanvas,
+            GameObject panelRoot, CanvasGroup panelGroup, GameObject crosshairRoot, FuseScreenPointer pointer,
+            TMP_Text progressText, TMP_Text statusText, Button[] buttons, Image[] buttonImages)
         {
             SerializedObject so = new SerializedObject(controller);
+            so.FindProperty("worldCanvas").objectReferenceValue = worldCanvas;
             so.FindProperty("panelRoot").objectReferenceValue = panelRoot;
-            so.FindProperty("darkenOverlay").objectReferenceValue = darkenOverlay;
             so.FindProperty("panelGroup").objectReferenceValue = panelGroup;
+            so.FindProperty("crosshairRoot").objectReferenceValue = crosshairRoot;
+            so.FindProperty("pointer").objectReferenceValue = pointer;
             so.FindProperty("progressText").objectReferenceValue = progressText;
             so.FindProperty("statusText").objectReferenceValue = statusText;
 

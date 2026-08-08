@@ -92,7 +92,7 @@ namespace Game.Gameplay.Objectives
             OnInteractionStarted?.Invoke(transform.position);
             viewPresenter?.Activate();
 
-            miniGame.Begin(roundsRequired, RoundsCompleted, name,
+            miniGame.Begin(roundsRequired, RoundsCompleted, name, viewPresenter?.ScreenAnchor,
                 onRoundComplete: HandleRoundComplete,
                 onFullyComplete: HandleFullyComplete,
                 onCancelled: HandleCancelled);
