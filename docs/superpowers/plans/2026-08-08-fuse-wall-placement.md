@@ -192,7 +192,7 @@ public IEnumerator OnMapReady_RenderedVisualSitsAtHeightAndFlushWithWall()
 
 Use `UnityEditor.SerializedObject` inside the fixture to set `mountHeight`, `wallClearance`, `wallOffset`, and `rotationOffsetEuler`. Assert world position/rotation from `SpawnedFuseBoxes.Single().transform`; use `Mathf.DeltaAngle` and a `0.01f` positional tolerance.
 
-- [ ] **Step 2: Run the four tests and verify RED**
+- [ ] **Step 2: Run the five tests and verify RED**
 
 Run the five named `MapFuseGateTests` through Unity Test Runner/MCP.
 
