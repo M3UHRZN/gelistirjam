@@ -20,7 +20,11 @@ Kapsam içi:
 
 Kapsam dışı (bilinçli olarak):
 
-- Fener pili — TGD'de pil mekaniği yok, uydurmuyoruz
+- Fener pili — TGD'de pil mekaniği yok. Bu HUD işinin kapsamı dışında, ama tasarım kararı olarak
+  reddedilmiş de değil: zaman kalırsa sonradan eklenebilir. Eklendiğinde HUD tarafında maliyeti
+  `FlashlightWidget`'a bir doluluk barı eklemek ya da yanına ikinci bir widget koymaktır; hiyerarşi,
+  hareket modeli veya assembly düzeni değişmez (bkz. 3.4 — widget başına bileşen yaklaşımının
+  satın aldığı şey tam olarak budur)
 - Can barı / hasar göstergesi — TGD'de HP yok, saldırı tek vuruşta öldürür
 - Monster yakınlık göstergesi (kalp atışı, vinyet) — TGD bölüm 11'in "doğrudan kovalamaz, görüş
   dışında stalk eder" tasarımını doğrudan zayıflatır; ayrı bir tasarım tartışması gerektirir
