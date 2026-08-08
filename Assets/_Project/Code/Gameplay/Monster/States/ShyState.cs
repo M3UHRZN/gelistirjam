@@ -20,6 +20,7 @@ namespace Game.Gameplay.Monster
         private float staredownTimer;
         private float staredownCheckTimer;
         private bool isStaredown;
+        private bool triedFakeRetreat;
 
         public ShyState(MonsterBrain brain) => this.brain = brain;
 
@@ -36,11 +37,12 @@ namespace Game.Gameplay.Monster
             staredownTimer = 0f;
             staredownCheckTimer = 0f;
             isStaredown = false;
+            triedFakeRetreat = false;
         }
 
         public void Tick(float deltaTime)
         {
-            bool gazedNow = brain.IsGazedAtNow;
+            bool gazedNow = brain.IsGazeConfirmed;
             brain.Navigator.FaceTowards(brain.Player.position, FaceTurnSpeed, deltaTime);
 
             if (gazedNow)
@@ -95,6 +97,21 @@ namespace Game.Gameplay.Monster
                 }
 
                 fleeTimer -= deltaTime;
+
+                // TGD section 12: at the flee timer's midpoint, unobserved, there's a chance of
+                // doubling back (FakeRetreat) instead of always calmly returning to Patrol.
+                if (!triedFakeRetreat && fleeTimer <= brain.Config.ShyFleeDuration * 0.5f)
+                {
+                    triedFakeRetreat = true;
+                    // Scaled by anger bracket (TGD section 20: "daha fazla fake retreat" at 9+).
+                    float fakeRetreatChance = brain.Config.FakeRetreatChance * brain.Tuning.FakeRetreatChanceMultiplier;
+                    if (Random.value < fakeRetreatChance)
+                    {
+                        brain.ChangeState(brain.FakeRetreatState);
+                        return;
+                    }
+                }
+
                 if (fleeTimer <= 0f)
                 {
                     brain.ChangeState(brain.PatrolState);

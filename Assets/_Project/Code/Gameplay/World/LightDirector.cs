@@ -20,11 +20,11 @@ namespace Game.Gameplay.World
             nextIndexToShutdown = 0;
         }
 
-        /// <summary>Called once per completed fuse — shuts down the next zone in the configured order.</summary>
+        /// <summary>Called once per completed fuse — flickers (TGD section 31: warning, not an instant cut) then shuts down the next zone in the configured order.</summary>
         public void OnFuseCompleted()
         {
             if (nextIndexToShutdown >= zonesToShutdown.Count) return;
-            zonesToShutdown[nextIndexToShutdown].SetActive(false);
+            zonesToShutdown[nextIndexToShutdown].Flicker();
             nextIndexToShutdown++;
         }
 

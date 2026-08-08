@@ -23,6 +23,14 @@ namespace Game.Gameplay.Objectives
         public FuseBoxState State { get; private set; } = FuseBoxState.Incomplete;
         public event Action OnCompleted;
 
+        /// <summary>
+        /// Raised when the player begins/ends working a fuse (TGD section 36 — the monster must be
+        /// aware of fuse interactions and react, not just "player control is locked"). Args carry this
+        /// box's world position so a listener doesn't need a separate lookup.
+        /// </summary>
+        public event Action<Vector3> OnInteractionStarted;
+        public event Action OnInteractionStopped;
+
         public bool CanInteract => State == FuseBoxState.Incomplete;
         public string InteractionPrompt => "Hold E to activate fuse";
         public float HoldProgress01 => Mathf.Clamp01(holdProgress / holdDurationSeconds);
@@ -63,6 +71,7 @@ namespace Game.Gameplay.Objectives
             State = FuseBoxState.Active;
             holdProgress = 0f;
             gameManager?.ChangeState(gameManager.FuseInteractionState);
+            OnInteractionStarted?.Invoke(transform.position);
         }
 
         public void EndInteract()
@@ -80,6 +89,7 @@ namespace Game.Gameplay.Objectives
             }
 
             gameManager?.ChangeState(gameManager.ExplorationState);
+            OnInteractionStopped?.Invoke();
         }
 
         private void Update()

@@ -58,6 +58,11 @@ namespace Game.Gameplay
             objectiveManager.OnAnyFuseCompleted += lightDirector.OnFuseCompleted;
             objectiveManager.OnAllComplete += exitController.Open;
 
+            // TGD section 36: the monster must be aware of fuse interactions, not just that player
+            // control is locked. See FuseBox.OnInteractionStarted/Stopped -> ObjectiveManager forward.
+            objectiveManager.OnFuseInteractionStarted += position => brain.SetFuseAwareness(true, position);
+            objectiveManager.OnFuseInteractionStopped += () => brain.SetFuseAwareness(false, Vector3.zero);
+
             // FinalChase (TGD section 38): kill the remaining lights and force a guaranteed,
             // relentless chase — see MonsterBrain.IsRelentless for why Anger alone isn't enough.
             gameManager.OnStateChanged += stateName =>
