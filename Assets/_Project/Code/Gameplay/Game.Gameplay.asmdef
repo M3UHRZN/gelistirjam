@@ -5,7 +5,9 @@
         "Game.Core",
         "Unity.InputSystem",
         "Gloomveil.MapGeneration",
-        "UnityEngine.UI"
+        "UnityEngine.UI",
+        "Unity.Cinemachine",
+        "Unity.TextMeshPro"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

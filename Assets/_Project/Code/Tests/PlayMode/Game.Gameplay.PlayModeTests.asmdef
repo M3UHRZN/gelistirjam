@@ -5,7 +5,11 @@
     "Game.Gameplay",
     "Game.Core",
     "Gloomveil.MapGeneration",
-    "Unity.AI.Navigation"
+    "Unity.AI.Navigation",
+    "Unity.Cinemachine",
+    "UnityEngine.UI",
+    "Unity.TextMeshPro",
+    "Unity.InputSystem"
   ],
   "defineConstraints": [
     "UNITY_EDITOR"
