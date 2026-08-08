@@ -3,8 +3,10 @@ using System.Collections;
 using Game.Core;
 using Game.Gameplay.Objectives;
 using NUnit.Framework;
+using UnityEditor;
 using UnityEngine;
 using UnityEngine.TestTools;
+using UnityEngine.UI;
 
 namespace Game.Gameplay.Tests
 {
@@ -17,15 +19,10 @@ namespace Game.Gameplay.Tests
 
             try
             {
-                // The fixture's minigame has no UI wired, so Begin() fails ValidateConfiguration and
-                // invokes onCancelled synchronously, inside this same call, before BeginInteract()
-                // returns — Activate() (called just before miniGame.Begin) still fires exactly once,
-                // which is what this test verifies. Deactivate-on-cancel is Cancel_DeactivatesWithout
-                // PlayingCompletion's job below, not this one's.
-                LogAssert.Expect(LogType.Error, "[FuseMiniGameController] Missing required references (buttons/panel) — cannot start. See Inspector.");
                 fixture.Box.BeginInteract();
 
                 Assert.That(fixture.Presenter.ActivateCount, Is.EqualTo(1));
+                Assert.That(fixture.Presenter.DeactivateCount, Is.EqualTo(0));
             }
             finally
             {
@@ -35,6 +32,14 @@ namespace Game.Gameplay.Tests
             yield break;
         }
 
+        /// <summary>
+        /// A genuine in-flight cancel (ForceCancel while RunFuse is mid-coroutine, waiting on the
+        /// player), not the ValidateConfiguration bail-out surrogate this suite used before the fixture
+        /// wired a valid minigame UI — that surrogate exercised a real but differently-named path (see
+        /// code review on this task: label vs. coverage mismatch). With a valid panel/buttons, Begin()
+        /// actually starts RunFuse, so BeginInteract() returns while the coroutine is suspended
+        /// (IsActive == true) and ForceCancel() has a real window to act in.
+        /// </summary>
         [UnityTest]
         public IEnumerator Cancel_DeactivatesWithoutPlayingCompletion()
         {
@@ -42,10 +47,9 @@ namespace Game.Gameplay.Tests
 
             try
             {
-                LogAssert.Expect(LogType.Error, "[FuseMiniGameController] Missing required references (buttons/panel) — cannot start. See Inspector.");
                 fixture.Box.BeginInteract();
                 fixture.MiniGame.ForceCancel();
-                yield return null;
+                yield return WaitUntilInactive(fixture.MiniGame);
 
                 Assert.That(fixture.Presenter.CompletionCount, Is.EqualTo(0));
                 Assert.That(fixture.Presenter.DeactivateCount, Is.EqualTo(1));
@@ -57,6 +61,18 @@ namespace Game.Gameplay.Tests
             }
         }
 
+        /// <summary>
+        /// The regression test for this task's guard fix (see FuseBox.FinishInteraction's doc comment).
+        /// Pins the fix by construction: the flow is forced into FinalChaseState (standing in for "the
+        /// last fuse opened the exit") strictly *between* BeginInteract() and the cancel resolving, then
+        /// ForceCancel() runs a real async cancel (IsActive only flips false once RunFuse's coroutine
+        /// actually unwinds through ClosePanel/onCancelled — this is not the synchronous
+        /// ValidateConfiguration bail-out, so there is a genuine multi-frame window here). Against the
+        /// pre-fix `CurrentStateName != nameof(DeathState)` guard this fails (FinalChaseState != Death
+        /// is true, so it gets stomped back to ExplorationState); against the corrected
+        /// `CurrentStateName == nameof(FuseInteractionState)` guard it passes. Verified both ways live
+        /// via Unity MCP — see task-5-report.md's fix report.
+        /// </summary>
         [UnityTest]
         public IEnumerator FinishInteraction_DoesNotLeaveFinalChase()
         {
@@ -64,15 +80,16 @@ namespace Game.Gameplay.Tests
 
             try
             {
-                LogAssert.Expect(LogType.Error, "[FuseMiniGameController] Missing required references (buttons/panel) — cannot start. See Inspector.");
                 fixture.Box.BeginInteract();
+                Assert.That(fixture.GameFlow.CurrentStateName, Is.EqualTo(nameof(FuseInteractionState)));
+                Assert.That(fixture.MiniGame.IsActive, Is.True);
 
                 // Stand in for "the last fuse opened the exit": something else moved the flow on
                 // while the fuse was finishing.
                 fixture.GameFlow.ChangeState(fixture.GameFlow.FinalChaseState);
 
                 fixture.MiniGame.ForceCancel();
-                yield return null;
+                yield return WaitUntilInactive(fixture.MiniGame);
 
                 Assert.That(fixture.GameFlow.CurrentStateName, Is.EqualTo(nameof(FinalChaseState)));
             }
@@ -82,6 +99,12 @@ namespace Game.Gameplay.Tests
             }
         }
 
+        /// <summary>
+        /// Happy-path coverage only: FuseInteractionState != DeathState was already true under the
+        /// pre-fix guard, so this scenario can't tell the old and new guards apart (that's
+        /// FinishInteraction_DoesNotLeaveFinalChase's job, above). This test exists to confirm the
+        /// ordinary "cancel out of an in-progress fuse" case still lands back in Exploration.
+        /// </summary>
         [UnityTest]
         public IEnumerator FinishInteraction_ReturnsToExplorationFromFuseInteraction()
         {
@@ -89,17 +112,11 @@ namespace Game.Gameplay.Tests
 
             try
             {
-                // As above: the fixture's unconfigured minigame bails synchronously inside Begin(), so
-                // FinishInteraction() (and its FuseInteractionState -> ExplorationState transition) has
-                // already run by the time BeginInteract() returns — there is no observable intermediate
-                // "still in FuseInteractionState" moment to assert on here. ForceCancel()/yield below is
-                // then a no-op (documents intent, stays correct once Task 6 wires real UI); the outcome
-                // this test protects — landing back in ExplorationState, not stuck elsewhere — still holds.
-                LogAssert.Expect(LogType.Error, "[FuseMiniGameController] Missing required references (buttons/panel) — cannot start. See Inspector.");
                 fixture.Box.BeginInteract();
+                Assert.That(fixture.GameFlow.CurrentStateName, Is.EqualTo(nameof(FuseInteractionState)));
 
                 fixture.MiniGame.ForceCancel();
-                yield return null;
+                yield return WaitUntilInactive(fixture.MiniGame);
 
                 Assert.That(fixture.GameFlow.CurrentStateName, Is.EqualTo(nameof(ExplorationState)));
             }
@@ -107,6 +124,22 @@ namespace Game.Gameplay.Tests
             {
                 fixture.Dispose();
             }
+        }
+
+        /// <summary>
+        /// Pumps frames until the minigame coroutine has actually unwound (RunFuse's Cancelled branch
+        /// calls ClosePanel then sets IsActive = false before invoking onCancelled), rather than
+        /// assuming one frame is always enough. Fails loudly instead of hanging if it never resolves.
+        /// </summary>
+        private static IEnumerator WaitUntilInactive(FuseMiniGameController miniGame, int maxFrames = 30)
+        {
+            for (int i = 0; i < maxFrames; i++)
+            {
+                if (!miniGame.IsActive) yield break;
+                yield return null;
+            }
+
+            Assert.Fail($"FuseMiniGameController was still active after {maxFrames} frames following ForceCancel().");
         }
 
         private static Fixture CreateFixture()
@@ -119,6 +152,7 @@ namespace Game.Gameplay.Tests
 
             var miniGameObject = new GameObject("FuseBoxPresenterFixture_MiniGame");
             FuseMiniGameController miniGame = miniGameObject.AddComponent<FuseMiniGameController>();
+            WireMinimalValidUi(miniGame, miniGameObject.transform);
 
             var boxObject = new GameObject("FuseBoxPresenterFixture_Box", typeof(BoxCollider));
             FuseBox box = boxObject.AddComponent<FuseBox>();
@@ -128,6 +162,57 @@ namespace Game.Gameplay.Tests
 
             return new Fixture(gameFlowObject, objectivesObject, miniGameObject, boxObject,
                 gameFlow, miniGame, box, presenter);
+        }
+
+        /// <summary>
+        /// Wires just enough UI for FuseMiniGameController.ValidateConfiguration() to pass — a panel
+        /// GameObject and 4 distinct Button/Image pairs — so Begin() actually starts the RunFuse
+        /// coroutine instead of bailing synchronously (see chat: code review on this task found the
+        /// suite's earlier reliance on that synchronous bail-out left the guard fix unpinned). No Canvas
+        /// or EventSystem: nothing here simulates a real pointer click, only ForceCancel()/timeouts, so
+        /// raycasting infrastructure would be unused weight. darkenOverlay/panelGroup are left unbound
+        /// (both null-checked in FuseMiniGameController) so no CanvasGroup fades run; fadeDuration is
+        /// zeroed anyway for defence if that ever changes.
+        ///
+        /// One known gap: because this uses AddComponent&lt;FuseMiniGameController&gt;() on an already-
+        /// active GameObject, Awake() (which wires each button's onClick listener) has already run by
+        /// the time these fields are assigned below, so the buttons' onClick listeners are never
+        /// connected. That only matters for tests that simulate the player pressing a button — none of
+        /// these do; every test here drives the flow through ForceCancel().
+        /// </summary>
+        private static void WireMinimalValidUi(FuseMiniGameController miniGame, Transform parent)
+        {
+            var panel = new GameObject("Panel", typeof(RectTransform));
+            panel.transform.SetParent(parent, false);
+
+            var buttons = new Button[4];
+            var images = new Image[4];
+            for (int i = 0; i < 4; i++)
+            {
+                var buttonObject = new GameObject("Button_" + i, typeof(RectTransform));
+                buttonObject.transform.SetParent(panel.transform, false);
+                Image image = buttonObject.AddComponent<Image>();
+                Button button = buttonObject.AddComponent<Button>();
+                button.targetGraphic = image;
+                buttons[i] = button;
+                images[i] = image;
+            }
+
+            var serialized = new SerializedObject(miniGame);
+            serialized.FindProperty("panelRoot").objectReferenceValue = panel;
+
+            SerializedProperty buttonsProp = serialized.FindProperty("buttons");
+            SerializedProperty imagesProp = serialized.FindProperty("buttonImages");
+            buttonsProp.arraySize = buttons.Length;
+            imagesProp.arraySize = images.Length;
+            for (int i = 0; i < buttons.Length; i++)
+            {
+                buttonsProp.GetArrayElementAtIndex(i).objectReferenceValue = buttons[i];
+                imagesProp.GetArrayElementAtIndex(i).objectReferenceValue = images[i];
+            }
+
+            serialized.FindProperty("fadeDuration").floatValue = 0f;
+            serialized.ApplyModifiedPropertiesWithoutUndo();
         }
 
         /// <summary>
