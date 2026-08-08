@@ -86,7 +86,7 @@ MonoBehaviour:
     canonicalDepthUnits: 1
     corridorShape: 1
     allowedRoomRoles: 0
-    prefab: {fileID: 3857330811905544057, guid: 90d72b40fe8afdb49bc29b3b7b44a1bf, type: 3}
+    prefab: {fileID: 8576587005111465061, guid: b27c52af155f7f04284f6b0c4b21b17a, type: 3}
     weight: 1
     allowQuarterTurns: 1
     usesDynamicSockets: 0
