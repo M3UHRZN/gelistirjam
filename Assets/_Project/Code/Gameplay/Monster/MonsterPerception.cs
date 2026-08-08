@@ -25,9 +25,51 @@ namespace Game.Gameplay.Monster
         [SerializeField, Tooltip("Component implementing IPlayerVelocitySource (the player rig).")]
         private MonoBehaviour velocitySourceBehaviour;
 
+        [Header("Prediction Confidence")]
+        [SerializeField, Tooltip("How quickly PredictionConfidence reacts to a direction change (higher = faster). Prompt section 18: 'stronger prediction when movement is stable, weaker when the player stops/turns/near a junction'.")]
+        private float directionStabilitySmoothing = 6f;
+        [SerializeField, Range(0f, 1f), Tooltip("PredictedPlayerPosition's time horizon is scaled by Lerp(this, 1, confidence) — never drops to a flat 'predict nothing' even right after a sharp turn, just leans less far ahead.")]
+        private float minPredictionHorizonMultiplier = 0.25f;
+
+        private Vector3 lastVelocityDirection;
+        private float directionStability = 1f;
+
         private IPlayerVelocitySource cachedVelocitySource;
         private IPlayerVelocitySource VelocitySource =>
             cachedVelocitySource ??= velocitySourceBehaviour as IPlayerVelocitySource;
+
+        /// <summary>
+        /// 0..1, 1 = the player has been moving in a consistent direction, 0 = they just changed
+        /// direction sharply. Tracked here (not read on-demand) because it needs a running history of
+        /// the velocity vector across frames, not a snapshot. Feeds PredictedPlayerPosition's horizon
+        /// scaling; also useful for debug display.
+        /// </summary>
+        public float PredictionConfidence => directionStability;
+
+        private void Update()
+        {
+            IPlayerVelocitySource source = VelocitySource;
+            if (source == null) return;
+
+            Vector3 velocity = source.Velocity;
+            velocity.y = 0f;
+
+            // Below walking-noise speed the direction is meaningless (a nearly-stopped player's
+            // heading jitters) — hold the last known stability instead of feeding noise into it.
+            if (velocity.sqrMagnitude < 0.04f) return;
+
+            Vector3 direction = velocity.normalized;
+            if (lastVelocityDirection.sqrMagnitude > 0.0001f)
+            {
+                // 0 (no change) .. 1 (90 degrees or more — a real direction change, not drift).
+                float instability = Mathf.Clamp01(Vector3.Angle(lastVelocityDirection, direction) / 90f);
+                float target = 1f - instability;
+                directionStability = Mathf.Lerp(directionStability, target,
+                    1f - Mathf.Exp(-directionStabilitySmoothing * Time.deltaTime));
+            }
+
+            lastVelocityDirection = direction;
+        }
 
         // The player CharacterController's pivot is at chest height while the NavMeshAgent pivot
         // is at floor height. AI range and contact decisions are horizontal gameplay distances.
@@ -77,8 +119,14 @@ namespace Game.Gameplay.Monster
 
         /// <summary>
         /// Linear extrapolation of where the player will be in `seconds` at their current velocity
-        /// (TGD section 18). Deliberately naive — no pathing/turn prediction — matching the TGD's own
-        /// scope ("simple linear prediction is acceptable").
+        /// (TGD section 18). Still deliberately naive — no curve-fitting or path prediction, matching
+        /// the TGD's own scope ("simple linear prediction is acceptable") — but the time horizon itself
+        /// is scaled by PredictionConfidence: a player who just changed direction gets a shorter
+        /// look-ahead so a straight-line guess doesn't overshoot into a wall they're about to turn away
+        /// from (see chat — this is the "stronger prediction when stable, weaker when the player turns"
+        /// behavior called for on top of the TGD's plain formula, without adding actual turn modeling).
+        /// A stopped player already predicts to ~their current position via the velocity term alone, so
+        /// no separate handling is needed for that case.
         /// </summary>
         public Vector3 PredictedPlayerPosition(float seconds)
         {
@@ -87,7 +135,9 @@ namespace Game.Gameplay.Monster
             IPlayerVelocitySource source = VelocitySource;
             Vector3 velocity = source != null ? source.Velocity : Vector3.zero;
             velocity.y = 0f; // prediction is a floor-plane concern; falling shouldn't skew the target
-            return player.position + velocity * seconds;
+
+            float horizonMultiplier = Mathf.Lerp(minPredictionHorizonMultiplier, 1f, directionStability);
+            return player.position + velocity * (seconds * horizonMultiplier);
         }
 
         /// <summary>True when a velocity source is actually wired — prediction silently degrades to "current position" otherwise.</summary>

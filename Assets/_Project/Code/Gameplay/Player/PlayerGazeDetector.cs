@@ -25,11 +25,21 @@ namespace Game.Gameplay.Player
         [SerializeField, Tooltip("Draw the raycast cluster in the Scene view (TGD section 53 — AI/gaze debug visualization).")]
         private bool drawDebugRays = true;
 
-        // Fixed 5-point cluster around the optical center. Offsets are converted to actual
-        // degrees below, rather than treating viewport units as degrees.
+        // Fixed 5-point cluster matching TGD section 23's own diagram literally (diamond/X — one
+        // point per corner plus center):
+        //   •       •
+        //       •
+        //   •       •
+        // Each ray originates from its own point in this pattern, offset from the camera center in
+        // the camera's local right/up plane by GazeRayOriginSpread meters, and travels straight ahead
+        // (cameraTransform.forward) — parallel rays, not a single origin diverging at an angle (see
+        // chat: the angled-cone version was rejected as not matching the diagram literally, even
+        // though it was functionally equivalent).
         private static readonly Vector2[] ClusterOffsets =
         {
-            Vector2.zero, Vector2.up, Vector2.down, Vector2.left, Vector2.right
+            Vector2.zero,
+            new Vector2(-1f, 1f), new Vector2(1f, 1f),
+            new Vector2(-1f, -1f), new Vector2(1f, -1f),
         };
 
         private MonsterGazeReceiver lastConfirmedTarget;
@@ -82,12 +92,15 @@ namespace Game.Gameplay.Player
             int rayCount = Mathf.Min(config.GazeRayCount, ClusterOffsets.Length);
             debugRayCount = rayCount;
 
+            Vector3 direction = cameraTransform.forward; // all 5 rays are parallel — see ClusterOffsets doc comment
+
             for (int i = 0; i < rayCount; i++)
             {
-                Vector2 offset = ClusterOffsets[i] * config.GazeConeHalfAngleDegrees;
-                Vector3 direction = Quaternion.AngleAxis(offset.x, cameraTransform.up)
-                    * Quaternion.AngleAxis(-offset.y, cameraTransform.right) * cameraTransform.forward;
-                Ray ray = new Ray(cameraTransform.position, direction);
+                Vector2 offset = ClusterOffsets[i] * config.GazeRayOriginSpread;
+                Vector3 origin = cameraTransform.position
+                    + cameraTransform.right * offset.x
+                    + cameraTransform.up * offset.y;
+                Ray ray = new Ray(origin, direction);
 
                 bool rayHit = Physics.Raycast(ray, out RaycastHit hit, config.GazeMaxDistance, gazeHitMask, QueryTriggerInteraction.Collide);
                 debugRayOrigins[i] = ray.origin;

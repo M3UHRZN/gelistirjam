@@ -10,9 +10,11 @@ namespace Game.Core
     /// the IPlayerControlGate interface. The composition root (scene builder) wires the concrete
     /// player and calls ChangeState(...) directly for events it observes (e.g. MonsterBrain.OnKill).
     ///
-    /// FuseInteractionState and FinalChaseState are fully implemented, not stubs — but nothing
-    /// triggers them yet at this phase (no ObjectiveManager/ExitController exist). That lands in the
-    /// fuse/exit system phases.
+    /// FuseInteractionState and FinalChaseState are fully implemented and fully wired: FuseBox.Begin/
+    /// EndInteract drives FuseInteractionState <-> ExplorationState, and ExitController.Open drives
+    /// FinalChaseState once ObjectiveManager reports every fuse complete. (Was previously documented
+    /// as "nothing triggers them yet" — accurate when written, stale once those systems landed;
+    /// corrected here — see chat: Unity MCP validation pass.)
     /// </summary>
     public class GameManager : MonoBehaviour
     {
@@ -34,8 +36,24 @@ namespace Game.Core
 
         public void SetPlayerControlEnabled(bool enabled) => playerControlGate?.SetControlEnabled(enabled);
 
-        private void Awake()
+        private bool initialized;
+
+        private void Awake() => EnsureInitialized();
+
+        /// <summary>
+        /// Builds fsm + all state instances exactly once. Guarded and called from both Awake() and
+        /// OnEnable() — same idempotent-init fix applied to MonsterBrain after Unity MCP validation
+        /// found this exact class of bug live (OnEnable's ChangeState hitting a null `fsm` when Awake
+        /// hadn't run yet, e.g. after a script recompile lands mid Play Mode transition or the scene is
+        /// built by an Editor script). See MonsterBrain.EnsureInitialized's comment for the full
+        /// reproduction — this file threw the identical NullReferenceException at the identical call
+        /// site (OnEnable -> ChangeState) in the same session.
+        /// </summary>
+        private void EnsureInitialized()
         {
+            if (initialized) return;
+            initialized = true;
+
             fsm = new GameStateMachine();
             InitializationState = new InitializationState(this);
             ExplorationState = new ExplorationState(this);
@@ -45,7 +63,11 @@ namespace Game.Core
             VictoryState = new VictoryState(this);
         }
 
-        private void OnEnable() => ChangeState(InitializationState);
+        private void OnEnable()
+        {
+            EnsureInitialized();
+            ChangeState(InitializationState);
+        }
 
         private void Update() => fsm.Tick(Time.deltaTime);
 

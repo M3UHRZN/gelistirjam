@@ -170,6 +170,10 @@ namespace Game.Editor
             MonsterDebugHUD hud = debugRoot.AddComponent<MonsterDebugHUD>();
             hud.Bind(brain, playerController, gameManager, objectiveManager);
 
+            // Press R in Play Mode to instantly reload the scene (see chat — Editor Stop/Play was slow
+            // and occasionally got stuck mid-transition during AI playtesting).
+            debugRoot.AddComponent<DebugSceneResetter>();
+
             Directory_CreateIfMissing(ScenesFolder);
             EditorSceneManager.SaveScene(scene, ScenePath);
             AssetDatabase.SaveAssets();
@@ -179,8 +183,11 @@ namespace Game.Editor
                       "Shift to sprint, F for flashlight, hold E on a fuse box, 1-5 to kill light zones.");
 
             // Sanity check: 0 here means the Bind()/OnEnable registration path is broken again.
+            // Expected count was 2 before the third fuse box was added (TGD section 33's 3-fuse spec —
+            // see the comment above BuildFuseBox calls); left stale until now (see chat: Unity MCP
+            // validation pass).
             Debug.Log($"[Sanity] SafeZoneRuntimeSet.Items = {safeSet.Items.Count}. " +
-                      $"ObjectiveManager.RegisteredCount = {objectiveManager.RegisteredCount} (expected 2).");
+                      $"ObjectiveManager.RegisteredCount = {objectiveManager.RegisteredCount} (expected 3).");
         }
 
         // ---------- folders & assets ----------

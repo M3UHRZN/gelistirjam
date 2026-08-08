@@ -83,6 +83,43 @@ namespace Game.Gameplay.Monster
         public event Action<string> OnStateChanged;
         public event Action OnKill;
 
+        /// <summary>
+        /// Short human-readable explanation for the most recent notable AI decision (MASTER_PROMPT-
+        /// style "Decision Reason" — dev/debug only, never shown to the player). States call
+        /// SetDecisionReason right before a ChangeState that isn't self-explanatory from the state name
+        /// alone (e.g. why Reposition chose CutOff instead of Flank/Ambush this time). Surfaced by
+        /// MonsterDebugHUD.
+        /// </summary>
+        public string LastDecisionReason { get; private set; } = "-";
+        public void SetDecisionReason(string reason) => LastDecisionReason = reason;
+
+        /// <summary>
+        /// MASTER_PROMPT.md section 28: "Do not make aggression simply `if anger > threshold`.
+        /// Instead consider anger + recent gaze history + current state + distance + Staredown +
+        /// progression." Anger itself already IS the accumulated "recent gaze history" term (TGD
+        /// section 19/25 — it only rises from gaze events, so double-tracking a separate gaze-history
+        /// counter would just restate the same signal — see chat), so this adds the three genuinely
+        /// distinct factors the old `Anger/MaxAnger`-only roll ignored: how close the confrontation
+        /// currently is, whether this was an actual held staredown vs a passing glance, and whether
+        /// FinalChase is active. Single shared implementation so InterestedState/ObservedState/ShyState
+        /// can't drift into three different formulas for what should be one decision.
+        /// </summary>
+        public float ComputeAggressionProbability(bool followedStaredown)
+        {
+            float probability = anger != null ? anger.AggroChance : 0f;
+
+            if (perception != null && config != null && config.LoseInterestRadius > 0.0001f)
+            {
+                float closeness = 1f - Mathf.Clamp01(perception.DistanceToPlayer / config.LoseInterestRadius);
+                probability += closeness * config.AggressionDistanceWeight;
+            }
+
+            if (followedStaredown) probability += config.AggressionStaredownBonus;
+            if (IsRelentless) probability += config.AggressionFinalChaseBonus;
+
+            return Mathf.Clamp01(probability);
+        }
+
         public IMonsterState PatrolState { get; private set; }
         public IMonsterState InterestedState { get; private set; }
         public IMonsterState ShyState { get; private set; }
@@ -126,8 +163,27 @@ namespace Game.Gameplay.Monster
             visionModel = playerVisionModel;
         }
 
-        private void Awake()
+        private bool initialized;
+
+        private void Awake() => EnsureInitialized();
+
+        /// <summary>
+        /// Builds fsm + all state instances exactly once. Guarded and called from both Awake() and
+        /// OnEnable() (idempotent — same defensive pattern already used by MonsterNavigator's lazy
+        /// Agent accessor and the SafeZone/StalkPoint/FuseBox OnEnable+Start fallback, see their own
+        /// comments): scenes built by an Editor script (MonsterAITestSceneBuilder) or a domain reload
+        /// that lands mid-transition don't reliably guarantee Awake runs before OnEnable the way normal
+        /// interactive Play Mode does. Without this guard, OnEnable's ChangeState(PatrolState) call hit
+        /// a null `fsm` and threw a NullReferenceException every single Update() thereafter — silently,
+        /// since Unity logs but doesn't halt on it — meaning the monster ran zero AI logic for the rest
+        /// of the session. Reproduced live via Unity MCP (see chat: Unity MCP validation pass) after a
+        /// forced script recompile + Play Mode re-entry; not something visible from source alone.
+        /// </summary>
+        private void EnsureInitialized()
         {
+            if (initialized) return;
+            initialized = true;
+
             PatrolAnchor = transform.position;
             fsm = new MonsterStateMachine();
             PatrolState = new PatrolState(this);
@@ -148,6 +204,7 @@ namespace Game.Gameplay.Monster
 
         private void OnEnable()
         {
+            EnsureInitialized();
             ChangeState(PatrolState);
         }
 

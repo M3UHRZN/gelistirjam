@@ -45,8 +45,8 @@ namespace Game.Gameplay.Monster
         [SerializeField] private float interestedSpeed = 4.2f;
         [SerializeField, Tooltip("How far behind the player's facing direction the stalker tries to path. It never deliberately crosses in front of the player.")]
         private float stalkBehindDistance = 3f;
-        [SerializeField, Tooltip("How far the player must move/turn before the stalk route is reconsidered.")]
-        private float stalkRepathInterval = 0.45f;
+        [SerializeField, Tooltip("How often the plain behind-stalk destination is reconsidered, and how often a RepositionChance roll is attempted. Lowered from 0.45 (see chat — default tuning made the monster spend nearly all of Interested doing plain behind-stalking, which read as simplistic since the richer Reposition/Flank/Ambush/CutOff states rarely triggered). Needs a playtest pass once Unity is available to confirm the new feel.")]
+        private float stalkRepathInterval = 0.35f;
         [SerializeField, Tooltip("Player must be farther than this to lose interest and return to Patrol (hysteresis vs detectionRadius).")]
         private float loseInterestRadius = 16f;
 
@@ -75,8 +75,8 @@ namespace Game.Gameplay.Monster
         [SerializeField, Range(3, 9)] private int gazeRayCount = 5;
         [SerializeField, Tooltip("Of the rays cast, how many must hit the eyes for a look to register.")]
         private int gazeRequiredHits = 3;
-        [SerializeField, Tooltip("Half-angle in degrees of the ray cluster spread around screen center.")]
-        private float gazeConeHalfAngleDegrees = 3f;
+        [SerializeField, Tooltip("TGD section 23: the 5 rays originate from separate points spread around the camera center and travel straight forward (parallel), rather than diverging from a single point at an angle. This is the spread radius, in meters, of that origin cluster.")]
+        private float gazeRayOriginSpread = 0.15f;
         [SerializeField] private float gazeMaxDistance = 25f;
         [SerializeField, Tooltip("A single continuous stare this long forces Aggressive outright, bypassing the anger-chance roll (\"staring too long WILL retaliate\").")]
         private float gazeAggroHardCap = 4f;
@@ -94,12 +94,18 @@ namespace Game.Gameplay.Monster
 
         [Header("Reposition / Flank / Ambush / CutOff (TGD section 12)")]
         [SerializeField] private float repositionSpeed = 4.5f;
-        [SerializeField, Tooltip("Chance per Interested repath tick to break off into a Reposition attempt instead of plain behind-stalking, once StalkPoints are bound.")]
-        [Range(0f, 1f)] private float repositionChance = 0.15f;
+        [SerializeField, Tooltip("Chance per Interested repath tick to break off into a Reposition attempt instead of plain behind-stalking, once StalkPoints are bound. Raised from 0.15 (see chat — combined with the old 0.45s repath interval this meant a Reposition roll was attempted roughly once every 3s at Calm anger, so most of a chase read as flat direct stalking). Needs a playtest pass once Unity is available to confirm the new feel.")]
+        [Range(0f, 1f)] private float repositionChance = 0.25f;
         [SerializeField, Tooltip("How far ahead in time to predict the player's position for CutOff/scoring.")]
         private float predictionSeconds = 1.5f;
         [SerializeField, Range(0.4f, 0.8f), Tooltip("How often a repositioning monster re-scores candidate StalkPoints (TGD section 14: 0.4-0.8s — explicitly NOT every frame).")]
         private float repositionInterval = 0.6f;
+        [SerializeField, Tooltip("Flat score bonus given to the StalkPoint the monster is already committed to during a rescore, so a marginally-better candidate doesn't yank the destination away every tick (hysteresis fix — see chat).")]
+        private float repositionStickyBonus = 1.5f;
+        [SerializeField, Range(0.1f, 1f), Tooltip("TGD section 38: 'Reposition cooldown azalır' during FinalChase (MonsterBrain.IsRelentless). Multiplies RepositionInterval on top of the anger-stage multiplier.")]
+        private float finalChaseRepositionIntervalMultiplier = 0.5f;
+        [SerializeField, Tooltip("TGD section 38: 'Monster daha yakın candidate point'leri seçer' during FinalChase. Multiplies StalkPointScorer's distance-penalty weights so nearer points score relatively higher.")]
+        private float finalChaseDistanceWeightMultiplier = 2.5f;
         [SerializeField, Tooltip("Lateral offset distance used when picking a Flank point relative to the player's path.")]
         private float flankOffsetDistance = 5f;
         [SerializeField, Tooltip("Radius around an Ambush point that triggers a Commit rush once the player enters it.")]
@@ -127,6 +133,14 @@ namespace Game.Gameplay.Monster
         [Header("Observed / Fake Retreat")]
         [SerializeField, Tooltip("Chance, when a Shy flee's timer passes its midpoint unobserved, of doubling back into CutOff instead of returning to Patrol.")]
         [Range(0f, 1f)] private float fakeRetreatChance = 0.25f;
+
+        [Header("Aggression Probability (MASTER_PROMPT.md section 28 — not just anger>threshold)")]
+        [SerializeField, Tooltip("How much being physically close to the player boosts aggression probability on top of raw Anger, on a 0..1 scale of (1 - distance/LoseInterestRadius). Added because raw Anger alone doesn't account for how dangerous the current moment actually is (see chat).")]
+        private float aggressionDistanceWeight = 0.15f;
+        [SerializeField, Tooltip("Flat bonus added when the aggro roll follows an actual held staredown (Interested's freeze, Observed's catch, or Shy's staredown) rather than a passive glance — a deliberate confrontation should read as more likely to provoke than a stray look.")]
+        private float aggressionStaredownBonus = 0.1f;
+        [SerializeField, Tooltip("Flat bonus added to every aggro roll during FinalChase (MonsterBrain.IsRelentless) — TGD section 38's 'monster gets more dangerous' progression factor.")]
+        private float aggressionFinalChaseBonus = 0.25f;
 
         [Header("Anger Stages (TGD section 20)")]
         [SerializeField, Tooltip("One entry per AngerStage: Calm (0-25%), Wary (25-50%), Agitated (50-75%), Furious (75%+).")]
@@ -171,7 +185,7 @@ namespace Game.Gameplay.Monster
 
         public int GazeRayCount => gazeRayCount;
         public int GazeRequiredHits => gazeRequiredHits;
-        public float GazeConeHalfAngleDegrees => gazeConeHalfAngleDegrees;
+        public float GazeRayOriginSpread => gazeRayOriginSpread;
         public float GazeMaxDistance => gazeMaxDistance;
         public float GazeAggroHardCap => gazeAggroHardCap;
 
@@ -188,6 +202,9 @@ namespace Game.Gameplay.Monster
         public float RepositionChance => repositionChance;
         public float PredictionSeconds => predictionSeconds;
         public float RepositionInterval => repositionInterval;
+        public float RepositionStickyBonus => repositionStickyBonus;
+        public float FinalChaseRepositionIntervalMultiplier => finalChaseRepositionIntervalMultiplier;
+        public float FinalChaseDistanceWeightMultiplier => finalChaseDistanceWeightMultiplier;
 
         /// <summary>Tuning for the given anger bracket (TGD section 20). Falls back to neutral defaults if the array was shortened in the Inspector.</summary>
         public AngerStageTuning TuningFor(AngerStage stage)
@@ -213,6 +230,10 @@ namespace Game.Gameplay.Monster
 
         public float FakeRetreatChance => fakeRetreatChance;
 
+        public float AggressionDistanceWeight => aggressionDistanceWeight;
+        public float AggressionStaredownBonus => aggressionStaredownBonus;
+        public float AggressionFinalChaseBonus => aggressionFinalChaseBonus;
+
         private void OnValidate()
         {
             patrolSpeed = Mathf.Max(0.1f, patrolSpeed);
@@ -232,6 +253,7 @@ namespace Game.Gameplay.Monster
             loseInterestRadius = Mathf.Max(detectionRadius, loseInterestRadius);
             gazeRequiredHits = Mathf.Clamp(gazeRequiredHits, 1, gazeRayCount);
             gazeMaxDistance = Mathf.Max(0.1f, gazeMaxDistance);
+            gazeRayOriginSpread = Mathf.Max(0f, gazeRayOriginSpread);
             gazeAggroHardCap = Mathf.Max(0.1f, gazeAggroHardCap);
             angerPerSpotted = Mathf.Max(1, angerPerSpotted);
             maxAnger = Mathf.Max(1, maxAnger);
@@ -248,12 +270,19 @@ namespace Game.Gameplay.Monster
 
             angerSpeedMultiplierMax = Mathf.Max(1f, angerSpeedMultiplierMax);
             repositionInterval = Mathf.Clamp(repositionInterval, 0.4f, 0.8f); // TGD section 14's stated band
+            repositionStickyBonus = Mathf.Max(0f, repositionStickyBonus);
+            finalChaseRepositionIntervalMultiplier = Mathf.Clamp(finalChaseRepositionIntervalMultiplier, 0.1f, 1f);
+            finalChaseDistanceWeightMultiplier = Mathf.Max(1f, finalChaseDistanceWeightMultiplier);
             ambushMaxDurationSeconds = Mathf.Max(1f, ambushMaxDurationSeconds);
             safeZoneCampDistance = Mathf.Max(1f, safeZoneCampDistance);
             safeZoneCampDuration = Mathf.Max(1f, safeZoneCampDuration);
             safeZoneCampRepositionInterval = Mathf.Max(0.5f, safeZoneCampRepositionInterval);
             criticalDistance = Mathf.Max(contactKillRange + 0.1f, criticalDistance);
             gazeConfirmDurationSeconds = Mathf.Max(0f, gazeConfirmDurationSeconds);
+
+            aggressionDistanceWeight = Mathf.Max(0f, aggressionDistanceWeight);
+            aggressionStaredownBonus = Mathf.Max(0f, aggressionStaredownBonus);
+            aggressionFinalChaseBonus = Mathf.Max(0f, aggressionFinalChaseBonus);
         }
     }
 }

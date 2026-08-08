@@ -10,6 +10,8 @@ namespace Game.Gameplay.World
     public class SafeZone : MonoBehaviour
     {
         [SerializeField] private SafeZoneRuntimeSet set;
+        [SerializeField, Tooltip("Bounds are grown by this much in every direction before the containment test (TGD section 29: 'SafeZone içerisindeki player saldırıya uğrayamaz' is an absolute guarantee, not a best-effort one). A CharacterController's own grounded resting height sits a few centimeters below its collision surface (skin width) — verified live via Unity MCP: this project's TestPlayer settles at y=-0.02 on a floor whose SafeZone volumes start exactly at y=0.00, which made Contains() return false for a player standing normally inside the zone (see chat: Unity MCP validation pass). Small enough not to meaningfully change where a zone reads as 'entered', large enough to absorb normal floor-contact jitter.")]
+        private float boundsTolerance = 0.1f;
         private Collider zoneVolume;
 
         // Registers immediately in addition to OnEnable: the editor scene builder creates this
@@ -34,7 +36,12 @@ namespace Game.Gameplay.World
             }
         }
 
-        public bool Contains(Vector3 worldPoint) => ZoneVolume.bounds.Contains(worldPoint);
+        public bool Contains(Vector3 worldPoint)
+        {
+            Bounds bounds = ZoneVolume.bounds;
+            bounds.Expand(boundsTolerance * 2f); // Expand grows by the value in *each* direction (half per side)
+            return bounds.Contains(worldPoint);
+        }
 
         private void OnEnable()
         {

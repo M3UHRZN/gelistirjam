@@ -26,7 +26,13 @@ namespace Game.Gameplay.Monster
             brain.Navigator.SetSpeed(brain.Config.AggressiveSpeed);
             angerDecayAccumulator = 0f;
             lastTargetedPosition = brain.Player.position;
-            brain.Navigator.SetDestination(lastTargetedPosition);
+            // Validated, not raw SetDestination: this is the one state that goes straight at the
+            // player, so it's also the most likely to be asked to path to a point that has drifted
+            // just off the NavMesh (player hugging a wall/ledge). An unvalidated destination there
+            // makes the agent grind against geometry instead of just waiting for the next retarget
+            // (see chat — same wall-hugging class of bug already fixed for Flank/Reposition/CutOff,
+            // but missed here since this is the one state that never went through StalkPointScorer).
+            brain.Navigator.TrySetValidatedDestination(lastTargetedPosition);
         }
 
         public void Tick(float deltaTime)
@@ -54,8 +60,14 @@ namespace Game.Gameplay.Monster
             // constantly; only retarget once the player has actually moved a meaningful distance.
             if (Vector3.Distance(lastTargetedPosition, brain.Player.position) > RetargetDistanceThreshold)
             {
-                lastTargetedPosition = brain.Player.position;
-                brain.Navigator.SetDestination(lastTargetedPosition);
+                Vector3 candidate = brain.Player.position;
+                // Only commit to the new target if it actually validates. On failure keep chasing the
+                // last good target instead of snapping onto an invalid point (which is what produced
+                // the wall-grinding — see Enter()'s comment).
+                if (brain.Navigator.TrySetValidatedDestination(candidate))
+                {
+                    lastTargetedPosition = candidate;
+                }
             }
         }
 

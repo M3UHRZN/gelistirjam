@@ -88,8 +88,7 @@ namespace Game.Gameplay.Objectives
                 holdProgress = 0f;
             }
 
-            gameManager?.ChangeState(gameManager.ExplorationState);
-            OnInteractionStopped?.Invoke();
+            FinishInteraction();
         }
 
         private void Update()
@@ -99,8 +98,18 @@ namespace Game.Gameplay.Objectives
             holdProgress += Time.deltaTime;
             if (holdProgress >= holdDurationSeconds)
             {
+                // Auto-complete: the player is still physically holding E past the exact frame the
+                // minigame finishes, so this fires before EndInteract() ever will. Previously this
+                // duplicated only *half* of EndInteract()'s cleanup (Complete() + return-to-Exploration)
+                // and skipped FinishInteraction()'s OnInteractionStopped — by the time the player later
+                // released E, State was already Complete, so EndInteract()'s own guard short-circuited
+                // and OnInteractionStopped never fired at all. That event is the only thing that clears
+                // MonsterBrain.IsAwareOfFuse (via ObjectiveManager), so completing a single fuse the
+                // normal way (holding to completion, not releasing early) left the monster "aware of a
+                // fuse" — and passively gaining anger from it (TGD section 36) — for the rest of the
+                // run. Found via careful code audit, not runtime reproduction (see chat).
                 Complete();
-                gameManager?.ChangeState(gameManager.ExplorationState);
+                FinishInteraction();
             }
         }
 
@@ -109,6 +118,13 @@ namespace Game.Gameplay.Objectives
             State = FuseBoxState.Complete;
             holdProgress = holdDurationSeconds;
             OnCompleted?.Invoke();
+        }
+
+        /// <summary>Shared "the player is no longer actively working this fuse" side effects — same call in both the normal-release and auto-complete paths, so they can't drift out of sync again.</summary>
+        private void FinishInteraction()
+        {
+            gameManager?.ChangeState(gameManager.ExplorationState);
+            OnInteractionStopped?.Invoke();
         }
     }
 }

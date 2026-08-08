@@ -39,30 +39,31 @@ namespace Game.Gameplay.DebugTools
             GUI.Label(new Rect(10, 30, 460, 20), $"Anger: {anger} / {maxAnger}  (aggro chance on next staredown exit: {aggroChance:P0})");
             GUI.Label(new Rect(10, 50, 460, 20), $"Distance to player: {distance:F2} m");
             GUI.Label(new Rect(10, 70, 460, 20), $"Gazed at now: {brain.IsGazedAtNow}");
+            GUI.Label(new Rect(10, 90, 600, 20), $"Last decision: {brain.LastDecisionReason}");
 
             if (gameManager != null)
             {
-                GUI.Label(new Rect(10, 90, 460, 20), $"Game state: {gameManager.CurrentStateName}");
+                GUI.Label(new Rect(10, 110, 460, 20), $"Game state: {gameManager.CurrentStateName}");
             }
 
             if (objectiveManager != null)
             {
-                GUI.Label(new Rect(10, 110, 460, 20), $"Fuses: {objectiveManager.CompletedCount} / {objectiveManager.RequiredCount}");
+                GUI.Label(new Rect(10, 130, 460, 20), $"Fuses: {objectiveManager.CompletedCount} / {objectiveManager.RequiredCount}");
             }
 
             if (brain.Config != null && distance <= brain.Config.ContactKillRange)
             {
                 GUI.color = Color.red;
-                GUI.Label(new Rect(10, 130, 500, 20), $"CONTACT RANGE ({brain.Config.ContactKillRange:F1}m) — instant kill");
+                GUI.Label(new Rect(10, 150, 500, 20), $"CONTACT RANGE ({brain.Config.ContactKillRange:F1}m) — instant kill");
                 GUI.color = Color.white;
             }
 
             if (player != null)
             {
-                GUI.Label(new Rect(10, 155, 420, 20), $"Stamina: {player.CurrentStamina:F1} / {player.MaxStamina:F1}");
+                GUI.Label(new Rect(10, 175, 420, 20), $"Stamina: {player.CurrentStamina:F1} / {player.MaxStamina:F1}");
             }
 
-            GUI.Label(new Rect(10, 185, 460, 20), "1-5 = toggle light zones   F = flashlight   Hold E = fuse");
+            GUI.Label(new Rect(10, 205, 460, 20), "1-5 = toggle light zones   F = flashlight   Hold E = fuse");
         }
 #endif
     }

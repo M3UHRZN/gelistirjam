@@ -65,11 +65,18 @@ namespace Game.Gameplay
 
             // FinalChase (TGD section 38): kill the remaining lights and force a guaranteed,
             // relentless chase — see MonsterBrain.IsRelentless for why Anger alone isn't enough.
+            // Deliberately does NOT touch Anger: the TGD is explicit that "Monster'ın current Anger
+            // değeri korunur" (preserved) precisely so that "oyuncu run boyunca monster'a ne kadar çok
+            // baktıysa final o kadar zordur" — a player who avoided eye contact all run should reach
+            // an easier final chase, not a forced-maximum one. AddAnger(MaxAnger) used to run here,
+            // which overwrote that carried-over value instead of preserving it (see chat) — the
+            // "aggression artar" the TGD also asks for comes entirely from the other three bullets
+            // (lights out, shorter reposition cooldown, closer candidate points) plus IsRelentless,
+            // not from the Anger stat itself.
             gameManager.OnStateChanged += stateName =>
             {
                 if (stateName != nameof(FinalChaseState)) return;
                 lightDirector.ShutdownAll();
-                brain.Anger.AddAnger(config.MaxAnger);
                 brain.IsRelentless = true;
                 brain.ChangeState(brain.AggressiveState);
             };

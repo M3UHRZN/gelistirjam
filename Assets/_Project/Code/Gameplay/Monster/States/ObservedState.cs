@@ -30,7 +30,11 @@ namespace Game.Gameplay.Monster
 
             if (brain.IsGazeConfirmed) return; // still being stared at — hold the freeze
 
-            bool aggro = Random.value < brain.Anger.AggroChance;
+            float aggroChance = brain.ComputeAggressionProbability(followedStaredown: true);
+            bool aggro = Random.value < aggroChance;
+            brain.SetDecisionReason(aggro
+                ? $"Aggressive: caught mid-stalk, aggro roll succeeded ({aggroChance:P0} chance)"
+                : $"Shy: caught mid-stalk, aggro roll failed ({aggroChance:P0} chance)");
             brain.ChangeState(aggro ? brain.AggressiveState : brain.ShyState);
         }
 
