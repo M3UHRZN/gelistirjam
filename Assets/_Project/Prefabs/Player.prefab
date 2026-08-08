@@ -141,6 +141,7 @@ GameObject:
   - component: {fileID: 7400550718990696958}
   - component: {fileID: 6640509160967288797}
   - component: {fileID: 9034873108586501119}
+  - component: {fileID: 1031348562271697415}
   m_Layer: 0
   m_Name: Player
   m_TagString: Player
@@ -198,7 +199,7 @@ CapsuleCollider:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 7110461859708860221}
-  m_Material: {fileID: 13400000, guid: a9c1babb1eb7c94469e9825d3420afc3, type: 2}
+  m_Material: {fileID: 0}
   m_IncludeLayers:
     serializedVersion: 2
     m_Bits: 0
@@ -239,8 +240,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f57dedc1b5f065e45927e774039c04ab, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Game.Gameplay::Game.Gameplay.Player.PlayerController
-  walkSpeed: 3.75
-  sprintSpeed: 6.5
+  walkSpeed: 5
+  sprintSpeed: 10
   sprintRampUpPerSecond: 8
   sprintRampDownPerSecond: 14
   gravity: -9.81
@@ -254,10 +255,10 @@ MonoBehaviour:
   cameraPivot: {fileID: 5918529416461550307}
   mouseSensitivity: 0.15
   maxLookAngleDegrees: 85
-  maxStamina: 5.5
+  maxStamina: 8
   staminaDrainPerSecond: 1
-  staminaRegenDelaySeconds: 1
-  staminaRegenPerSecond: 0.7
+  staminaRegenDelaySeconds: 3
+  staminaRegenPerSecond: 2
   flashlight: {fileID: 7400550718990696958}
   manageCursor: 1
 --- !u!114 &9034873108586501119
@@ -273,6 +274,20 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Game.Gameplay::Game.Gameplay.Player.PlayerJump
   jumpHeight: 1
+--- !u!114 &1031348562271697415
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7110461859708860221}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5e6e22d243726dc43a4e91076b8cc745, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Game.Gameplay::Game.Gameplay.Player.PlayerSpawnGate
+  registry: {fileID: 0}
+  playerController: {fileID: 6640509160967288797}
 --- !u!1 &7282632043529800239
 GameObject:
   m_ObjectHideFlags: 0
