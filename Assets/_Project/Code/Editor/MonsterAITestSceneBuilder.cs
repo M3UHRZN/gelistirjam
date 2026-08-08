@@ -37,6 +37,7 @@ namespace Game.Editor
         private const string ScenePath = ScenesFolder + "/MonsterAI_TestScene.unity";
         private const string ConfigAssetPath = DataFolder + "/MonsterConfig_Default.asset";
         private const string SafeSetAssetPath = DataFolder + "/SafeZoneRuntimeSet.asset";
+        private const string StalkSetAssetPath = DataFolder + "/StalkPointRuntimeSet.asset";
 
         // Single place to retune the graybox before regenerating (Tools > Gloomveil > Build Monster AI Test Scene).
         // Once built, every wall/light/point below is a normal GameObject — drag it in the Scene view like
@@ -64,6 +65,7 @@ namespace Game.Editor
 
             MonsterConfig config = GetOrCreateAsset<MonsterConfig>(ConfigAssetPath);
             SafeZoneRuntimeSet safeSet = GetOrCreateAsset<SafeZoneRuntimeSet>(SafeSetAssetPath);
+            StalkPointRuntimeSet stalkSet = GetOrCreateAsset<StalkPointRuntimeSet>(StalkSetAssetPath);
 
             Scene scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
 
@@ -126,8 +128,10 @@ namespace Game.Editor
 
             // NavMesh lives at y=0.05. The monster root must start on that surface; its body
             // collider/mesh are already locally offset to stand on the floor.
+            BuildStalkPoints(level.transform, safeSet, stalkSet, zoneStart, zoneDeadEnd, zoneRing, zoneEastWing);
+
             GameObject monster = BuildMonster(new Vector3(8f, 0.05f, 23f), monsterMat, config, safeSet,
-                player.transform, gazeDetector);
+                player.transform, gazeDetector, playerController, stalkSet);
 
             MonsterBrain brain = monster.GetComponent<MonsterBrain>();
             MonsterDebugGizmos gizmos = monster.AddComponent<MonsterDebugGizmos>();
@@ -140,11 +144,14 @@ namespace Game.Editor
             gameManagerGO.SetActive(true);
 
             ObjectiveManager objectiveManager = debugRoot.AddComponent<ObjectiveManager>();
-            objectiveManager.SetRequiredCount(2);
+            objectiveManager.SetRequiredCount(3);
 
             // Fuse rooms now live in the East Wing (Faz 4 map extension — see chat), not bare in the
             // Start/Central rooms, matching TGD section 40's "fuse rooms" requirement.
+            // TGD section 33 specifies 3 fuses (see chat: TGD comparison found we only had 2). Third
+            // box shares Fuse Room A rather than new geometry — cheap to add, no new wall coordinates.
             BuildFuseBox(level.transform, wallMat, new Vector3(21f, 1f, 17.5f), gameManager, objectiveManager);
+            BuildFuseBox(level.transform, wallMat, new Vector3(19.5f, 1f, 18.5f), gameManager, objectiveManager);
             BuildFuseBox(level.transform, wallMat, new Vector3(21f, 1f, -3.5f), gameManager, objectiveManager);
 
             ExitController exitController = BuildExit(level.transform, wallMat, new Vector3(32f, 1f, 7f));
@@ -435,6 +442,48 @@ namespace Game.Editor
             safeZone.Bind(set);
         }
 
+        // TGD section 15-16: hand-placed candidate ambush/approach points. Without these,
+        // Reposition/Flank/Ambush/CutOff were unreachable dead code — StalkPointScorer.PickBest()
+        // always returned null and RepositionState.Enter() bounced straight back to Interested (see
+        // chat). Positions are junctions/corners/dead-ends already present in the maze geometry above.
+        private static void BuildStalkPoints(Transform parent, SafeZoneRuntimeSet safeSet, StalkPointRuntimeSet stalkSet,
+            LightZone zoneStart, LightZone zoneDeadEnd, LightZone zoneRing, LightZone zoneEastWing)
+        {
+            BuildStalkPoint(parent, "Stalk_DeadEndRoom", new Vector3(8f, 0f, 22f), safeSet, stalkSet,
+                zoneDeadEnd, isDeadEnd: true, isNearCorner: false, isJunction: false);
+
+            BuildStalkPoint(parent, "Stalk_CentralCornerNW", new Vector3(5f, 0f, 11f), safeSet, stalkSet,
+                zoneRing, isDeadEnd: false, isNearCorner: true, isJunction: false);
+            BuildStalkPoint(parent, "Stalk_CentralCornerSE", new Vector3(11f, 0f, 5f), safeSet, stalkSet,
+                zoneRing, isDeadEnd: false, isNearCorner: true, isJunction: false);
+
+            BuildStalkPoint(parent, "Stalk_EastJunction", new Vector3(21f, 0f, 7f), safeSet, stalkSet,
+                zoneEastWing, isDeadEnd: false, isNearCorner: false, isJunction: true, allowAmbush: false);
+
+            BuildStalkPoint(parent, "Stalk_FuseRoomACorner", new Vector3(19.5f, 0f, 16.5f), safeSet, stalkSet,
+                zoneEastWing, isDeadEnd: false, isNearCorner: true, isJunction: false);
+            BuildStalkPoint(parent, "Stalk_FuseRoomBCorner", new Vector3(22.5f, 0f, -4.5f), safeSet, stalkSet,
+                zoneEastWing, isDeadEnd: false, isNearCorner: true, isJunction: false);
+
+            BuildStalkPoint(parent, "Stalk_StartAlcove", new Vector3(8f, 0f, -8f), safeSet, stalkSet,
+                zoneStart, isDeadEnd: true, isNearCorner: false, isJunction: false);
+        }
+
+        private static void BuildStalkPoint(Transform parent, string name, Vector3 position,
+            SafeZoneRuntimeSet safeSet, StalkPointRuntimeSet stalkSet, LightZone lightZone,
+            bool isDeadEnd, bool isNearCorner, bool isJunction, bool allowAmbush = true)
+        {
+            GameObject go = new GameObject(name);
+            go.SetActive(false); // Bind() before OnEnable, same pattern as SafeZone/FuseBox above
+            go.transform.SetParent(parent, false);
+            go.transform.position = position;
+
+            StalkPoint point = go.AddComponent<StalkPoint>();
+            point.ConfigureTopology(isNearCorner, isJunction, isDeadEnd, allowAmbush);
+            point.Bind(safeSet, lightZone, stalkSet);
+            go.SetActive(true);
+        }
+
         private static void BuildFuseBox(Transform parent, Material material, Vector3 position,
             GameManager gameManager, ObjectiveManager objectiveManager)
         {
@@ -503,7 +552,8 @@ namespace Game.Editor
         }
 
         private static GameObject BuildMonster(Vector3 spawnPosition, Material material, MonsterConfig config,
-            SafeZoneRuntimeSet safeSet, Transform player, PlayerGazeDetector gazeDetector)
+            SafeZoneRuntimeSet safeSet, Transform player, PlayerGazeDetector gazeDetector,
+            IPlayerVelocitySource velocitySource, StalkPointRuntimeSet stalkSet)
         {
             GameObject monster = new GameObject("Monster");
             monster.SetActive(false); // stay inactive until every Bind() below has run — see class summary
@@ -557,7 +607,7 @@ namespace Game.Editor
             navigator.Bind(safeSet);
 
             MonsterPerception perception = monster.AddComponent<MonsterPerception>();
-            perception.Bind(player);
+            perception.Bind(player, velocitySource);
 
             MonsterAngerController angerController = monster.AddComponent<MonsterAngerController>();
             angerController.Bind(config);
@@ -567,6 +617,14 @@ namespace Game.Editor
             MonsterBrain brain = monster.AddComponent<MonsterBrain>();
             brain.Bind(config, perception, angerController, navigator, gazeDetector, gazeReceiver, player);
             gazeReceiver.Bind(brain);
+
+            // TGD section 13-17: wire the vision model + StalkPoint set that Reposition/Flank/Ambush/
+            // CutOff need — previously left unbound, which silently made those states dead code (see
+            // chat: they'd instantly bounce back to Interested every time). PlayerVisionModel lives on
+            // the player (it models what the player can see), not the monster.
+            PlayerVisionModel visionModel = player.gameObject.AddComponent<PlayerVisionModel>();
+            visionModel.Bind(player, perception);
+            brain.BindStalkSystems(stalkSet, visionModel);
 
             MonsterVisualDriver visualDriver = bodyGO.AddComponent<MonsterVisualDriver>();
             visualDriver.Bind(bodyRenderer, brain);

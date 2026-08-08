@@ -13,8 +13,14 @@ namespace Game.Gameplay.Player
     /// Implements IPlayerControlGate so Core's GameManager can freeze/unfreeze control without
     /// referencing this concrete type (MASTER_PROMPT.md section 9 — inward-only dependencies).
     /// </summary>
+    /// <summary>Exposes current world-space velocity to systems that must stay decoupled from the concrete player rig (TGD section 18 prediction).</summary>
+    public interface IPlayerVelocitySource
+    {
+        Vector3 Velocity { get; }
+    }
+
     [RequireComponent(typeof(CharacterController))]
-    public class TestPlayerController : MonoBehaviour, IPlayerControlGate
+    public class TestPlayerController : MonoBehaviour, IPlayerControlGate, IPlayerVelocitySource
     {
         [Header("Movement (TGD section 6)")]
         [SerializeField] private float walkSpeed = 3.75f;

@@ -19,6 +19,10 @@ namespace Game.Gameplay.Objectives
         public event Action OnAllComplete;
         public event Action OnAnyFuseCompleted;
 
+        /// <summary>Forwarded from FuseBox (TGD section 36) so the monster can react to fuse work in progress.</summary>
+        public event Action<Vector3> OnFuseInteractionStarted;
+        public event Action OnFuseInteractionStopped;
+
         public void SetRequiredCount(int count) => requiredCount = count;
 
         public void Register(FuseBox fuseBox)
@@ -26,13 +30,20 @@ namespace Game.Gameplay.Objectives
             if (registered.Contains(fuseBox)) return;
             registered.Add(fuseBox);
             fuseBox.OnCompleted += HandleFuseCompleted;
+            fuseBox.OnInteractionStarted += HandleFuseInteractionStarted;
+            fuseBox.OnInteractionStopped += HandleFuseInteractionStopped;
         }
 
         public void Unregister(FuseBox fuseBox)
         {
             if (!registered.Remove(fuseBox)) return;
             fuseBox.OnCompleted -= HandleFuseCompleted;
+            fuseBox.OnInteractionStarted -= HandleFuseInteractionStarted;
+            fuseBox.OnInteractionStopped -= HandleFuseInteractionStopped;
         }
+
+        private void HandleFuseInteractionStarted(Vector3 position) => OnFuseInteractionStarted?.Invoke(position);
+        private void HandleFuseInteractionStopped() => OnFuseInteractionStopped?.Invoke();
 
         private void HandleFuseCompleted()
         {

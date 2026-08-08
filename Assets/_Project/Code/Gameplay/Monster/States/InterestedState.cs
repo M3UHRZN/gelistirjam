@@ -27,7 +27,7 @@ namespace Game.Gameplay.Monster
             brain.Navigator.SetAutoRotate(true);
             brain.Navigator.Resume();
             brain.Navigator.SetSpeed(brain.Config.InterestedSpeed);
-            brain.Navigator.SetStalkDestinationBehind(brain.Player, brain.Config.StalkBehindDistance);
+            brain.Navigator.SetStalkDestinationBehind(brain.Player, StalkDistanceForCurrentFacing());
             wasGazedLastFrame = false;
             continuousStareSeconds = 0f;
             repathTimer = 0f;
@@ -41,7 +41,7 @@ namespace Game.Gameplay.Monster
                 return;
             }
 
-            bool gazedNow = brain.IsGazedAtNow;
+            bool gazedNow = brain.IsGazeConfirmed;
 
             if (gazedNow)
             {
@@ -74,13 +74,26 @@ namespace Game.Gameplay.Monster
             }
             else if (brain.Navigator.HasArrived)
             {
-                brain.Navigator.SetStalkDestinationBehind(brain.Player, brain.Config.StalkBehindDistance);
+                brain.Navigator.SetStalkDestinationBehind(brain.Player, StalkDistanceForCurrentFacing());
             }
 
             repathTimer -= deltaTime;
             if (repathTimer <= 0f)
             {
-                brain.Navigator.SetStalkDestinationBehind(brain.Player, brain.Config.StalkBehindDistance);
+                // TGD section 12: occasionally break off from plain behind-stalking to attempt a real
+                // ambush via StalkPoint scoring, instead of always trailing the player directly.
+                // Skipped entirely when no StalkPoints are bound — falls back to the original
+                // Bracken-only behavior (see chat).
+                // Chance is scaled by the anger bracket (TGD section 20: "düşük flank oranı" when calm
+                // rising to "daha fazla flank / daha fazla ambush" as anger climbs).
+                float repositionChance = brain.Config.RepositionChance * brain.Tuning.RepositionChanceMultiplier;
+                if (brain.StalkPoints != null && brain.StalkPoints.Items.Count > 0 && Random.value < repositionChance)
+                {
+                    brain.ChangeState(brain.RepositionState);
+                    return;
+                }
+
+                brain.Navigator.SetStalkDestinationBehind(brain.Player, StalkDistanceForCurrentFacing());
                 repathTimer = brain.Config.StalkRepathInterval;
             }
 
@@ -88,5 +101,28 @@ namespace Game.Gameplay.Monster
         }
 
         public void Exit() { }
+
+        // TGD section 68 — "the AI reacts to which way the player is looking": if the player is
+        // generally facing toward the monster's current position (even without triggering a full
+        // gaze-confirm on the eyes specifically), it hangs back further; if the player is looking
+        // away, it closes the distance. This is what makes the stalk distance feel reactive to the
+        // player's own orientation instead of a constant number.
+        private float StalkDistanceForCurrentFacing()
+        {
+            Vector3 playerToMonster = brain.transform.position - brain.Player.position;
+            playerToMonster.y = 0f;
+            if (playerToMonster.sqrMagnitude < 0.0001f) return brain.Config.StalkBehindDistance;
+
+            float facingDot = Vector3.Dot(brain.Perception.PlayerFacingDirection, playerToMonster.normalized);
+            // facingDot > 0 means the player is oriented roughly toward the monster's side of the
+            // world even if not staring straight at it. Scale distance between 0.6x (closing in while
+            // unwatched) and 1.6x (backing off while roughly faced) of the base config value.
+            float t = Mathf.InverseLerp(-1f, 1f, facingDot);
+            float facingScale = Mathf.Lerp(0.6f, 1.6f, t);
+
+            // Anger bracket then shifts the whole band (TGD section 20: "daha uzaktan stalk" while
+            // calm, "yakın approach" when furious).
+            return brain.Config.StalkBehindDistance * facingScale * brain.Tuning.StalkDistanceMultiplier;
+        }
     }
 }

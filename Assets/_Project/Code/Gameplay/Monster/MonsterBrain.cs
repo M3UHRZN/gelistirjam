@@ -20,12 +20,16 @@ namespace Game.Gameplay.Monster
         [SerializeField] private PlayerGazeDetector gazeDetector;
         [SerializeField] private MonsterGazeReceiver gazeReceiver;
         [SerializeField] private Transform player;
+        [SerializeField] private StalkPointRuntimeSet stalkPoints;
+        [SerializeField] private Game.Gameplay.Player.PlayerVisionModel visionModel;
 
         public MonsterConfig Config => config;
         public MonsterPerception Perception => perception;
         public MonsterAngerController Anger => anger;
         public MonsterNavigator Navigator => navigator;
         public Transform Player => player;
+        public StalkPointRuntimeSet StalkPoints => stalkPoints;
+        public Game.Gameplay.Player.PlayerVisionModel VisionModel => visionModel;
         public Vector3 PatrolAnchor { get; private set; }
         public string CurrentStateName => fsm?.Current?.GetType().Name ?? "-";
 
@@ -39,8 +43,42 @@ namespace Game.Gameplay.Monster
         /// </summary>
         public bool IsRelentless { get; set; }
 
+        /// <summary>
+        /// True while the player is actively working a fuse box (TGD section 36 — the monster must be
+        /// aware of fuse interactions and react, e.g. by drifting toward an approach position instead
+        /// of patrolling obliviously). Set by the composition root via SetFuseAwareness, forwarded from
+        /// ObjectiveManager's aggregated FuseBox events.
+        /// </summary>
+        public bool IsAwareOfFuse { get; private set; }
+        public Vector3 FusePosition { get; private set; }
+
+        private float fuseAngerAccumulator;
+
+        public void SetFuseAwareness(bool active, Vector3 position)
+        {
+            IsAwareOfFuse = active;
+            FusePosition = position;
+            fuseAngerAccumulator = 0f;
+        }
+
         /// <summary>True while the player is currently aiming at this monster's eyes (TGD section 22-24).</summary>
         public bool IsGazedAtNow => gazeDetector != null && ReferenceEquals(gazeDetector.CurrentTarget, gazeReceiver);
+
+        /// <summary>
+        /// TGD section 24: a look only "counts" once it's been held continuously for
+        /// GazeConfirmDurationSeconds — filters out a single accidental frame of raycast overlap
+        /// (e.g. swinging the camera past the monster) from a deliberate stare. States that react to
+        /// gaze (Interested/Shy/Observed) should use this instead of the raw IsGazedAtNow.
+        /// </summary>
+        public bool IsGazeConfirmed => gazeHoldSeconds >= config.GazeConfirmDurationSeconds;
+
+        /// <summary>TGD section 21: CurrentSpeed = BaseSpeed x AngerMultiplier, interpolated by AggroChance up to AngerSpeedMultiplierMax.</summary>
+        public float SpeedMultiplier => 1f + anger.AggroChance * (config.AngerSpeedMultiplierMax - 1f);
+
+        /// <summary>Behaviour tuning for the current anger bracket (TGD section 20) — the single place states read stage-dependent numbers from.</summary>
+        public AngerStageTuning Tuning => config.TuningFor(anger.Stage);
+
+        private float gazeHoldSeconds;
 
         public event Action<string> OnStateChanged;
         public event Action OnKill;
@@ -50,6 +88,21 @@ namespace Game.Gameplay.Monster
         public IMonsterState ShyState { get; private set; }
         public IMonsterState AggressiveState { get; private set; }
         public IMonsterState KillState { get; private set; }
+
+        // TGD section 12 expansion (see chat: TGD comparison) — PatrolState already fulfills the
+        // "Hidden" role (idle, no player awareness), so no separate class was added for it; a
+        // duplicate would just be two names for the same behavior.
+        public IMonsterState RepositionState { get; private set; }
+        public IMonsterState FlankState { get; private set; }
+        public IMonsterState AmbushState { get; private set; }
+        public IMonsterState CutOffState { get; private set; }
+        public IMonsterState ObservedState { get; private set; }
+        public IMonsterState FakeRetreatState { get; private set; }
+        public IMonsterState CommitState { get; private set; }
+        public IMonsterState SafeZoneCampState { get; private set; }
+
+        /// <summary>True while the player is standing inside a SafeZone (TGD sections 29-30) — they cannot be harmed, but the monster still reacts by camping the exits.</summary>
+        public bool IsPlayerInSafeZone { get; private set; }
 
         private MonsterStateMachine fsm;
 
@@ -66,6 +119,13 @@ namespace Game.Gameplay.Monster
             player = playerTransform;
         }
 
+        /// <summary>Optional: wires the StalkPoint/vision-model systems (TGD section 15-18) consumed by the expanded state set. Safe to leave unbound — states fall back to plain NavMesh sampling.</summary>
+        public void BindStalkSystems(StalkPointRuntimeSet stalkPointSet, Game.Gameplay.Player.PlayerVisionModel playerVisionModel)
+        {
+            stalkPoints = stalkPointSet;
+            visionModel = playerVisionModel;
+        }
+
         private void Awake()
         {
             PatrolAnchor = transform.position;
@@ -75,6 +135,15 @@ namespace Game.Gameplay.Monster
             ShyState = new ShyState(this);
             AggressiveState = new AggressiveState(this);
             KillState = new KillState(this);
+
+            RepositionState = new RepositionState(this);
+            FlankState = new FlankState(this);
+            AmbushState = new AmbushState(this);
+            CutOffState = new CutOffState(this);
+            ObservedState = new ObservedState(this);
+            FakeRetreatState = new FakeRetreatState(this);
+            CommitState = new CommitState(this);
+            SafeZoneCampState = new SafeZoneCampState(this);
         }
 
         private void OnEnable()
@@ -84,9 +153,59 @@ namespace Game.Gameplay.Monster
 
         private void Update()
         {
-            if (fsm.Current != KillState && perception != null && perception.DistanceToPlayer <= config.ContactKillRange)
+            // TGD section 29: a player standing inside a SafeZone cannot be attacked, even if the
+            // monster is somehow within contact range of the zone's edge. Checked against the
+            // player's own position, not the monster's — the monster is never allowed to enter a
+            // SafeZone itself (see MonsterNavigator's destination filtering), so this only matters
+            // for a player lingering right at the boundary.
+            IsPlayerInSafeZone = navigator != null && player != null && navigator.IsPointInSafeZone(player.position);
+            bool playerIsSafe = IsPlayerInSafeZone;
+
+            if (!playerIsSafe && fsm.Current != KillState && perception != null && perception.DistanceToPlayer <= config.ContactKillRange)
             {
                 ChangeState(KillState);
+            }
+
+            gazeHoldSeconds = IsGazedAtNow ? gazeHoldSeconds + Time.deltaTime : 0f;
+
+            // TGD section 21: the anger multiplier is continuous, so it's pushed every frame rather
+            // than baked into each state's Enter() — anger changes mid-state (decay while chasing, a
+            // fresh gaze while stalking) must take effect immediately, not at the next transition.
+            if (navigator != null) navigator.SetSpeedMultiplier(SpeedMultiplier);
+
+            // TGD section 25: inside Critical Distance, gaze/freeze mechanics stop being relevant —
+            // the monster is already close enough that hesitating would be nonsensical, so it commits
+            // to a final rush instead. Doesn't override the SafeZone check above.
+            if (!playerIsSafe && fsm.Current != KillState && fsm.Current != CommitState
+                && perception != null && perception.DistanceToPlayer <= config.CriticalDistance)
+            {
+                ChangeState(CommitState);
+            }
+
+            // TGD section 30: a player who ducks into a SafeZone must not simply switch the AI off.
+            // Any state that was actively hunting hands over to SafeZoneCamp, which lurks at the exits
+            // instead of wandering away. Patrol is left alone — it wasn't hunting in the first place,
+            // and Kill/Observed are mid-beat reactions that should be allowed to finish.
+            if (playerIsSafe && perception != null
+                && perception.IsPlayerWithinRadius(config.StalkAbandonRadius)
+                && fsm.Current != SafeZoneCampState && fsm.Current != PatrolState
+                && fsm.Current != KillState && fsm.Current != ObservedState)
+            {
+                ChangeState(SafeZoneCampState);
+            }
+
+            // TGD section 3 loop: "monster becomes more aggressive" while a fuse is being worked, not
+            // only once every fuse is done (that part is already covered by FinalChase/IsRelentless).
+            // A slow passive drip while unaware would be pointless during Aggressive/Kill, so it only
+            // accrues in the calmer states where the player is otherwise safe from an anger climb.
+            if (IsAwareOfFuse && fsm.Current != KillState && fsm.Current != AggressiveState)
+            {
+                fuseAngerAccumulator += config.FuseAwarenessAngerPerSecond * Time.deltaTime;
+                while (fuseAngerAccumulator >= 1f)
+                {
+                    anger.AddAnger(1);
+                    fuseAngerAccumulator -= 1f;
+                }
             }
 
             fsm.Tick(Time.deltaTime);

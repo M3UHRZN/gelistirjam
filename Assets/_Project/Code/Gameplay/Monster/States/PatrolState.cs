@@ -1,3 +1,5 @@
+using UnityEngine;
+
 namespace Game.Gameplay.Monster
 {
     /// <summary>
@@ -28,7 +30,12 @@ namespace Game.Gameplay.Monster
 
             if (brain.Navigator.HasArrived)
             {
-                brain.Navigator.SetRandomDestinationAround(brain.PatrolAnchor, brain.Config.PatrolRadius);
+                // TGD section 36: while the player is off working a fuse, patrol drifts around that
+                // fuse box instead of the spawn anchor — a passive "closing in" rather than obliviously
+                // wandering somewhere else while the objective is actively in progress.
+                Vector3 anchor = brain.IsAwareOfFuse ? brain.FusePosition : brain.PatrolAnchor;
+                float radius = brain.IsAwareOfFuse ? brain.Config.FuseApproachRadius : brain.Config.PatrolRadius;
+                brain.Navigator.SetRandomDestinationAround(anchor, radius);
             }
         }
 
