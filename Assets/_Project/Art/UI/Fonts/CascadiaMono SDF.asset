@@ -84,23 +84,24 @@ MonoBehaviour:
   m_Material: {fileID: 2911488332504490254}
   m_SourceFontFileGUID: be1f03a0d19faa14c8e8bdfb729a4144
   m_CreationSettings:
-    sourceFontFileName: 
-    sourceFontFileGUID: 
+    sourceFontFileName: CascadiaMono.ttf
+    sourceFontFileGUID: be1f03a0d19faa14c8e8bdfb729a4144
     faceIndex: 0
     pointSizeSamplingMode: 0
-    pointSize: 0
-    padding: 0
-    paddingMode: 0
+    pointSize: 90
+    padding: 9
+    paddingMode: 2
     packingMode: 0
-    atlasWidth: 0
-    atlasHeight: 0
-    characterSetSelectionMode: 0
-    characterSequence: 
+    atlasWidth: 1024
+    atlasHeight: 1024
+    characterSetSelectionMode: 7
+    characterSequence: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789\xC7\u011E\u0130\xD6\u015E\xDC\xE7\u011F\u0131\xF6\u015F\xFC
+      .,:;!?/\\|[](){}<>+-=_@#$%^&*'\"`~"
     referencedFontAssetGUID: 
     referencedTextAssetGUID: 
     fontStyle: 0
     fontStyleModifier: 0
-    renderMode: 0
+    renderMode: 4165
     includeFontFeatures: 0
   m_SourceFontFile: {fileID: 0}
   m_SourceFontFilePath: 

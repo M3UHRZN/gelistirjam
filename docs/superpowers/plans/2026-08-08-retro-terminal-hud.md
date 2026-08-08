@@ -14,7 +14,7 @@
 
 - **Do not write or run PlayMode or EditMode tests.** The project owner explicitly reserves runtime testing for manual Play Mode. Each task uses Unity compilation, hierarchy inspection, serialized-reference inspection, and visual Game View evidence instead.
 - Scope is the main HUD only. Do not change the fuse minigame, menus, gameplay rules, inputs, stamina math, or flashlight mechanics.
-- Stamina remains a real continuous `Image.Type.Filled` bar. Set `fill.fillAmount = Clamp01(CurrentStamina / MaxStamina)` every refresh; the 11 divider Images are a non-interactive overlay only.
+- Stamina remains a real continuous `Image.Type.Filled` bar. Its `Image` must have a persistent built-in sprite so uGUI actually executes `GenerateFilledSprite`. Set `fill.fillAmount = Clamp01(CurrentStamina / MaxStamina)` every refresh; the 11 divider Images are a non-interactive overlay only and align to the fill's inset bounds.
 - Palette is exactly: base `#06100C`, phosphor `#79FF9B`, danger `#FF5A36`. Muted states use alpha variants, not additional colors.
 - All HUD text is `TextMeshProUGUI` using the repo-owned Cascadia Mono font asset. Do not use `UnityEngine.UI.Text`, Arial, or LiberationSans for the new HUD.
 - `Game.UI` may reference `Unity.TextMeshPro`; `Game.Gameplay` must never reference `Game.UI`.
@@ -25,7 +25,7 @@
 - Panel flicker affects only the panel graphic, never the text or crosshair. Its serialized amplitude is at most `0.025`.
 - Missing gameplay sources log once, disable their widget behavior, and hide that widget instead of leaving an empty panel. The base crosshair remains visible if only target highlighting lacks `PlayerInteraction`.
 - All objective event subscriptions remain matched `OnEnable`/`OnDisable` pairs.
-- Builder validation is atomic with respect to the current canvas: load or create the Cascadia TMP asset before destroying the existing `HudCanvas`.
+- Builder validation is atomic with respect to the current canvas: load or create the Cascadia TMP asset first, self-clean any partially constructed candidate, and wrap candidate registration plus old-root destruction in one reverted-on-failure Undo group.
 - The existing untracked `Assets/TextMesh Pro/` tree is Unity’s standard TMP Essential Resources import. Task 1 adopts it without modifying its generated contents; do not stage any other unrelated file.
 - Active implementation branch is `hud`. Active scene is `Assets/Scenes/MainGame.unity` in Unity 6000.3.13f1.
 - After each C# task: refresh/compile Unity and read a fresh console snapshot. “Clean” means zero `Error` entries.
@@ -39,7 +39,7 @@
 | `Assets/TextMesh Pro/**` | Add existing generated assets | Standard TMP settings, shaders, fallback resources, and their metas. |
 | `Assets/_Project/Art/UI/Fonts/CascadiaMono.ttf` | Add binary asset | Repo-owned monospace source font copied from the verified Windows installation. |
 | `Assets/_Project/Art/UI/Fonts/CascadiaMono-OFL.txt` | Add text asset | Official Microsoft Cascadia Code SIL Open Font License. |
-| `Assets/_Project/Art/UI/Fonts/CascadiaMono SDF.asset` | Generate in Unity | Dynamic 1024×1024 TMP SDF asset with a subtle outline material. |
+| `Assets/_Project/Art/UI/Fonts/CascadiaMono SDF.asset` | Generate in Unity | Deterministic static 1024×1024 SDFAA asset with a subtle outline material. |
 | `Assets/_Project/Code/UI/Game.UI.asmdef` | Modify | Add `Unity.TextMeshPro` while preserving one-way UI → gameplay dependency. |
 | `Assets/_Project/Code/Editor/Game.Editor.asmdef` | Modify | Let editor HUD tooling use TMP APIs. |
 | `Assets/_Project/Code/UI/Hud/TerminalPanelGraphic.cs` | Create | Draw cut-corner panel fill, border, registration marks, scanlines, and bounded flicker. |
@@ -146,9 +146,17 @@ $ui = Get-Content -Raw 'Assets\_Project\Code\UI\Game.UI.asmdef' | ConvertFrom-Js
 $gameplay = Get-Content -Raw 'Assets\_Project\Code\Gameplay\Game.Gameplay.asmdef' | ConvertFrom-Json
 if ('Unity.TextMeshPro' -notin $ui.references) { throw 'Game.UI is missing Unity.TextMeshPro' }
 if ('Game.UI' -in $gameplay.references) { throw 'Game.Gameplay must not reference Game.UI' }
-git diff --check
+git diff --check -- . `
+    ':(exclude)Assets/TextMesh Pro.meta' `
+    ':(exclude)Assets/TextMesh Pro/**' `
+    ':(exclude)Assets/_Project/Art/UI.meta' `
+    ':(exclude)Assets/_Project/Art/UI/**'
 git add -- 'Assets/TextMesh Pro.meta' 'Assets/TextMesh Pro' 'Assets/_Project/Art/UI/Fonts' 'Assets/_Project/Code/UI/Game.UI.asmdef' 'Assets/_Project/Code/Editor/Game.Editor.asmdef'
-git diff --cached --check
+git diff --cached --check -- . `
+    ':(exclude)Assets/TextMesh Pro.meta' `
+    ':(exclude)Assets/TextMesh Pro/**' `
+    ':(exclude)Assets/_Project/Art/UI.meta' `
+    ':(exclude)Assets/_Project/Art/UI/**'
 git commit -m "feat(ui): add terminal HUD typography"
 ```
 
@@ -762,7 +770,7 @@ rg -n 'OnAnyFuseCompleted \+=|OnAnyFuseCompleted -=|OnAllComplete \+=|OnAllCompl
 Expected:
 
 - No legacy HUD `Text` field remains.
-- `StaminaWidget` still computes continuous `fillAmount`; `Image.Type.Filled` will be authored by Task 5.
+- `StaminaWidget` still computes continuous `fillAmount`; Task 5 authors `Image.Type.Filled` with a persistent built-in sprite so uGUI renders partial values.
 - All four objective subscription lines are present.
 - Unity reports zero errors.
 
@@ -811,6 +819,13 @@ namespace Game.Editor
         internal const string FontAssetPath =
             "Assets/_Project/Art/UI/Fonts/CascadiaMono SDF.asset";
 
+        private const string FilledImageSpritePath = "UI/Skin/UISprite.psd";
+        private const string FontShaderName = "TextMeshPro/Mobile/Distance Field";
+        private const int FontPointSize = 90;
+        private const int FontPadding = 9;
+        private const int FontAtlasSize = 1024;
+        private const float FontOutlineWidth = 0.08f;
+
         private const string RequiredGlyphs =
             "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789" +
             "ÇĞİÖŞÜçğıöşü" +
@@ -821,6 +836,7 @@ namespace Game.Editor
         internal static readonly Color Phosphor = new Color32(121, 255, 155, 235);
         internal static readonly Color MutedPhosphor = new Color32(121, 255, 155, 112);
         internal static readonly Color Danger = new Color32(255, 90, 54, 242);
+        private static readonly Color FontOutlineColor = new Color32(6, 16, 12, 220);
 
         internal static TMP_FontAsset EnsureFontAsset()
         {
@@ -857,11 +873,11 @@ namespace Game.Editor
 
             TMP_FontAsset created = TMP_FontAsset.CreateFontAsset(
                 sourceFont,
-                90,
-                9,
+                FontPointSize,
+                FontPadding,
                 GlyphRenderMode.SDFAA,
-                1024,
-                1024,
+                FontAtlasSize,
+                FontAtlasSize,
                 AtlasPopulationMode.Dynamic,
                 false);
 
@@ -887,11 +903,31 @@ namespace Game.Editor
 
             created.name = "CascadiaMono SDF";
             created.atlasPopulationMode = AtlasPopulationMode.Static;
+            created.creationSettings = new FontAssetCreationSettings
+            {
+                sourceFontFileName = "CascadiaMono.ttf",
+                sourceFontFileGUID = AssetDatabase.AssetPathToGUID(FontSourcePath),
+                faceIndex = 0,
+                pointSizeSamplingMode = 0,
+                pointSize = FontPointSize,
+                padding = FontPadding,
+                paddingMode = 2,
+                packingMode = 0,
+                atlasWidth = FontAtlasSize,
+                atlasHeight = FontAtlasSize,
+                characterSetSelectionMode = 7,
+                characterSequence = RequiredGlyphs,
+                referencedFontAssetGUID = string.Empty,
+                referencedTextAssetGUID = string.Empty,
+                fontStyle = 0,
+                fontStyleModifier = 0f,
+                renderMode = (int)GlyphRenderMode.SDFAA,
+                includeFontFeatures = false
+            };
             created.material.name = "CascadiaMono SDF Material";
             created.material.EnableKeyword(ShaderUtilities.Keyword_Outline);
-            created.material.SetColor(ShaderUtilities.ID_OutlineColor,
-                new Color32(6, 16, 12, 220));
-            created.material.SetFloat(ShaderUtilities.ID_OutlineWidth, 0.08f);
+            created.material.SetColor(ShaderUtilities.ID_OutlineColor, FontOutlineColor);
+            created.material.SetFloat(ShaderUtilities.ID_OutlineWidth, FontOutlineWidth);
 
             AssetDatabase.CreateAsset(created, FontAssetPath);
             AssetDatabase.AddObjectToAsset(created.atlasTexture, created);
@@ -903,11 +939,15 @@ namespace Game.Editor
 
             TMP_FontAsset saved =
                 AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(FontAssetPath);
-            if (saved == null || !ValidateFontAsset(saved, out string savedError))
+            string savedError = "asset could not be loaded";
+            if (saved == null || !ValidateFontAsset(saved, out savedError))
             {
+                bool removed = AssetDatabase.DeleteAsset(FontAssetPath);
+                AssetDatabase.SaveAssets();
                 Debug.LogError(
                     $"[HUD Builder] Saved Cascadia font asset failed validation: {savedError}. " +
-                    "Existing HUD was not changed.");
+                    $"The invalid asset was {(removed ? "removed" : "not removed")}; " +
+                    "existing HUD was not changed.");
                 return null;
             }
 
@@ -986,6 +1026,19 @@ namespace Game.Editor
             return image;
         }
 
+        internal static Sprite RequireFilledImageSprite()
+        {
+            Sprite sprite =
+                AssetDatabase.GetBuiltinExtraResource<Sprite>(FilledImageSpritePath);
+            if (sprite == null)
+            {
+                throw new InvalidOperationException(
+                    $"Built-in UI sprite '{FilledImageSpritePath}' is unavailable.");
+            }
+
+            return sprite;
+        }
+
         internal static void Stretch(RectTransform rect, Vector2 offsetMin, Vector2 offsetMax)
         {
             rect.anchorMin = Vector2.zero;
@@ -1043,16 +1096,78 @@ namespace Game.Editor
                 return false;
             }
 
+            var serialized = new SerializedObject(fontAsset);
+            SerializedProperty sourceGuidProperty =
+                serialized.FindProperty("m_SourceFontFileGUID");
+            string expectedSourceGuid = AssetDatabase.AssetPathToGUID(FontSourcePath);
+            if (sourceGuidProperty == null ||
+                sourceGuidProperty.stringValue != expectedSourceGuid)
+            {
+                error = "source font GUID does not match the vendored CascadiaMono.ttf";
+                return false;
+            }
+
+            FontAssetCreationSettings creationSettings = fontAsset.creationSettings;
+            if (creationSettings.sourceFontFileGUID != expectedSourceGuid ||
+                creationSettings.pointSize != FontPointSize ||
+                creationSettings.padding != FontPadding ||
+                creationSettings.atlasWidth != FontAtlasSize ||
+                creationSettings.atlasHeight != FontAtlasSize ||
+                creationSettings.renderMode != (int)GlyphRenderMode.SDFAA)
+            {
+                error = "saved font creation metadata does not match the generation contract";
+                return false;
+            }
+
+            if (!Mathf.Approximately(fontAsset.faceInfo.pointSize, FontPointSize))
+            {
+                error = $"point size is {fontAsset.faceInfo.pointSize}, expected {FontPointSize}";
+                return false;
+            }
+
+            if (fontAsset.atlasWidth != FontAtlasSize ||
+                fontAsset.atlasHeight != FontAtlasSize ||
+                fontAsset.atlasPadding != FontPadding ||
+                fontAsset.atlasRenderMode != GlyphRenderMode.SDFAA)
+            {
+                error =
+                    $"atlas contract is {fontAsset.atlasWidth}x{fontAsset.atlasHeight}, " +
+                    $"padding {fontAsset.atlasPadding}, mode {fontAsset.atlasRenderMode}";
+                return false;
+            }
+
             if (fontAsset.atlasTextures == null || fontAsset.atlasTextures.Length != 1 ||
-                fontAsset.atlasTexture == null)
+                fontAsset.atlasTexture == null || fontAsset.isMultiAtlasTexturesEnabled)
             {
                 error = "atlas texture is missing or multi-atlas is enabled";
                 return false;
             }
 
-            if (fontAsset.material == null || fontAsset.material.shader == null)
+            if (fontAsset.atlasTexture.width != FontAtlasSize ||
+                fontAsset.atlasTexture.height != FontAtlasSize)
             {
-                error = "material or shader is missing";
+                error =
+                    $"atlas texture is {fontAsset.atlasTexture.width}x" +
+                    $"{fontAsset.atlasTexture.height}, expected {FontAtlasSize}x{FontAtlasSize}";
+                return false;
+            }
+
+            Material material = fontAsset.material;
+            if (material == null || material.shader == null ||
+                material.shader.name != FontShaderName)
+            {
+                error = "material is missing or does not use the expected TMP shader";
+                return false;
+            }
+
+            if (material.mainTexture != fontAsset.atlasTexture ||
+                !material.IsKeywordEnabled(ShaderUtilities.Keyword_Outline) ||
+                !Mathf.Approximately(
+                    material.GetFloat(ShaderUtilities.ID_OutlineWidth), FontOutlineWidth) ||
+                !Approximately(
+                    material.GetColor(ShaderUtilities.ID_OutlineColor), FontOutlineColor))
+            {
+                error = "material atlas or outline settings do not match the HUD contract";
                 return false;
             }
 
@@ -1064,6 +1179,15 @@ namespace Game.Editor
 
             error = string.Empty;
             return true;
+        }
+
+        private static bool Approximately(Color left, Color right)
+        {
+            const float tolerance = 0.001f;
+            return Mathf.Abs(left.r - right.r) <= tolerance &&
+                   Mathf.Abs(left.g - right.g) <= tolerance &&
+                   Mathf.Abs(left.b - right.b) <= tolerance &&
+                   Mathf.Abs(left.a - right.a) <= tolerance;
         }
     }
 }
@@ -1082,7 +1206,7 @@ rg -n 'GameObject\.Find|FindFirstObjectByType|GraphicRaycaster' 'Assets\_Project
 
 Expected:
 
-- Font creation, glyph validation, static atlas conversion, and throwing serialized assignment are present.
+- Font creation, source GUID/90 pt/9 px/1024²/SDFAA validation, static atlas conversion, outline validation, failed-asset cleanup, persistent fill-sprite lookup, and throwing serialized assignment are present.
 - Factory does not search the scene and does not create a raycaster.
 - Unity reports zero errors.
 
@@ -1155,22 +1279,6 @@ namespace Game.Editor
             {
                 candidate = BuildCandidate(font);
                 ValidateCandidate(candidate);
-
-                List<GameObject> existingRoots = FindNamedRoots(scene, RootName);
-                Undo.RegisterCreatedObjectUndo(candidate, "Build Retro Terminal HUD");
-                for (int i = 0; i < existingRoots.Count; i++)
-                {
-                    Undo.DestroyObjectImmediate(existingRoots[i]);
-                }
-
-                candidate.name = RootName;
-                candidate.SetActive(true);
-
-                EditorSceneManager.MarkSceneDirty(scene);
-                Selection.activeGameObject = candidate;
-                Debug.Log(
-                    $"[HUD Builder] Built retro terminal '{RootName}' in scene '{scene.name}'. " +
-                    "Save the scene to keep it.");
             }
             catch (Exception exception)
             {
@@ -1180,17 +1288,94 @@ namespace Game.Editor
                 }
 
                 Debug.LogException(new InvalidOperationException(
-                    "[HUD Builder] Retro terminal build failed; existing HUD was preserved.",
+                    "[HUD Builder] Retro terminal construction failed; " +
+                    "existing HUD was preserved.", exception));
+                return;
+            }
+
+            int undoGroup = -1;
+            try
+            {
+                Undo.IncrementCurrentGroup();
+                undoGroup = Undo.GetCurrentGroup();
+                Undo.SetCurrentGroupName("Build Retro Terminal HUD");
+                Undo.RegisterCreatedObjectUndo(candidate, "Build Retro Terminal HUD");
+                Undo.RegisterFullObjectHierarchyUndo(candidate, "Build Retro Terminal HUD");
+
+                List<GameObject> existingRoots = FindNamedRoots(scene, RootName);
+                for (int i = 0; i < existingRoots.Count; i++)
+                {
+                    Undo.DestroyObjectImmediate(existingRoots[i]);
+                }
+
+                candidate.name = RootName;
+                candidate.SetActive(true);
+
+                EditorSceneManager.MarkSceneDirty(scene);
+                Undo.CollapseUndoOperations(undoGroup);
+                Debug.Log(
+                    $"[HUD Builder] Built retro terminal '{RootName}' in scene '{scene.name}'. " +
+                    "Save the scene to keep it.");
+            }
+            catch (Exception exception)
+            {
+                bool rollbackSucceeded = false;
+                try
+                {
+                    if (undoGroup >= 0)
+                    {
+                        Undo.RevertAllDownToGroup(undoGroup);
+                    }
+                    else if (candidate != null)
+                    {
+                        UnityEngine.Object.DestroyImmediate(candidate);
+                    }
+
+                    rollbackSucceeded = true;
+                }
+                catch (Exception rollbackException)
+                {
+                    Debug.LogException(new InvalidOperationException(
+                        "[HUD Builder] Retro terminal rollback also failed.",
+                        rollbackException));
+                }
+
+                if (candidate != null)
+                {
+                    UnityEngine.Object.DestroyImmediate(candidate);
+                }
+
+                Debug.LogException(new InvalidOperationException(
+                    rollbackSucceeded
+                        ? "[HUD Builder] Retro terminal build failed; existing HUD was preserved."
+                        : "[HUD Builder] Retro terminal build and rollback failed; inspect the scene.",
                     exception));
             }
         }
 
         private static GameObject BuildCandidate(TMP_FontAsset font)
         {
-            var canvasObject = new GameObject(CandidateName,
-                typeof(Canvas), typeof(CanvasScaler), typeof(CanvasGroup),
-                typeof(HudCameraMotion), typeof(HudVisibility));
+            var canvasObject = new GameObject(CandidateName, typeof(RectTransform));
+            try
+            {
+                PopulateCandidate(canvasObject, font);
+                return canvasObject;
+            }
+            catch
+            {
+                UnityEngine.Object.DestroyImmediate(canvasObject);
+                throw;
+            }
+        }
+
+        private static void PopulateCandidate(GameObject canvasObject, TMP_FontAsset font)
+        {
             canvasObject.SetActive(false);
+            canvasObject.AddComponent<Canvas>();
+            canvasObject.AddComponent<CanvasScaler>();
+            canvasObject.AddComponent<CanvasGroup>();
+            canvasObject.AddComponent<HudCameraMotion>();
+            canvasObject.AddComponent<HudVisibility>();
 
             Canvas canvas = canvasObject.GetComponent<Canvas>();
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
@@ -1241,8 +1426,6 @@ namespace Game.Editor
             BuildFlashlight(swayRoot, motion, font);
             BuildPrompt(swayRoot, motion, font);
             BuildCrosshair(fixedRoot, motion);
-
-            return canvasObject;
         }
 
         private static void BuildObjective(RectTransform parent, HudCameraMotion motion,
@@ -1325,6 +1508,7 @@ namespace Game.Editor
                 Vector2.zero, Vector2.zero, Vector2.zero, HudTerminalFactory.Phosphor);
             HudTerminalFactory.Stretch(fill.rectTransform, new Vector2(2f, 2f),
                 new Vector2(-2f, -2f));
+            fill.sprite = HudTerminalFactory.RequireFilledImageSprite();
             fill.type = Image.Type.Filled;
             fill.fillMethod = Image.FillMethod.Horizontal;
             fill.fillOrigin = (int)Image.OriginHorizontal.Left;
@@ -1333,8 +1517,9 @@ namespace Game.Editor
             for (int i = 1; i < 12; i++)
             {
                 float normalized = i / 12f;
+                float anchorX = Mathf.Lerp(2f / 292f, 290f / 292f, normalized);
                 HudTerminalFactory.CreateImage(bar, $"Segment{i:00}",
-                    new Vector2(normalized, 0.5f), new Vector2(0.5f, 0.5f),
+                    new Vector2(anchorX, 0.5f), new Vector2(0.5f, 0.5f),
                     Vector2.zero, new Vector2(2f, 12f), HudTerminalFactory.Base);
             }
 
@@ -1361,7 +1546,7 @@ namespace Game.Editor
         {
             RectTransform rect = HudTerminalFactory.CreateChild(parent, "FlashlightWidget",
                 new Vector2(1f, 0f), new Vector2(1f, 0f),
-                new Vector2(-CornerMarginX, CornerMarginY), new Vector2(230f, 62f));
+                new Vector2(-CornerMarginX, CornerMarginY), new Vector2(260f, 62f));
 
             HudSway sway = rect.gameObject.AddComponent<HudSway>();
             sway.Bind(motion);
@@ -1373,7 +1558,7 @@ namespace Game.Editor
 
             RectTransform headerRect = HudTerminalFactory.CreateChild(rect, "Header",
                 new Vector2(0f, 1f), new Vector2(0f, 1f),
-                new Vector2(14f, -7f), new Vector2(202f, 14f));
+                new Vector2(14f, -7f), new Vector2(232f, 14f));
             HudTerminalFactory.AddText(headerRect, font, 10f,
                 TextAlignmentOptions.TopLeft, HudTerminalFactory.MutedPhosphor,
                 "AUX://LIGHT");
@@ -1384,14 +1569,14 @@ namespace Game.Editor
                 TextAlignmentOptions.Center, HudTerminalFactory.Phosphor, "[F]");
 
             RectTransform labelRect = HudTerminalFactory.CreateChild(rect, "Label", Vector2.zero,
-                Vector2.zero, new Vector2(62f, 8f), new Vector2(82f, 29f));
-            TextMeshProUGUI label = HudTerminalFactory.AddText(labelRect, font, 17f,
+                Vector2.zero, new Vector2(62f, 8f), new Vector2(90f, 29f));
+            TextMeshProUGUI label = HudTerminalFactory.AddText(labelRect, font, 18f,
                 TextAlignmentOptions.MidlineLeft, HudTerminalFactory.Phosphor, "FENER");
 
             RectTransform stateRect = HudTerminalFactory.CreateChild(rect, "State",
                 new Vector2(1f, 0f), new Vector2(1f, 0f),
-                new Vector2(-14f, 8f), new Vector2(72f, 29f));
-            TextMeshProUGUI state = HudTerminalFactory.AddText(stateRect, font, 15f,
+                new Vector2(-14f, 8f), new Vector2(84f, 29f));
+            TextMeshProUGUI state = HudTerminalFactory.AddText(stateRect, font, 22f,
                 TextAlignmentOptions.MidlineRight, HudTerminalFactory.MutedPhosphor,
                 "KAPALI");
 
@@ -1600,6 +1785,19 @@ namespace Game.Editor
                 "label", "group");
             RequireReference(candidate.GetComponentInChildren<StaminaWidget>(true),
                 "fill", "group");
+            Transform fillTransform =
+                candidate.transform.Find("SwayRoot/StaminaWidget/Bar/Fill");
+            Image staminaFill = fillTransform != null
+                ? fillTransform.GetComponent<Image>()
+                : null;
+            if (staminaFill == null || staminaFill.sprite == null ||
+                staminaFill.type != Image.Type.Filled ||
+                staminaFill.fillMethod != Image.FillMethod.Horizontal ||
+                staminaFill.fillOrigin != (int)Image.OriginHorizontal.Left)
+            {
+                throw new InvalidOperationException(
+                    "Stamina fill must use a persistent sprite and fill horizontally from left.");
+            }
             RequireReference(candidate.GetComponentInChildren<FlashlightWidget>(true),
                 "stateLabel", "group");
             RequireReference(candidate.GetComponentInChildren<InteractionPromptWidget>(true),
@@ -1660,7 +1858,7 @@ Refresh/compile through Unity MCP and read a fresh console snapshot.
 Run:
 
 ```powershell
-rg -n 'BuildCandidate|ValidateCandidate|FindNamedRoots|existing HUD was preserved|Image.Type.Filled|Segment\{i:00\}' 'Assets\_Project\Code\Editor\HudSceneBuilder.cs'
+rg -n 'BuildCandidate|PopulateCandidate|ValidateCandidate|FindNamedRoots|RevertAllDownToGroup|RequireFilledImageSprite|Image.Type.Filled|Segment\{i:00\}' 'Assets\_Project\Code\Editor\HudSceneBuilder.cs'
 rg -n 'new GameObject\(RootName|GameObject.Find\(RootName\)|AddComponent<GraphicRaycaster>|typeof\(GraphicRaycaster\)' 'Assets\_Project\Code\Editor\HudSceneBuilder.cs'
 ```
 
@@ -1731,6 +1929,8 @@ Expected:
 - Exactly one root named `HudCanvas`.
 - No root named `__HudCanvas_Building`.
 - Second run succeeds with zero errors.
+- One Editor Undo restores the previous single active `HudCanvas`; one Redo restores the rebuilt
+  single active `HudCanvas` with no candidate root and no Inspector/serialization errors.
 
 - [ ] **Step 4: Save and inspect the exact hierarchy**
 
@@ -1773,7 +1973,7 @@ Use paged component reads on the relevant objects. Confirm:
 - `HudCanvas`: `Canvas`, `CanvasScaler`, `CanvasGroup`, `HudCameraMotion`, `HudVisibility`; no `GraphicRaycaster`.
 - Four `Panel` children: each has `RectTransform`, `CanvasRenderer`, `TerminalPanelGraphic`.
 - Every TMP object uses `CascadiaMono SDF`, has `raycastTarget=false`, and is not LiberationSans.
-- `StaminaWidget.fill` points to `Bar/Fill`; `Fill.type=Filled`, horizontal origin left, `fillAmount=1` in edit state.
+- `StaminaWidget.fill` points to `Bar/Fill`; `Fill.sprite` is the persistent built-in UI sprite, `Fill.type=Filled`, horizontal origin left, and `fillAmount=1` in edit state.
 - Exactly 11 `Segment##` objects are siblings after `Fill`, not children of `Fill`.
 - `FlashlightWidget.stateLabel`, three `visualParts`, and `group` are assigned.
 - `ObjectiveWidget.label` and `group` are assigned even though `objectives` is null in this scene.
@@ -1815,9 +2015,13 @@ Run:
 
 ```powershell
 git status --short
-git diff --check
+git diff --check -- . `
+    ':(exclude)Assets/_Project/Art/UI.meta' `
+    ':(exclude)Assets/_Project/Art/UI/**'
 git add -- 'Assets/_Project/Art/UI/Fonts/CascadiaMono SDF.asset' 'Assets/_Project/Art/UI/Fonts/CascadiaMono SDF.asset.meta' 'Assets/Scenes/MainGame.unity'
-git diff --cached --check
+git diff --cached --check -- . `
+    ':(exclude)Assets/_Project/Art/UI.meta' `
+    ':(exclude)Assets/_Project/Art/UI/**'
 git commit -m "feat(ui): apply retro terminal HUD to MainGame"
 ```
 
@@ -1837,7 +2041,11 @@ Do not add `Library/HudCaptures/`.
 - [ ] **Step 1: Run repository-level checks**
 
 ```powershell
-git diff --check e484d84..HEAD
+git diff --check e484d84..HEAD -- . `
+    ':(exclude)Assets/TextMesh Pro.meta' `
+    ':(exclude)Assets/TextMesh Pro/**' `
+    ':(exclude)Assets/_Project/Art/UI.meta' `
+    ':(exclude)Assets/_Project/Art/UI/**'
 $ui = Get-Content -Raw 'Assets\_Project\Code\UI\Game.UI.asmdef' | ConvertFrom-Json
 $gameplay = Get-Content -Raw 'Assets\_Project\Code\Gameplay\Game.Gameplay.asmdef' | ConvertFrom-Json
 if ('Unity.TextMeshPro' -notin $ui.references) { throw 'Game.UI TMP reference missing' }

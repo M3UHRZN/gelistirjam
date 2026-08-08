@@ -18,6 +18,13 @@ namespace Game.Editor
         internal const string FontAssetPath =
             "Assets/_Project/Art/UI/Fonts/CascadiaMono SDF.asset";
 
+        private const string FilledImageSpritePath = "UI/Skin/UISprite.psd";
+        private const string FontShaderName = "TextMeshPro/Mobile/Distance Field";
+        private const int FontPointSize = 90;
+        private const int FontPadding = 9;
+        private const int FontAtlasSize = 1024;
+        private const float FontOutlineWidth = 0.08f;
+
         private const string RequiredGlyphs =
             "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789" +
             "ÇĞİÖŞÜçğıöşü" +
@@ -28,6 +35,7 @@ namespace Game.Editor
         internal static readonly Color Phosphor = new Color32(121, 255, 155, 235);
         internal static readonly Color MutedPhosphor = new Color32(121, 255, 155, 112);
         internal static readonly Color Danger = new Color32(255, 90, 54, 242);
+        private static readonly Color FontOutlineColor = new Color32(6, 16, 12, 220);
 
         internal static TMP_FontAsset EnsureFontAsset()
         {
@@ -64,11 +72,11 @@ namespace Game.Editor
 
             TMP_FontAsset created = TMP_FontAsset.CreateFontAsset(
                 sourceFont,
-                90,
-                9,
+                FontPointSize,
+                FontPadding,
                 GlyphRenderMode.SDFAA,
-                1024,
-                1024,
+                FontAtlasSize,
+                FontAtlasSize,
                 AtlasPopulationMode.Dynamic,
                 false);
 
@@ -94,11 +102,31 @@ namespace Game.Editor
 
             created.name = "CascadiaMono SDF";
             created.atlasPopulationMode = AtlasPopulationMode.Static;
+            created.creationSettings = new FontAssetCreationSettings
+            {
+                sourceFontFileName = "CascadiaMono.ttf",
+                sourceFontFileGUID = AssetDatabase.AssetPathToGUID(FontSourcePath),
+                faceIndex = 0,
+                pointSizeSamplingMode = 0,
+                pointSize = FontPointSize,
+                padding = FontPadding,
+                paddingMode = 2,
+                packingMode = 0,
+                atlasWidth = FontAtlasSize,
+                atlasHeight = FontAtlasSize,
+                characterSetSelectionMode = 7,
+                characterSequence = RequiredGlyphs,
+                referencedFontAssetGUID = string.Empty,
+                referencedTextAssetGUID = string.Empty,
+                fontStyle = 0,
+                fontStyleModifier = 0f,
+                renderMode = (int)GlyphRenderMode.SDFAA,
+                includeFontFeatures = false
+            };
             created.material.name = "CascadiaMono SDF Material";
             created.material.EnableKeyword(ShaderUtilities.Keyword_Outline);
-            created.material.SetColor(ShaderUtilities.ID_OutlineColor,
-                new Color32(6, 16, 12, 220));
-            created.material.SetFloat(ShaderUtilities.ID_OutlineWidth, 0.08f);
+            created.material.SetColor(ShaderUtilities.ID_OutlineColor, FontOutlineColor);
+            created.material.SetFloat(ShaderUtilities.ID_OutlineWidth, FontOutlineWidth);
 
             AssetDatabase.CreateAsset(created, FontAssetPath);
             AssetDatabase.AddObjectToAsset(created.atlasTexture, created);
@@ -113,9 +141,12 @@ namespace Game.Editor
             string savedError = "asset could not be loaded";
             if (saved == null || !ValidateFontAsset(saved, out savedError))
             {
+                bool removed = AssetDatabase.DeleteAsset(FontAssetPath);
+                AssetDatabase.SaveAssets();
                 Debug.LogError(
                     $"[HUD Builder] Saved Cascadia font asset failed validation: {savedError}. " +
-                    "Existing HUD was not changed.");
+                    $"The invalid asset was {(removed ? "removed" : "not removed")}; " +
+                    "existing HUD was not changed.");
                 return null;
             }
 
@@ -194,6 +225,19 @@ namespace Game.Editor
             return image;
         }
 
+        internal static Sprite RequireFilledImageSprite()
+        {
+            Sprite sprite =
+                AssetDatabase.GetBuiltinExtraResource<Sprite>(FilledImageSpritePath);
+            if (sprite == null)
+            {
+                throw new InvalidOperationException(
+                    $"Built-in UI sprite '{FilledImageSpritePath}' is unavailable.");
+            }
+
+            return sprite;
+        }
+
         internal static void Stretch(RectTransform rect, Vector2 offsetMin, Vector2 offsetMax)
         {
             rect.anchorMin = Vector2.zero;
@@ -251,16 +295,78 @@ namespace Game.Editor
                 return false;
             }
 
+            var serialized = new SerializedObject(fontAsset);
+            SerializedProperty sourceGuidProperty =
+                serialized.FindProperty("m_SourceFontFileGUID");
+            string expectedSourceGuid = AssetDatabase.AssetPathToGUID(FontSourcePath);
+            if (sourceGuidProperty == null ||
+                sourceGuidProperty.stringValue != expectedSourceGuid)
+            {
+                error = "source font GUID does not match the vendored CascadiaMono.ttf";
+                return false;
+            }
+
+            FontAssetCreationSettings creationSettings = fontAsset.creationSettings;
+            if (creationSettings.sourceFontFileGUID != expectedSourceGuid ||
+                creationSettings.pointSize != FontPointSize ||
+                creationSettings.padding != FontPadding ||
+                creationSettings.atlasWidth != FontAtlasSize ||
+                creationSettings.atlasHeight != FontAtlasSize ||
+                creationSettings.renderMode != (int)GlyphRenderMode.SDFAA)
+            {
+                error = "saved font creation metadata does not match the generation contract";
+                return false;
+            }
+
+            if (!Mathf.Approximately(fontAsset.faceInfo.pointSize, FontPointSize))
+            {
+                error = $"point size is {fontAsset.faceInfo.pointSize}, expected {FontPointSize}";
+                return false;
+            }
+
+            if (fontAsset.atlasWidth != FontAtlasSize ||
+                fontAsset.atlasHeight != FontAtlasSize ||
+                fontAsset.atlasPadding != FontPadding ||
+                fontAsset.atlasRenderMode != GlyphRenderMode.SDFAA)
+            {
+                error =
+                    $"atlas contract is {fontAsset.atlasWidth}x{fontAsset.atlasHeight}, " +
+                    $"padding {fontAsset.atlasPadding}, mode {fontAsset.atlasRenderMode}";
+                return false;
+            }
+
             if (fontAsset.atlasTextures == null || fontAsset.atlasTextures.Length != 1 ||
-                fontAsset.atlasTexture == null)
+                fontAsset.atlasTexture == null || fontAsset.isMultiAtlasTexturesEnabled)
             {
                 error = "atlas texture is missing or multi-atlas is enabled";
                 return false;
             }
 
-            if (fontAsset.material == null || fontAsset.material.shader == null)
+            if (fontAsset.atlasTexture.width != FontAtlasSize ||
+                fontAsset.atlasTexture.height != FontAtlasSize)
             {
-                error = "material or shader is missing";
+                error =
+                    $"atlas texture is {fontAsset.atlasTexture.width}x" +
+                    $"{fontAsset.atlasTexture.height}, expected {FontAtlasSize}x{FontAtlasSize}";
+                return false;
+            }
+
+            Material material = fontAsset.material;
+            if (material == null || material.shader == null ||
+                material.shader.name != FontShaderName)
+            {
+                error = "material is missing or does not use the expected TMP shader";
+                return false;
+            }
+
+            if (material.mainTexture != fontAsset.atlasTexture ||
+                !material.IsKeywordEnabled(ShaderUtilities.Keyword_Outline) ||
+                !Mathf.Approximately(
+                    material.GetFloat(ShaderUtilities.ID_OutlineWidth), FontOutlineWidth) ||
+                !Approximately(
+                    material.GetColor(ShaderUtilities.ID_OutlineColor), FontOutlineColor))
+            {
+                error = "material atlas or outline settings do not match the HUD contract";
                 return false;
             }
 
@@ -272,6 +378,15 @@ namespace Game.Editor
 
             error = string.Empty;
             return true;
+        }
+
+        private static bool Approximately(Color left, Color right)
+        {
+            const float tolerance = 0.001f;
+            return Mathf.Abs(left.r - right.r) <= tolerance &&
+                   Mathf.Abs(left.g - right.g) <= tolerance &&
+                   Mathf.Abs(left.b - right.b) <= tolerance &&
+                   Mathf.Abs(left.a - right.a) <= tolerance;
         }
     }
 }

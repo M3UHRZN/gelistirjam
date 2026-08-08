@@ -41,22 +41,6 @@ namespace Game.Editor
             {
                 candidate = BuildCandidate(font);
                 ValidateCandidate(candidate);
-
-                List<GameObject> existingRoots = FindNamedRoots(scene, RootName);
-                Undo.RegisterCreatedObjectUndo(candidate, "Build Retro Terminal HUD");
-                for (int i = 0; i < existingRoots.Count; i++)
-                {
-                    Undo.DestroyObjectImmediate(existingRoots[i]);
-                }
-
-                candidate.name = RootName;
-                candidate.SetActive(true);
-
-                EditorSceneManager.MarkSceneDirty(scene);
-                Selection.activeGameObject = candidate;
-                Debug.Log(
-                    $"[HUD Builder] Built retro terminal '{RootName}' in scene '{scene.name}'. " +
-                    "Save the scene to keep it.");
             }
             catch (Exception exception)
             {
@@ -66,7 +50,67 @@ namespace Game.Editor
                 }
 
                 Debug.LogException(new InvalidOperationException(
-                    "[HUD Builder] Retro terminal build failed; existing HUD was preserved.",
+                    "[HUD Builder] Retro terminal construction failed; " +
+                    "existing HUD was preserved.", exception));
+                return;
+            }
+
+            int undoGroup = -1;
+            try
+            {
+                Undo.IncrementCurrentGroup();
+                undoGroup = Undo.GetCurrentGroup();
+                Undo.SetCurrentGroupName("Build Retro Terminal HUD");
+                Undo.RegisterCreatedObjectUndo(candidate, "Build Retro Terminal HUD");
+                Undo.RegisterFullObjectHierarchyUndo(candidate, "Build Retro Terminal HUD");
+
+                List<GameObject> existingRoots = FindNamedRoots(scene, RootName);
+                for (int i = 0; i < existingRoots.Count; i++)
+                {
+                    Undo.DestroyObjectImmediate(existingRoots[i]);
+                }
+
+                candidate.name = RootName;
+                candidate.SetActive(true);
+
+                EditorSceneManager.MarkSceneDirty(scene);
+                Undo.CollapseUndoOperations(undoGroup);
+                Debug.Log(
+                    $"[HUD Builder] Built retro terminal '{RootName}' in scene '{scene.name}'. " +
+                    "Save the scene to keep it.");
+            }
+            catch (Exception exception)
+            {
+                bool rollbackSucceeded = false;
+                try
+                {
+                    if (undoGroup >= 0)
+                    {
+                        Undo.RevertAllDownToGroup(undoGroup);
+                    }
+                    else if (candidate != null)
+                    {
+                        UnityEngine.Object.DestroyImmediate(candidate);
+                    }
+
+                    rollbackSucceeded = true;
+                }
+                catch (Exception rollbackException)
+                {
+                    Debug.LogException(new InvalidOperationException(
+                        "[HUD Builder] Retro terminal rollback also failed.",
+                        rollbackException));
+                }
+
+                if (candidate != null)
+                {
+                    UnityEngine.Object.DestroyImmediate(candidate);
+                }
+
+                Debug.LogException(new InvalidOperationException(
+                    rollbackSucceeded
+                        ? "[HUD Builder] Retro terminal build failed; existing HUD was preserved."
+                        : "[HUD Builder] Retro terminal build and rollback failed; inspect the scene.",
                     exception));
             }
         }
@@ -74,6 +118,20 @@ namespace Game.Editor
         private static GameObject BuildCandidate(TMP_FontAsset font)
         {
             var canvasObject = new GameObject(CandidateName, typeof(RectTransform));
+            try
+            {
+                PopulateCandidate(canvasObject, font);
+                return canvasObject;
+            }
+            catch
+            {
+                UnityEngine.Object.DestroyImmediate(canvasObject);
+                throw;
+            }
+        }
+
+        private static void PopulateCandidate(GameObject canvasObject, TMP_FontAsset font)
+        {
             canvasObject.SetActive(false);
             canvasObject.AddComponent<Canvas>();
             canvasObject.AddComponent<CanvasScaler>();
@@ -130,8 +188,6 @@ namespace Game.Editor
             BuildFlashlight(swayRoot, motion, font);
             BuildPrompt(swayRoot, motion, font);
             BuildCrosshair(fixedRoot, motion);
-
-            return canvasObject;
         }
 
         private static void BuildObjective(RectTransform parent, HudCameraMotion motion,
@@ -214,6 +270,7 @@ namespace Game.Editor
                 Vector2.zero, Vector2.zero, Vector2.zero, HudTerminalFactory.Phosphor);
             HudTerminalFactory.Stretch(fill.rectTransform, new Vector2(2f, 2f),
                 new Vector2(-2f, -2f));
+            fill.sprite = HudTerminalFactory.RequireFilledImageSprite();
             fill.type = Image.Type.Filled;
             fill.fillMethod = Image.FillMethod.Horizontal;
             fill.fillOrigin = (int)Image.OriginHorizontal.Left;
@@ -222,8 +279,9 @@ namespace Game.Editor
             for (int i = 1; i < 12; i++)
             {
                 float normalized = i / 12f;
+                float anchorX = Mathf.Lerp(2f / 292f, 290f / 292f, normalized);
                 HudTerminalFactory.CreateImage(bar, $"Segment{i:00}",
-                    new Vector2(normalized, 0.5f), new Vector2(0.5f, 0.5f),
+                    new Vector2(anchorX, 0.5f), new Vector2(0.5f, 0.5f),
                     Vector2.zero, new Vector2(2f, 12f), HudTerminalFactory.Base);
             }
 
@@ -250,7 +308,7 @@ namespace Game.Editor
         {
             RectTransform rect = HudTerminalFactory.CreateChild(parent, "FlashlightWidget",
                 new Vector2(1f, 0f), new Vector2(1f, 0f),
-                new Vector2(-CornerMarginX, CornerMarginY), new Vector2(230f, 62f));
+                new Vector2(-CornerMarginX, CornerMarginY), new Vector2(260f, 62f));
 
             HudSway sway = rect.gameObject.AddComponent<HudSway>();
             sway.Bind(motion);
@@ -262,7 +320,7 @@ namespace Game.Editor
 
             RectTransform headerRect = HudTerminalFactory.CreateChild(rect, "Header",
                 new Vector2(0f, 1f), new Vector2(0f, 1f),
-                new Vector2(14f, -7f), new Vector2(202f, 14f));
+                new Vector2(14f, -7f), new Vector2(232f, 14f));
             HudTerminalFactory.AddText(headerRect, font, 10f,
                 TextAlignmentOptions.TopLeft, HudTerminalFactory.MutedPhosphor,
                 "AUX://LIGHT");
@@ -273,14 +331,14 @@ namespace Game.Editor
                 TextAlignmentOptions.Center, HudTerminalFactory.Phosphor, "[F]");
 
             RectTransform labelRect = HudTerminalFactory.CreateChild(rect, "Label", Vector2.zero,
-                Vector2.zero, new Vector2(62f, 8f), new Vector2(82f, 29f));
-            TextMeshProUGUI label = HudTerminalFactory.AddText(labelRect, font, 17f,
+                Vector2.zero, new Vector2(62f, 8f), new Vector2(90f, 29f));
+            TextMeshProUGUI label = HudTerminalFactory.AddText(labelRect, font, 18f,
                 TextAlignmentOptions.MidlineLeft, HudTerminalFactory.Phosphor, "FENER");
 
             RectTransform stateRect = HudTerminalFactory.CreateChild(rect, "State",
                 new Vector2(1f, 0f), new Vector2(1f, 0f),
-                new Vector2(-14f, 8f), new Vector2(72f, 29f));
-            TextMeshProUGUI state = HudTerminalFactory.AddText(stateRect, font, 15f,
+                new Vector2(-14f, 8f), new Vector2(84f, 29f));
+            TextMeshProUGUI state = HudTerminalFactory.AddText(stateRect, font, 22f,
                 TextAlignmentOptions.MidlineRight, HudTerminalFactory.MutedPhosphor,
                 "KAPALI");
 
@@ -489,6 +547,19 @@ namespace Game.Editor
                 "label", "group");
             RequireReference(candidate.GetComponentInChildren<StaminaWidget>(true),
                 "fill", "group");
+            Transform fillTransform =
+                candidate.transform.Find("SwayRoot/StaminaWidget/Bar/Fill");
+            Image staminaFill = fillTransform != null
+                ? fillTransform.GetComponent<Image>()
+                : null;
+            if (staminaFill == null || staminaFill.sprite == null ||
+                staminaFill.type != Image.Type.Filled ||
+                staminaFill.fillMethod != Image.FillMethod.Horizontal ||
+                staminaFill.fillOrigin != (int)Image.OriginHorizontal.Left)
+            {
+                throw new InvalidOperationException(
+                    "Stamina fill must use a persistent sprite and fill horizontally from left.");
+            }
             RequireReference(candidate.GetComponentInChildren<FlashlightWidget>(true),
                 "stateLabel", "group");
             RequireReference(candidate.GetComponentInChildren<InteractionPromptWidget>(true),
