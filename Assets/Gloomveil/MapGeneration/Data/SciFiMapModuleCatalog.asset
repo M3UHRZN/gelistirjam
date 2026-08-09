@@ -1,0 +1,158 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 70653b8feaf51f344a18a44fe4e73c95, type: 3}
+  m_Name: SciFiMapModuleCatalog
+  m_EditorClassIdentifier: Gloomveil.MapGeneration::Gloomveil.MapGeneration.MapModuleCatalog
+  entries:
+  - catalogEntryId: PF_ROOM_1x2_01
+    familyId: ROOM_1x2
+    category: 0
+    canonicalWidthUnits: 1
+    canonicalDepthUnits: 2
+    corridorShape: 4
+    allowedRoomRoles: 31
+    prefab: {fileID: 2387683591677512326, guid: d8c6a4f00c72bd14d97624f117eace46, type: 3}
+    weight: 1
+    allowQuarterTurns: 1
+    usesDynamicSockets: 1
+  - catalogEntryId: PF_ROOM_2x2_01
+    familyId: ROOM_2x2
+    category: 0
+    canonicalWidthUnits: 2
+    canonicalDepthUnits: 2
+    corridorShape: 4
+    allowedRoomRoles: 31
+    prefab: {fileID: 2583392519559917481, guid: 3dfe7113f07e9ff44819a35bb8f503ce, type: 3}
+    weight: 1
+    allowQuarterTurns: 1
+    usesDynamicSockets: 1
+  - catalogEntryId: PF_ROOM_2x3_01
+    familyId: ROOM_2x3
+    category: 0
+    canonicalWidthUnits: 2
+    canonicalDepthUnits: 3
+    corridorShape: 4
+    allowedRoomRoles: 31
+    prefab: {fileID: 4699515098942389392, guid: 57cb846722a0241499fa9b387f46d843, type: 3}
+    weight: 1
+    allowQuarterTurns: 1
+    usesDynamicSockets: 1
+  - catalogEntryId: PF_COR_Straight_1x1_01
+    familyId: COR_Straight_1x1
+    category: 1
+    canonicalWidthUnits: 1
+    canonicalDepthUnits: 1
+    corridorShape: 0
+    allowedRoomRoles: 0
+    prefab: {fileID: 1835772975330622179, guid: 31149732053716742bc4ca2840294a96, type: 3}
+    weight: 1
+    allowQuarterTurns: 1
+    usesDynamicSockets: 0
+  - catalogEntryId: PF_COR_Straight_1x2_01
+    familyId: COR_Straight_1x2
+    category: 1
+    canonicalWidthUnits: 1
+    canonicalDepthUnits: 2
+    corridorShape: 0
+    allowedRoomRoles: 0
+    prefab: {fileID: 5955196094472023918, guid: 7e270d76e5123df4bb589d92d467e104, type: 3}
+    weight: 1
+    allowQuarterTurns: 1
+    usesDynamicSockets: 0
+  - catalogEntryId: PF_COR_Straight_1x3_01
+    familyId: COR_Straight_1x3
+    category: 1
+    canonicalWidthUnits: 1
+    canonicalDepthUnits: 3
+    corridorShape: 0
+    allowedRoomRoles: 0
+    prefab: {fileID: 6118423695348574690, guid: 953550f179eb3264f964060a1b8f092b, type: 3}
+    weight: 1
+    allowQuarterTurns: 1
+    usesDynamicSockets: 0
+  - catalogEntryId: PF_COR_Corner_1x1_01
+    familyId: COR_Corner_1x1
+    category: 1
+    canonicalWidthUnits: 1
+    canonicalDepthUnits: 1
+    corridorShape: 1
+    allowedRoomRoles: 0
+    prefab: {fileID: 5758326873954075785, guid: b564e23434eedf344a8fcdaa8885e7db, type: 3}
+    weight: 1
+    allowQuarterTurns: 1
+    usesDynamicSockets: 0
+  - catalogEntryId: PF_COR_TJunction_1x1_01
+    familyId: COR_TJunction_1x1
+    category: 1
+    canonicalWidthUnits: 1
+    canonicalDepthUnits: 1
+    corridorShape: 2
+    allowedRoomRoles: 0
+    prefab: {fileID: 3585963936594271741, guid: bbd9caaec6ce22f45b7b73b119c1841c, type: 3}
+    weight: 1
+    allowQuarterTurns: 1
+    usesDynamicSockets: 0
+  - catalogEntryId: PF_COR_CrossJunction_1x1_01
+    familyId: COR_CrossJunction_1x1
+    category: 1
+    canonicalWidthUnits: 1
+    canonicalDepthUnits: 1
+    corridorShape: 3
+    allowedRoomRoles: 0
+    prefab: {fileID: 258988427553911074, guid: 73dc3a6ce8db86b4c998631c4195f95b, type: 3}
+    weight: 1
+    allowQuarterTurns: 1
+    usesDynamicSockets: 0
+  - catalogEntryId: PF_COR_DeadEnd_1x1_01
+    familyId: COR_DeadEnd_1x1
+    category: 1
+    canonicalWidthUnits: 1
+    canonicalDepthUnits: 1
+    corridorShape: 4
+    allowedRoomRoles: 0
+    prefab: {fileID: 1993395219185651578, guid: 3c25b6ed0efa0ab42a49137919a5b84d, type: 3}
+    weight: 1
+    allowQuarterTurns: 1
+    usesDynamicSockets: 0
+  - catalogEntryId: PF_COR_DoorTransition_1x1_01
+    familyId: COR_DoorTransition_1x1
+    category: 1
+    canonicalWidthUnits: 1
+    canonicalDepthUnits: 1
+    corridorShape: 5
+    allowedRoomRoles: 0
+    prefab: {fileID: 6204389075725375278, guid: 7c1734b1a0fc2a84aaddc1116065cef2, type: 3}
+    weight: 1
+    allowQuarterTurns: 1
+    usesDynamicSockets: 0
+  - catalogEntryId: PF_STA_Straight_1x2_01
+    familyId: STA_Straight_1x2
+    category: 2
+    canonicalWidthUnits: 1
+    canonicalDepthUnits: 2
+    corridorShape: 4
+    allowedRoomRoles: 0
+    prefab: {fileID: 5655087420085277173, guid: cc8fd0a1d58a2f445ad6d785a63fa959, type: 3}
+    weight: 1
+    allowQuarterTurns: 1
+    usesDynamicSockets: 0
+  - catalogEntryId: PF_STA_Switchback_2x2_01
+    familyId: STA_Switchback_2x2
+    category: 2
+    canonicalWidthUnits: 2
+    canonicalDepthUnits: 2
+    corridorShape: 4
+    allowedRoomRoles: 0
+    prefab: {fileID: 7027371497995588379, guid: 44f5aeb969045dd4480d3e971ae454f4, type: 3}
+    weight: 1
+    allowQuarterTurns: 1
+    usesDynamicSockets: 0

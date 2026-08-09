@@ -28,7 +28,7 @@ Transform:
   m_GameObject: {fileID: 15844699860934911}
   serializedVersion: 2
   m_LocalRotation: {x: -1.4802973e-15, y: 0, z: -0, w: 1}
-  m_LocalPosition: {x: -169.1, y: 1.6, z: 46.1}
+  m_LocalPosition: {x: -1.6999999, y: 2.0308, z: 3.7}
   m_LocalScale: {x: 0.6, y: 3.2, z: 0.6}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -137,7 +137,7 @@ Transform:
   m_GameObject: {fileID: 214217242596766032}
   serializedVersion: 2
   m_LocalRotation: {x: 6.1232336e-17, y: 1, z: -6.1232336e-17, w: -0.0000000754979}
-  m_LocalPosition: {x: -0, y: 1.8189894e-14, z: -4}
+  m_LocalPosition: {x: 0, y: 0, z: -4}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -154,7 +154,6 @@ GameObject:
   - component: {fileID: 7251944634491495194}
   - component: {fileID: 5457561402251712494}
   - component: {fileID: 6183808565267748403}
-  - component: {fileID: 6443395645882089751}
   m_Layer: 0
   m_Name: StairShell_Upper_Corner_NW (3)
   m_TagString: Untagged
@@ -234,27 +233,6 @@ MeshRenderer:
   m_SortingOrder: 0
   m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
---- !u!65 &6443395645882089751
-BoxCollider:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 231551632939998817}
-  m_Material: {fileID: 0}
-  m_IncludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_ExcludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_LayerOverridePriority: 0
-  m_IsTrigger: 0
-  m_ProvidesContacts: 0
-  m_Enabled: 1
-  serializedVersion: 3
-  m_Size: {x: 0.99999994, y: 1, z: 0.99999994}
-  m_Center: {x: 0, y: 0.00000011920929, z: 0}
 --- !u!1 &441216199250201920
 GameObject:
   m_ObjectHideFlags: 0
@@ -283,7 +261,7 @@ Transform:
   m_GameObject: {fileID: 441216199250201920}
   serializedVersion: 2
   m_LocalRotation: {x: -1.4802973e-15, y: 0, z: -0, w: 1}
-  m_LocalPosition: {x: -165.7, y: 1.6, z: 38.7}
+  m_LocalPosition: {x: 1.6999999, y: 2.0431, z: -3.7}
   m_LocalScale: {x: 0.6, y: 3.2, z: 0.6}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -395,7 +373,7 @@ Transform:
   m_GameObject: {fileID: 570332595994094676}
   serializedVersion: 2
   m_LocalRotation: {x: -0.29070213, y: 0, z: 0, w: 0.9568136}
-  m_LocalPosition: {x: -167.4, y: 1.9241, z: 42.6429}
+  m_LocalPosition: {x: 0, y: 1.9323459, z: -0.07154831}
   m_LocalScale: {x: 2.8, y: 0.16000001, z: 7.2242346}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -504,7 +482,7 @@ Transform:
   m_GameObject: {fileID: 589848824685614277}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: -0, y: 4, z: 4}
+  m_LocalPosition: {x: 0, y: 4, z: 4}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -519,6 +497,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 2292082405552121191}
+  - component: {fileID: 5491562307864354078}
   m_Layer: 0
   m_Name: Landing_Top
   m_TagString: Untagged
@@ -535,12 +514,25 @@ Transform:
   m_GameObject: {fileID: 658044777606098553}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: -0, y: 4, z: 4}
+  m_LocalPosition: {x: 0, y: 4, z: 4}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 4446995505756860183}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &5491562307864354078
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 658044777606098553}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 540f5a81392c6764f9832e03622aed09, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Gloomveil.MapGeneration::Gloomveil.MapGeneration.MapAnchor
+  kind: 8
 --- !u!1 &1517908624483818010
 GameObject:
   m_ObjectHideFlags: 0
@@ -550,6 +542,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 66724993108854590}
+  - component: {fileID: 4393183693776242406}
   m_Layer: 0
   m_Name: RampCollider
   m_TagString: Untagged
@@ -565,13 +558,34 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1517908624483818010}
   serializedVersion: 2
-  m_LocalRotation: {x: -0.23374237, y: 0, z: -0, w: 0.97229856}
-  m_LocalPosition: {x: -0, y: 2, z: 9.094947e-15}
+  m_LocalRotation: {x: -0.23374237, y: 0, z: 0, w: 0.9722986}
+  m_LocalPosition: {x: 0, y: 2, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 4446995505756860183}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!65 &4393183693776242406
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1517908624483818010}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 0
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 2.8, y: 0.16, z: 8.8}
+  m_Center: {x: 0, y: 0, z: 0}
 --- !u!1 &1589438501127742891
 GameObject:
   m_ObjectHideFlags: 0
@@ -600,7 +614,7 @@ Transform:
   m_GameObject: {fileID: 1589438501127742891}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: -165.7, y: 5.6, z: 42.4}
+  m_LocalPosition: {x: 1.6999999, y: 5.6, z: 0}
   m_LocalScale: {x: 0.6, y: 3.2, z: 6.8}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -712,7 +726,7 @@ Transform:
   m_GameObject: {fileID: 1896212793848043696}
   serializedVersion: 2
   m_LocalRotation: {x: -1.4802973e-15, y: 0, z: -0, w: 1}
-  m_LocalPosition: {x: -165.7, y: 5.6, z: 38.7}
+  m_LocalPosition: {x: 1.6999999, y: 5.5999994, z: -3.6999998}
   m_LocalScale: {x: 0.6, y: 3.2, z: 0.6}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -824,7 +838,7 @@ Transform:
   m_GameObject: {fileID: 2219442620166094116}
   serializedVersion: 2
   m_LocalRotation: {x: 0.7071069, y: -0, z: -0, w: 0.7071067}
-  m_LocalPosition: {x: -167.4, y: 7.2, z: 42.4}
+  m_LocalPosition: {x: -0.0058, y: 7.2000017, z: -0.0002}
   m_LocalScale: {x: 200, y: 400, z: 181.85164}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -919,7 +933,6 @@ GameObject:
   - component: {fileID: 2156000959096123923}
   - component: {fileID: 7876663841382440866}
   - component: {fileID: 5247663293627973909}
-  - component: {fileID: 4905418783754626507}
   m_Layer: 0
   m_Name: StairShell_Upper_Corner_NW (2)
   m_TagString: Untagged
@@ -999,27 +1012,6 @@ MeshRenderer:
   m_SortingOrder: 0
   m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
---- !u!65 &4905418783754626507
-BoxCollider:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2637400587937932128}
-  m_Material: {fileID: 0}
-  m_IncludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_ExcludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_LayerOverridePriority: 0
-  m_IsTrigger: 0
-  m_ProvidesContacts: 0
-  m_Enabled: 1
-  serializedVersion: 3
-  m_Size: {x: 0.99999994, y: 1, z: 0.99999994}
-  m_Center: {x: 0, y: 0.00000011920929, z: 0}
 --- !u!1 &2730710918362173623
 GameObject:
   m_ObjectHideFlags: 0
@@ -1048,7 +1040,7 @@ Transform:
   m_GameObject: {fileID: 2730710918362173623}
   serializedVersion: 2
   m_LocalRotation: {x: -1.4802973e-15, y: 0, z: -0, w: 1}
-  m_LocalPosition: {x: -169.1, y: 5.6, z: 46.1}
+  m_LocalPosition: {x: -1.6999999, y: 5.6000004, z: 3.6999996}
   m_LocalScale: {x: 0.6, y: 3.2, z: 0.6}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -1160,7 +1152,7 @@ Transform:
   m_GameObject: {fileID: 5302772852676353432}
   serializedVersion: 2
   m_LocalRotation: {x: -1.4802973e-15, y: 0, z: -0, w: 1}
-  m_LocalPosition: {x: -169.1, y: 5.6, z: 38.7}
+  m_LocalPosition: {x: -1.6999999, y: 5.5999994, z: -3.6999998}
   m_LocalScale: {x: 0.6, y: 3.2, z: 0.6}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -1272,7 +1264,7 @@ Transform:
   m_GameObject: {fileID: 5478514717958878511}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: -167.4, y: 3.9, z: 46}
+  m_LocalPosition: {x: -0, y: 3.8999996, z: 3.6}
   m_LocalScale: {x: 2.8, y: 0.2, z: 0.8}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -1384,7 +1376,7 @@ Transform:
   m_GameObject: {fileID: 5576656460544980984}
   serializedVersion: 2
   m_LocalRotation: {x: -1.4802973e-15, y: 0, z: -0, w: 1}
-  m_LocalPosition: {x: -165.7, y: 5.6, z: 46.1}
+  m_LocalPosition: {x: 1.6999999, y: 5.6000004, z: 3.6999996}
   m_LocalScale: {x: 0.6, y: 3.2, z: 0.6}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -1477,6 +1469,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 3207943688246615907}
+  - component: {fileID: 3870204629127488285}
   m_Layer: 0
   m_Name: LightAnchor
   m_TagString: Untagged
@@ -1493,12 +1486,25 @@ Transform:
   m_GameObject: {fileID: 5601541364258616089}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: -0, y: 3, z: -1.8189894e-14}
+  m_LocalPosition: {x: 0, y: 6.987, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 4446995505756860183}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &3870204629127488285
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5601541364258616089}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 540f5a81392c6764f9832e03622aed09, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Gloomveil.MapGeneration::Gloomveil.MapGeneration.MapAnchor
+  kind: 5
 --- !u!1 &5655087420085277173
 GameObject:
   m_ObjectHideFlags: 0
@@ -1567,6 +1573,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 675880489950309240}
+  - component: {fileID: 3785835534674593670}
   m_Layer: 0
   m_Name: Landing_Bottom
   m_TagString: Untagged
@@ -1583,12 +1590,25 @@ Transform:
   m_GameObject: {fileID: 5686000232121846707}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: -0, y: 1.8189894e-14, z: -4}
+  m_LocalPosition: {x: 0, y: 0, z: -4}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 4446995505756860183}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &3785835534674593670
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5686000232121846707}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 540f5a81392c6764f9832e03622aed09, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Gloomveil.MapGeneration::Gloomveil.MapGeneration.MapAnchor
+  kind: 7
 --- !u!1 &5697543032121260429
 GameObject:
   m_ObjectHideFlags: 0
@@ -1617,7 +1637,7 @@ Transform:
   m_GameObject: {fileID: 5697543032121260429}
   serializedVersion: 2
   m_LocalRotation: {x: -1.4802973e-15, y: 0, z: -0, w: 1}
-  m_LocalPosition: {x: -167.4, y: 5.6, z: 38.7}
+  m_LocalPosition: {x: -0, y: 5.1702, z: -3.6999998}
   m_LocalScale: {x: 2.8, y: 3.2, z: 0.6}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -1712,7 +1732,6 @@ GameObject:
   - component: {fileID: 7792515621657269800}
   - component: {fileID: 3562720446793944908}
   - component: {fileID: 98485495723578140}
-  - component: {fileID: 7489926422149604664}
   m_Layer: 0
   m_Name: StairShell_Upper_Corner_NW (1)
   m_TagString: Untagged
@@ -1792,27 +1811,6 @@ MeshRenderer:
   m_SortingOrder: 0
   m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
---- !u!65 &7489926422149604664
-BoxCollider:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 6289058169748158419}
-  m_Material: {fileID: 0}
-  m_IncludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_ExcludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_LayerOverridePriority: 0
-  m_IsTrigger: 0
-  m_ProvidesContacts: 0
-  m_Enabled: 1
-  serializedVersion: 3
-  m_Size: {x: 0.99999994, y: 1, z: 0.99999994}
-  m_Center: {x: 0, y: 0.00000011920929, z: 0}
 --- !u!1 &6888547442349201708
 GameObject:
   m_ObjectHideFlags: 0
@@ -1841,7 +1839,7 @@ Transform:
   m_GameObject: {fileID: 6888547442349201708}
   serializedVersion: 2
   m_LocalRotation: {x: -1.4802973e-15, y: 0, z: -0, w: 1}
-  m_LocalPosition: {x: -165.7, y: 1.6, z: 46.1}
+  m_LocalPosition: {x: 1.6999999, y: 2.0215, z: 3.7}
   m_LocalScale: {x: 0.6, y: 3.2, z: 0.6}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -1953,7 +1951,7 @@ Transform:
   m_GameObject: {fileID: 6970916709722791267}
   serializedVersion: 2
   m_LocalRotation: {x: -1.4802973e-15, y: 0, z: -0, w: 1}
-  m_LocalPosition: {x: -169.1, y: 1.6, z: 38.7}
+  m_LocalPosition: {x: -1.6999999, y: 2.0304, z: -3.7}
   m_LocalScale: {x: 0.6, y: 3.2, z: 0.6}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -2065,7 +2063,7 @@ Transform:
   m_GameObject: {fileID: 7034337090710110113}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: -169.1, y: 1.6, z: 42.4}
+  m_LocalPosition: {x: -1.6999999, y: 2.041, z: 0}
   m_LocalScale: {x: 0.6, y: 3.2, z: 6.8}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -2177,7 +2175,7 @@ Transform:
   m_GameObject: {fileID: 7426225562429096220}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: -169.1, y: 5.6, z: 42.4}
+  m_LocalPosition: {x: -1.6999999, y: 5.6, z: 0}
   m_LocalScale: {x: 0.6, y: 3.2, z: 6.8}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -2289,7 +2287,7 @@ Transform:
   m_GameObject: {fileID: 7885792400159146271}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: -165.7, y: 1.6, z: 42.4}
+  m_LocalPosition: {x: 1.6999999, y: 2.0136, z: 0}
   m_LocalScale: {x: 0.6, y: 3.2, z: 6.8}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -2401,7 +2399,7 @@ Transform:
   m_GameObject: {fileID: 8611883505295117682}
   serializedVersion: 2
   m_LocalRotation: {x: -1.4802973e-15, y: 0, z: -0, w: 1}
-  m_LocalPosition: {x: -167.4, y: 1.6, z: 46.1}
+  m_LocalPosition: {x: -0, y: 2.011, z: 3.7}
   m_LocalScale: {x: 2.8, y: 3.2, z: 0.6}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -2513,7 +2511,7 @@ Transform:
   m_GameObject: {fileID: 8630858827855869524}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: -167.4, y: -0.1, z: 42.4}
+  m_LocalPosition: {x: -0, y: -0.09999999, z: 5.684342e-16}
   m_LocalScale: {x: 4, y: 0.2, z: 8}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -2606,6 +2604,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 10813645198494386}
+  - component: {fileID: 318434531262659231}
   m_Layer: 0
   m_Name: StalkPoint_StairLanding
   m_TagString: Untagged
@@ -2622,9 +2621,22 @@ Transform:
   m_GameObject: {fileID: 8865896899306865520}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: -0, y: 2, z: 9.094947e-15}
+  m_LocalPosition: {x: 0, y: 2, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 4446995505756860183}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &318434531262659231
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8865896899306865520}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 540f5a81392c6764f9832e03622aed09, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Gloomveil.MapGeneration::Gloomveil.MapGeneration.MapAnchor
+  kind: 4

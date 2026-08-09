@@ -55,6 +55,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 7436960716503183017}
+  - component: {fileID: 4647280152531931561}
   m_Layer: 0
   m_Name: PropSocket
   m_TagString: Untagged
@@ -77,6 +78,19 @@ Transform:
   m_Children: []
   m_Father: {fileID: 2884880195123662256}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &4647280152531931561
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 303522815211832307}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 540f5a81392c6764f9832e03622aed09, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Gloomveil.MapGeneration::Gloomveil.MapGeneration.MapAnchor
+  kind: 9
 --- !u!1 &1534270518698392914
 GameObject:
   m_ObjectHideFlags: 0
@@ -86,6 +100,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1274630410766355090}
+  - component: {fileID: 54774185888737036}
   m_Layer: 0
   m_Name: LightAnchor
   m_TagString: Untagged
@@ -108,6 +123,19 @@ Transform:
   m_Children: []
   m_Father: {fileID: 2884880195123662256}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &54774185888737036
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1534270518698392914}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 540f5a81392c6764f9832e03622aed09, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Gloomveil.MapGeneration::Gloomveil.MapGeneration.MapAnchor
+  kind: 5
 --- !u!1 &2436155928015096348
 GameObject:
   m_ObjectHideFlags: 0
@@ -179,6 +207,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 2496111666619422284}
+  - component: {fileID: 4457168933270963906}
   m_Layer: 0
   m_Name: StalkPoint_Corner
   m_TagString: Untagged
@@ -201,6 +230,19 @@ Transform:
   m_Children: []
   m_Father: {fileID: 2884880195123662256}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &4457168933270963906
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3211565584675031189}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 540f5a81392c6764f9832e03622aed09, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Gloomveil.MapGeneration::Gloomveil.MapGeneration.MapAnchor
+  kind: 4
 --- !u!1 &3944550039641769332
 GameObject:
   m_ObjectHideFlags: 0
@@ -210,6 +252,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 3861828609631654802}
+  - component: {fileID: 3802670855242011340}
   m_Layer: 0
   m_Name: MonsterSpawnCandidate
   m_TagString: Untagged
@@ -232,6 +275,19 @@ Transform:
   m_Children: []
   m_Father: {fileID: 2884880195123662256}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &3802670855242011340
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3944550039641769332}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 540f5a81392c6764f9832e03622aed09, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Gloomveil.MapGeneration::Gloomveil.MapGeneration.MapAnchor
+  kind: 6
 --- !u!1 &5014478701965144213
 GameObject:
   m_ObjectHideFlags: 0
@@ -291,7 +347,7 @@ Transform:
   m_GameObject: {fileID: 6273149924321908562}
   serializedVersion: 2
   m_LocalRotation: {x: -1.4802973e-15, y: 0, z: -0, w: 1}
-  m_LocalPosition: {x: -169.1, y: 1.6, z: 44.1}
+  m_LocalPosition: {x: -1.6999999, y: 1.5999998, z: 1.6999999}
   m_LocalScale: {x: 0.6, y: 3.2, z: 0.6}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -384,6 +440,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 3906329196792335433}
+  - component: {fileID: 2913004340551102590}
   m_Layer: 0
   m_Name: StalkPoint_DoorSide
   m_TagString: Untagged
@@ -406,6 +463,19 @@ Transform:
   m_Children: []
   m_Father: {fileID: 2884880195123662256}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &2913004340551102590
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6490639697716064733}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 540f5a81392c6764f9832e03622aed09, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Gloomveil.MapGeneration::Gloomveil.MapGeneration.MapAnchor
+  kind: 4
 --- !u!1 &6695737830728720847
 GameObject:
   m_ObjectHideFlags: 0
@@ -434,7 +504,7 @@ Transform:
   m_GameObject: {fileID: 6695737830728720847}
   serializedVersion: 2
   m_LocalRotation: {x: -1.4802973e-15, y: 0, z: -0, w: 1}
-  m_LocalPosition: {x: -165.7, y: 1.6, z: 40.7}
+  m_LocalPosition: {x: 1.6999999, y: 1.5999999, z: -1.6999998}
   m_LocalScale: {x: 0.6, y: 3.2, z: 0.6}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -577,7 +647,7 @@ Transform:
   m_GameObject: {fileID: 7978975009810525832}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: -167.4, y: -0.1, z: 42.4}
+  m_LocalPosition: {x: -0, y: -0.09999999, z: 5.684342e-16}
   m_LocalScale: {x: 4, y: 0.2, z: 4}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -689,7 +759,7 @@ Transform:
   m_GameObject: {fileID: 8199890768065735824}
   serializedVersion: 2
   m_LocalRotation: {x: -1.4802973e-15, y: 0, z: -0, w: 1}
-  m_LocalPosition: {x: -169.1, y: 1.6, z: 40.7}
+  m_LocalPosition: {x: -1.6999999, y: 1.5999999, z: -1.6999998}
   m_LocalScale: {x: 0.6, y: 3.2, z: 0.6}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -801,7 +871,7 @@ Transform:
   m_GameObject: {fileID: 8239454104311301138}
   serializedVersion: 2
   m_LocalRotation: {x: -1.4802973e-15, y: 0, z: -0, w: 1}
-  m_LocalPosition: {x: -165.7, y: 1.6, z: 44.1}
+  m_LocalPosition: {x: 1.6999999, y: 1.5999998, z: 1.6999999}
   m_LocalScale: {x: 0.6, y: 3.2, z: 0.6}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -913,7 +983,7 @@ Transform:
   m_GameObject: {fileID: 8631844404756499261}
   serializedVersion: 2
   m_LocalRotation: {x: 0.7071069, y: -0, z: -0, w: 0.7071067}
-  m_LocalPosition: {x: -167.4, y: 3.2, z: 42.4}
+  m_LocalPosition: {x: 0, y: 3.2034116, z: 0}
   m_LocalScale: {x: 200, y: 200, z: 198.94608}
   m_ConstrainProportionsScale: 0
   m_Children: []

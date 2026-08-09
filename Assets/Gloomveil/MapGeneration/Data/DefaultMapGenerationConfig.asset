@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Gloomveil.MapGeneration::Gloomveil.MapGeneration.MapGenerationConfig
   unitSize: 4
   floorHeight: 4
-  moduleCatalog: {fileID: 11400000, guid: 9386987e85e35184ca6cca74bd012df1, type: 2}
+  moduleCatalog: {fileID: 11400000, guid: 382a0ff575a840c99c4995dbb361da25, type: 2}
   widthUnits: 16
   depthUnits: 16
   floorCount: 2
