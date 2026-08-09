@@ -44,5 +44,5 @@ This makes the shade read as "lit from within" regardless of whether external sc
 ## Out of Scope
 
 - Redesigning the lamp mesh geometry or its authored orientation/export pivot.
-- Wiring this prefab into `GrayboxMapKitFactory`'s `LightAnchor` spawn points or the `MapModuleCatalog` (it is not currently referenced by any scene or catalog — this fix only corrects the prefab asset itself).
+- Wiring this prefab into `GrayboxMapKitFactory`'s `LightAnchor` spawn points or the `MapModuleCatalog`. Note: this prefab IS already nested (via `PrefabInstance`) inside 10 map module prefabs under `Assets/Gloomveil/MapGeneration/Prefabs/TexturedBoxs/` (e.g. `PF_TCOR_Straight_1x3_01.prefab`, `PF_TROOM_2x2_01.prefab`), and those module prefabs are registered in `Assets/Gloomveil/MapGeneration/Data/GrayboxMapModuleCatalog.asset`. So this lamp is the actual light fixture used under every `LightAnchor` in every generated map, and a base-prefab fix here has game-wide blast radius (every lit corridor/room), not just one orphaned asset — this section is only about not additionally touching the catalog/anchor wiring itself.
 - Retuning other lights/LightZones in the project.
