@@ -35,6 +35,7 @@ namespace Game.Gameplay.DebugTools
             int maxAnger = brain.Config != null ? brain.Config.MaxAnger : 0;
             float aggroChance = brain.Anger != null ? brain.Anger.AggroChance : 0f;
             float distance = brain.Perception != null ? brain.Perception.DistanceToPlayer : 0f;
+            float contactDistance = brain.Perception != null ? brain.Perception.ContactDistanceToPlayer : 0f;
 
             GUI.Label(new Rect(10, 10, 460, 20), $"Monster state: {brain.CurrentStateName}");
             GUI.Label(new Rect(10, 30, 460, 20), $"Anger: {anger} / {maxAnger}  (aggro chance on next staredown exit: {aggroChance:P0})");
@@ -52,7 +53,7 @@ namespace Game.Gameplay.DebugTools
                 GUI.Label(new Rect(10, 130, 460, 20), $"Fuses: {objectiveManager.CompletedCount} / {objectiveManager.RequiredCount}");
             }
 
-            if (brain.Config != null && distance <= brain.Config.ContactKillRange)
+            if (brain.Config != null && contactDistance <= brain.Config.ContactKillRange)
             {
                 GUI.color = Color.red;
                 GUI.Label(new Rect(10, 150, 500, 20), $"CONTACT RANGE ({brain.Config.ContactKillRange:F1}m) — instant kill");

@@ -218,7 +218,8 @@ namespace Game.Gameplay.Monster
             IsPlayerInSafeZone = navigator != null && player != null && navigator.IsPointInSafeZone(player.position);
             bool playerIsSafe = IsPlayerInSafeZone;
 
-            if (!playerIsSafe && fsm.Current != KillState && perception != null && perception.DistanceToPlayer <= config.ContactKillRange)
+            if (!playerIsSafe && fsm.Current != KillState && perception != null
+                && perception.ContactDistanceToPlayer <= config.ContactKillRange)
             {
                 ChangeState(KillState);
             }

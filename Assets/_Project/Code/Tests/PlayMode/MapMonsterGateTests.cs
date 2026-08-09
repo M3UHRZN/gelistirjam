@@ -103,6 +103,28 @@ namespace Game.Gameplay.Tests
         }
 
         [UnityTest]
+        public IEnumerator ContactKillRequiresThreeDimensionalProximity()
+        {
+            using var fixture = new Fixture();
+            fixture.Bootstrap.Generate(2024);
+            MonsterBrain brain = fixture.MonsterGate.SpawnedBrain;
+            bool killRaised = false;
+            brain.OnKill += () => killRaised = true;
+
+            fixture.PlayerTransform.position = brain.transform.position + Vector3.up * 4f;
+            yield return null;
+
+            Assert.That(killRaised, Is.False, "a player on the floor above is not in physical contact");
+            Assert.That(brain.CurrentStateName, Is.Not.EqualTo(nameof(KillState)));
+
+            fixture.PlayerTransform.position = brain.transform.position;
+            yield return null;
+
+            Assert.That(killRaised, Is.True, "same-floor physical contact must still kill");
+            Assert.That(brain.CurrentStateName, Is.EqualTo(nameof(KillState)));
+        }
+
+        [UnityTest]
         public IEnumerator GeneratedMap_ConvertsEveryStalkPointAndWiresAReachableMonster()
         {
             using var fixture = new Fixture();
@@ -396,6 +418,7 @@ namespace Game.Gameplay.Tests
             public MapGenerationBootstrap Bootstrap { get; }
             public GeneratedMapRegistry Registry { get; }
             public GameFlowController Flow { get; }
+            public Transform PlayerTransform => player.transform;
             public MapLightGate LightGate { get; }
             public MapSafeZoneGate SafeZoneGate { get; }
             public MapMonsterGate MonsterGate { get; }
