@@ -10,7 +10,8 @@
         "Unity.InputSystem",
         "UnityEngine.UI",
         "Gloomveil.MapGeneration",
-        "Unity.TextMeshPro"
+        "Unity.TextMeshPro",
+        "Unity.Cinemachine"
     ],
     "includePlatforms": [
         "Editor"

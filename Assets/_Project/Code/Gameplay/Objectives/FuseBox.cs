@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using Game.Core;
 using Game.Gameplay.Interaction;
 using UnityEngine;
@@ -25,6 +26,10 @@ namespace Game.Gameplay.Objectives
         [SerializeField] private ObjectiveManager objectiveManager;
         [SerializeField] private FuseMiniGameController miniGame;
 
+        // Not serialized: IFuseViewPresenter is an interface, and every FuseBox in the game is spawned
+        // by MapFuseGate, which always binds one.
+        private IFuseViewPresenter viewPresenter;
+
         public FuseBoxState State { get; private set; } = FuseBoxState.Incomplete;
         public event Action OnCompleted;
 
@@ -49,11 +54,13 @@ namespace Game.Gameplay.Objectives
         // Registers immediately in addition to OnEnable, same defensive pattern as SafeZone/StalkPoint:
         // the editor scene builder creates this GameObject already active, so OnEnable can fire before
         // Bind() runs. Register() must therefore be idempotent, which ObjectiveManager guarantees.
-        public void Bind(GameFlowController flow, ObjectiveManager objectives, FuseMiniGameController miniGameController)
+        public void Bind(GameFlowController flow, ObjectiveManager objectives,
+            FuseMiniGameController miniGameController, IFuseViewPresenter presenter)
         {
             gameFlow = flow;
             objectiveManager = objectives;
             miniGame = miniGameController;
+            viewPresenter = presenter;
             if (isActiveAndEnabled) objectiveManager.Register(this);
         }
 
@@ -83,8 +90,9 @@ namespace Game.Gameplay.Objectives
             State = FuseBoxState.Active;
             gameFlow?.ChangeState(gameFlow.FuseInteractionState);
             OnInteractionStarted?.Invoke(transform.position);
+            viewPresenter?.Activate();
 
-            miniGame.Begin(roundsRequired, RoundsCompleted, name,
+            miniGame.Begin(roundsRequired, RoundsCompleted, name, viewPresenter?.ScreenAnchor,
                 onRoundComplete: HandleRoundComplete,
                 onFullyComplete: HandleFullyComplete,
                 onCancelled: HandleCancelled);
@@ -106,6 +114,17 @@ namespace Game.Gameplay.Objectives
             RoundsCompleted = roundsRequired;
             State = FuseBoxState.Complete;
             OnCompleted?.Invoke();
+            StartCoroutine(CompleteRoutine());
+        }
+
+        /// <summary>
+        /// The success flourish runs between "the fuse is done" and "the player gets the camera back":
+        /// OnCompleted has already fired, so objectives/exit/lights react while the lever animates.
+        /// </summary>
+        private IEnumerator CompleteRoutine()
+        {
+            if (viewPresenter != null) yield return StartCoroutine(viewPresenter.PlayCompletion());
+            viewPresenter?.Deactivate();
             FinishInteraction();
         }
 
@@ -115,22 +134,22 @@ namespace Game.Gameplay.Objectives
             // finished before this cancel are preserved (prompt section 15), only the in-progress round
             // was discarded (inside the minigame itself, before this callback fires).
             State = FuseBoxState.Incomplete;
+            viewPresenter?.Deactivate();
             FinishInteraction();
         }
 
         /// <summary>
-        /// Shared "the player is no longer actively working this fuse" side effects. Guarded against
-        /// GameFlowController.DeathState (see chat — Unity MCP testing found the monster killing the player
-        /// mid-minigame, then SceneWiring force-cancelling the minigame via this same path, would
-        /// unconditionally shove GameFlowController straight back to ExplorationState immediately after Death
-        /// had just been entered — silently un-killing the player from the game-flow's perspective).
-        /// This is the one place that check belongs: FinishInteraction is the only code path that ever
-        /// asks for Exploration, whether the fuse finished normally, was ESC-cancelled, or was
-        /// force-cancelled by death.
+        /// Shared "the player is no longer actively working this fuse" side effects. Only a flow still
+        /// sitting in FuseInteractionState is pushed back to Exploration. Anything else already moved
+        /// on and must not be overwritten: death (found live via Unity MCP testing — the monster
+        /// killing the player mid-minigame used to be silently un-killed from the game flow's
+        /// perspective) and, on the last fuse, Final Chase (OnCompleted above reaches
+        /// ObjectiveManager.OnAllComplete -> MapExitController.Open(), which enters FinalChaseState
+        /// before this method runs).
         /// </summary>
         private void FinishInteraction()
         {
-            if (gameFlow != null && gameFlow.CurrentStateName != nameof(DeathState))
+            if (gameFlow != null && gameFlow.CurrentStateName == nameof(FuseInteractionState))
             {
                 gameFlow.ChangeState(gameFlow.ExplorationState);
             }

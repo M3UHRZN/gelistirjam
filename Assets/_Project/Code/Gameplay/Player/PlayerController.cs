@@ -56,7 +56,7 @@ namespace Game.Gameplay.Player
         [SerializeField] private float staminaRegenPerSecond = 0.7f;
 
         [SerializeField] private FlashlightController flashlight;
-        [SerializeField, Tooltip("Locks/hides the cursor while control is enabled. Disable if a pause menu should own cursor state instead.")]
+        [SerializeField, Tooltip("Locks/hides the cursor when control is enabled. Nothing else in the game writes cursor state -- control being disabled (pause, fuse minigame) deliberately leaves the cursor locked. Turn this off if a pause menu should own cursor state instead.")]
         private bool manageCursor = true;
 
         private const int MaxGroundHits = 8;
@@ -154,11 +154,6 @@ namespace Game.Gameplay.Player
             actions.Player.Flashlight.performed -= OnFlashlightPerformed;
             actions.Player.Disable();
             HaltMotion();
-            if (manageCursor)
-            {
-                Cursor.lockState = CursorLockMode.None;
-                Cursor.visible = true;
-            }
         }
 
         private void OnDestroy() => actions?.Dispose();

@@ -203,7 +203,7 @@ namespace Game.Gameplay.Tests
             var serializedGate = new SerializedObject(gate);
             serializedGate.FindProperty("fuseBoxPrefab").objectReferenceValue = visualPrefab;
             serializedGate.ApplyModifiedPropertiesWithoutUndo();
-            gate.Bind(registry, gameFlow, objectives, miniGame);
+            gate.Bind(registry, gameFlow, objectives, miniGame, null);
 
             return new Fixture(
                 mapRoot,

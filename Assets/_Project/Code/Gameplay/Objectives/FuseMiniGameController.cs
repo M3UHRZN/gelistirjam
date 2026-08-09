@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using TMPro;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.UI;
@@ -29,13 +30,18 @@ namespace Game.Gameplay.Objectives
         private const int ButtonCount = 4;
 
         [Header("UI References — assigned by the scene composition root")]
+        [SerializeField, Tooltip("The world-space canvas root. Reparented to the active fuse tablet's screen anchor for the duration of an interaction, and returned here on close.")]
+        private Canvas worldCanvas;
         [SerializeField] private GameObject panelRoot;
-        [SerializeField] private CanvasGroup darkenOverlay;
         [SerializeField] private CanvasGroup panelGroup;
-        [SerializeField] private Text progressText;
-        [SerializeField] private Text statusText;
+        [SerializeField, Tooltip("Screen-centre crosshair, shown only while the minigame is open. A separate ScreenSpaceOverlay canvas — the world-space canvas cannot host it.")]
+        private GameObject crosshairRoot;
+        [SerializeField] private TMP_Text progressText;
+        [SerializeField] private TMP_Text statusText;
         [SerializeField] private Button[] buttons = new Button[ButtonCount];
         [SerializeField] private Image[] buttonImages = new Image[ButtonCount];
+        [SerializeField, Tooltip("Resolves which button the crosshair is on. Bound to the world canvas's GraphicRaycaster.")]
+        private FuseScreenPointer pointer;
 
         [Header("Colors — prompt section 7: fixed roles, configurable values")]
         [SerializeField] private Color[] buttonColors =
@@ -47,10 +53,11 @@ namespace Game.Gameplay.Objectives
         };
         [SerializeField, Tooltip("Multiplier applied to a button's base color while highlighted/pressed (>1 brightens). Raised from 1.6 (see chat — against the idle/dim state, 1.6 didn't read as a clear enough on/off contrast).")]
         private float highlightBrightness = 2.2f;
+        [SerializeField, Tooltip("Multiplier applied to a button's base color while the crosshair is on it. Sits between dim and highlight so hover reads as 'targeted', never as a sequence pulse.")]
+        private float hoverBrightness = 1.1f;
         [SerializeField, Tooltip("Multiplier applied to a button's base color while idle/resting — dimmer than the highlight so the sequence pulse actually reads as lighting *up*, not just changing shade (prompt section 10's own example: dim -> highlight -> dim).")]
         private float dimBrightness = 0.45f;
         [SerializeField] private Color wrongColor = new Color(0.9f, 0.1f, 0.1f);
-        [SerializeField] private Color darkenOverlayColor = new Color(0f, 0f, 0f, 0.7f);
 
         [Header("Timing — prompt section 11, all Inspector-configurable, no magic numbers")]
         [SerializeField] private float sequenceHighlightDuration = 0.5f;
@@ -62,6 +69,8 @@ namespace Game.Gameplay.Objectives
         [SerializeField] private float fuseCompleteFeedbackDuration = 0.9f;
         [SerializeField, Tooltip("Scale multiplier applied during a highlight/press pulse. Raised from 1.15 (see chat — too subtle to read as a deliberate pulse at that scale).")]
         private float pulseScale = 1.35f;
+        [SerializeField, Tooltip("Local scale applied to the canvas when it is parented to a tablet screen. The canvas is authored at 400x300 UI units, so 0.0012 maps it to roughly 0.48 x 0.36 m.")]
+        private float screenScale = 0.0012f;
 
         public bool IsActive { get; private set; }
 
@@ -73,6 +82,9 @@ namespace Game.Gameplay.Objectives
         private bool cancelRequested;
         private readonly int[] sequenceBuffer = new int[SequenceLength];
         private readonly Vector3[] buttonBaseScale = new Vector3[ButtonCount];
+        private readonly bool[] buttonAnimating = new bool[ButtonCount];
+        private int hoveredIndex = -1;
+        private Transform canvasHome;
 
         private void Awake()
         {
@@ -86,13 +98,49 @@ namespace Game.Gameplay.Objectives
                 if (buttons[i] != null) buttonBaseScale[i] = buttons[i].transform.localScale;
             }
 
+            if (worldCanvas != null) canvasHome = worldCanvas.transform.parent;
             if (panelRoot != null) panelRoot.SetActive(false);
+            if (crosshairRoot != null) crosshairRoot.SetActive(false);
         }
 
         private void Update()
         {
             if (!IsActive) return;
             if (Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame) cancelRequested = true;
+
+            UpdateCrosshairTargeting();
+        }
+
+        /// <summary>
+        /// Hover tint plus click-to-press. The click goes through the Button's own onClick, so the
+        /// index mapping wired once in Awake stays the single source of truth for which button is which.
+        /// </summary>
+        private void UpdateCrosshairTargeting()
+        {
+            Button hovered = pointer != null ? pointer.ResolveButtonAtViewportCentre() : null;
+            int index = IndexOf(hovered);
+
+            if (index != hoveredIndex)
+            {
+                if (hoveredIndex >= 0 && !buttonAnimating[hoveredIndex]) SetButtonColor(hoveredIndex, DimColor(hoveredIndex));
+                hoveredIndex = index;
+                if (hoveredIndex >= 0 && !buttonAnimating[hoveredIndex]) SetButtonColor(hoveredIndex, buttonColors[hoveredIndex] * hoverBrightness);
+            }
+
+            if (hovered != null && Mouse.current != null && Mouse.current.leftButton.wasPressedThisFrame)
+            {
+                hovered.onClick.Invoke();
+            }
+        }
+
+        private int IndexOf(Button button)
+        {
+            if (button == null) return -1;
+            for (int i = 0; i < ButtonCount; i++)
+            {
+                if (buttons[i] == button) return i;
+            }
+            return -1;
         }
 
         /// <summary>
@@ -115,12 +163,13 @@ namespace Game.Gameplay.Objectives
         /// Starts the minigame for `roundsRequired` total rounds, already `roundsAlreadyCompleted` of
         /// which are done (so a re-entered fuse resumes instead of restarting fully — prompt section
         /// 15). `label` is just a display string (e.g. the FuseBox's name) — this class never touches
-        /// the caller's type. Exactly one of onFullyComplete/onCancelled fires, exactly once, when the
+        /// the caller's type. `screenAnchor` is where the shared canvas parents itself for the duration
+        /// of this interaction. Exactly one of onFullyComplete/onCancelled fires, exactly once, when the
         /// minigame ends. No-op (logs a warning) if already active — enforces "only one fuse
         /// interaction at a time" from the caller's side too, though FuseBox already guards this.
         /// </summary>
         public void Begin(int roundsRequired, int roundsAlreadyCompleted, string label,
-            Action onRoundComplete, Action onFullyComplete, Action onCancelled)
+            Transform screenAnchor, Action onRoundComplete, Action onFullyComplete, Action onCancelled)
         {
             if (IsActive)
             {
@@ -130,18 +179,19 @@ namespace Game.Gameplay.Objectives
 
             if (ValidateConfiguration() == false)
             {
-                Debug.LogError("[FuseMiniGameController] Missing required references (buttons/panel) — cannot start. See Inspector.");
+                Debug.LogError("[FuseMiniGameController] Missing required references (canvas/buttons/panel) — cannot start. See Inspector.");
                 onCancelled?.Invoke();
                 return;
             }
 
             IsActive = true;
             StartCoroutine(RunFuse(Mathf.Max(1, roundsRequired), Mathf.Max(0, roundsAlreadyCompleted),
-                label, onRoundComplete, onFullyComplete, onCancelled));
+                label, screenAnchor, onRoundComplete, onFullyComplete, onCancelled));
         }
 
         private bool ValidateConfiguration()
         {
+            if (worldCanvas == null) return false;
             if (panelRoot == null) return false;
             if (buttons == null || buttons.Length != ButtonCount) return false;
             if (buttonImages == null || buttonImages.Length != ButtonCount) return false;
@@ -163,10 +213,10 @@ namespace Game.Gameplay.Objectives
         }
 
         private IEnumerator RunFuse(int roundsRequired, int roundsCompleted, string label,
-            Action onRoundComplete, Action onFullyComplete, Action onCancelled)
+            Transform screenAnchor, Action onRoundComplete, Action onFullyComplete, Action onCancelled)
         {
             cancelRequested = false;
-            yield return OpenPanel();
+            yield return OpenPanel(screenAnchor);
 
             bool cancelled = false;
             int round = roundsCompleted;
@@ -301,19 +351,17 @@ namespace Game.Gameplay.Objectives
             for (int i = 0; i < ButtonCount; i++) SetButtonColor(i, DimColor(i));
         }
 
-        private IEnumerator OpenPanel()
+        private IEnumerator OpenPanel(Transform screenAnchor)
         {
+            AttachCanvasTo(screenAnchor);
+
             panelRoot.SetActive(true);
+            if (crosshairRoot != null) crosshairRoot.SetActive(true);
             for (int i = 0; i < ButtonCount; i++) SetButtonColor(i, DimColor(i));
             SetStatusText(string.Empty);
 
-            // Unlock the cursor so the player can click buttons — TestPlayerController's Awake()
-            // locks it for normal gameplay; this is the one place outside that controller that touches
-            // Cursor state, restored symmetrically in ClosePanel().
-            Cursor.lockState = CursorLockMode.None;
-            Cursor.visible = true;
-
-            if (darkenOverlay != null) yield return FadeCanvasGroup(darkenOverlay, 0f, darkenOverlayColor.a, fadeDuration);
+            // Cursor state is deliberately untouched: it stays locked for the whole interaction and
+            // PlayerController is the only script in the game that writes it.
             if (panelGroup != null) yield return FadeCanvasGroup(panelGroup, 0f, 1f, fadeDuration);
         }
 
@@ -321,11 +369,41 @@ namespace Game.Gameplay.Objectives
         {
             SetButtonsInteractable(false);
             if (panelGroup != null) yield return FadeCanvasGroup(panelGroup, panelGroup.alpha, 0f, fadeDuration);
-            if (darkenOverlay != null) yield return FadeCanvasGroup(darkenOverlay, darkenOverlay.alpha, 0f, fadeDuration);
 
             panelRoot.SetActive(false);
-            Cursor.lockState = CursorLockMode.Locked;
-            Cursor.visible = false;
+            if (crosshairRoot != null) crosshairRoot.SetActive(false);
+            hoveredIndex = -1;
+            DetachCanvas();
+        }
+
+        /// <summary>
+        /// Parents the shared canvas onto the active tablet's screen. A missing anchor is survivable —
+        /// the minigame still runs, just wherever the canvas already sits — so it warns instead of
+        /// aborting an interaction the player already committed to.
+        /// </summary>
+        private void AttachCanvasTo(Transform screenAnchor)
+        {
+            if (screenAnchor == null)
+            {
+                Debug.LogWarning("[FuseMiniGameController] No screen anchor supplied — the minigame canvas stays where it is.", this);
+                return;
+            }
+
+            Transform canvasTransform = worldCanvas.transform;
+            canvasTransform.SetParent(screenAnchor, false);
+            canvasTransform.localPosition = Vector3.zero;
+            canvasTransform.localRotation = Quaternion.identity;
+            canvasTransform.localScale = Vector3.one * screenScale;
+        }
+
+        /// <summary>
+        /// Returns the canvas to the parent it had at Awake. Not cosmetic: MapFuseGate destroys fuse
+        /// instances when a new map is published, and a canvas still parented under one dies with it.
+        /// </summary>
+        private void DetachCanvas()
+        {
+            if (worldCanvas == null) return;
+            worldCanvas.transform.SetParent(canvasHome, false);
         }
 
         private IEnumerator FadeCanvasGroup(CanvasGroup group, float from, float to, float duration)
@@ -360,17 +438,20 @@ namespace Game.Gameplay.Objectives
 
         private IEnumerator LerpButtonVisual(int index, Color fromColor, Color toColor, Vector3 fromScale, Vector3 toScale, float duration)
         {
+            buttonAnimating[index] = true;
+
             if (duration <= 0f)
             {
                 SetButtonColor(index, toColor);
                 if (buttons[index] != null) buttons[index].transform.localScale = toScale;
+                buttonAnimating[index] = false;
                 yield break;
             }
 
             float elapsed = 0f;
             while (elapsed < duration)
             {
-                if (cancelRequested) yield break;
+                if (cancelRequested) { buttonAnimating[index] = false; yield break; }
                 elapsed += Time.deltaTime;
                 float t = elapsed / duration;
                 SetButtonColor(index, Color.Lerp(fromColor, toColor, t));
@@ -379,6 +460,7 @@ namespace Game.Gameplay.Objectives
             }
             SetButtonColor(index, toColor);
             if (buttons[index] != null) buttons[index].transform.localScale = toScale;
+            buttonAnimating[index] = false;
         }
 
         private IEnumerator WaitSecondsOrCancel(float seconds)
