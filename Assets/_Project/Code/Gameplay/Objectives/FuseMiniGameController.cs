@@ -47,6 +47,8 @@ namespace Game.Gameplay.Objectives
         [SerializeField, Tooltip("Optional. Played once on a wrong input, and again when the fuse fully completes.")]
         private AudioSource audioSource;
         [SerializeField] private AudioClip electricitySound;
+        [SerializeField, Tooltip("Played once on every color-button click, right or wrong.")]
+        private AudioClip clickSound;
 
         [Header("Colors — prompt section 7: fixed roles, configurable values")]
         [SerializeField] private Color[] buttonColors =
@@ -486,7 +488,11 @@ namespace Game.Gameplay.Objectives
             }
         }
 
-        private void OnButtonClicked(int index) => pendingButtonPress = index;
+        private void OnButtonClicked(int index)
+        {
+            pendingButtonPress = index;
+            if (audioSource != null && clickSound != null) audioSource.PlayOneShot(clickSound);
+        }
 
         private void SetButtonsInteractable(bool interactable)
         {
