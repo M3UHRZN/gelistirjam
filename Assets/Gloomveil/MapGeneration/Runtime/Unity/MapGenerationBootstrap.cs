@@ -14,6 +14,14 @@ namespace Gloomveil.MapGeneration
 
         private ModularMapBuilder builder;
 
+        /// <summary>
+        /// Set before loading a scene with a generate-on-start bootstrap to make it generate that
+        /// seed instead of its serialized startupSeed, then self-clears — e.g. the Lobby's "start a
+        /// new run" interaction sets a random value here right before loading MainGame, so each run
+        /// gets a different map without needing a config asset or extra wiring.
+        /// </summary>
+        public static int? NextRunSeed;
+
         public MapGenerationConfig Config => config;
         public GeneratedNavMeshController NavMeshController => navMeshController;
         public GeneratedMapRegistry Registry => registry;
@@ -186,7 +194,9 @@ namespace Gloomveil.MapGeneration
         {
             if (generateOnStart)
             {
-                Generate(startupSeed);
+                int seed = NextRunSeed ?? startupSeed;
+                NextRunSeed = null;
+                Generate(seed);
             }
         }
 
