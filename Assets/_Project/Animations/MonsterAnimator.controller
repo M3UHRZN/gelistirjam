@@ -72,16 +72,16 @@ AnimatorStateMachine:
     m_Position: {x: 260, y: 80, z: 0}
   - serializedVersion: 1
     m_State: {fileID: -8128902120342808210}
-    m_Position: {x: 520, y: 80, z: 0}
+    m_Position: {x: 450, y: -40, z: 0}
   - serializedVersion: 1
     m_State: {fileID: -1015013632205687452}
-    m_Position: {x: 555, y: 145, z: 0}
+    m_Position: {x: 590, y: 150, z: 0}
   - serializedVersion: 1
     m_State: {fileID: 1896122267631054758}
-    m_Position: {x: 590, y: 210, z: 0}
+    m_Position: {x: 640, y: 340, z: 0}
   - serializedVersion: 1
     m_State: {fileID: 6366021354992477569}
-    m_Position: {x: 625, y: 275, z: 0}
+    m_Position: {x: 240, y: 360, z: 0}
   - serializedVersion: 1
     m_State: {fileID: -4520204704858977443}
     m_Position: {x: 420, y: 330, z: 0}
@@ -454,7 +454,7 @@ AnimatorState:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_Name: Locomotion
-  m_Speed: 1
+  m_Speed: 0.7
   m_CycleOffset: 0
   m_Transitions:
   - {fileID: -8125578011260450132}
@@ -469,7 +469,7 @@ AnimatorState:
   m_MirrorParameterActive: 0
   m_CycleOffsetParameterActive: 0
   m_TimeParameterActive: 0
-  m_Motion: {fileID: 7400000, guid: 48b77361e7842e84b9e0e56cd45d0711, type: 2}
+  m_Motion: {fileID: 7400000, guid: 1cb589e934b313444b6d2f35ad3c0ba2, type: 2}
   m_Tag:
   m_SpeedParameter:
   m_MirrorParameter:

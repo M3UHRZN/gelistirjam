@@ -64,7 +64,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 77c8ad9d5c4ad4826a915c2ebd4467c3, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Game.Gameplay::Game.Gameplay.Monster.MonsterGazeReceiver
   owner: {fileID: 0}
 --- !u!1 &7204412094238865275
@@ -168,7 +168,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: b016ff0c2b5c345af901e5a4e5408347, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Game.Gameplay::Game.Gameplay.Monster.MonsterVisualDriver
   bodyRenderer: {fileID: 639389912331870840}
   brain: {fileID: 6489110174801484686}
@@ -211,7 +211,6 @@ Transform:
   m_Children:
   - {fileID: 7211489439864315062}
   - {fileID: 8854487335430008319}
-  - {fileID: 6846598866950601592}
   - {fileID: 1704213985696278730}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
@@ -270,7 +269,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: da5ae47ca4ba346efab9034f92f6f90a, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Game.Gameplay::Game.Gameplay.Monster.MonsterNavigator
   safeZones: {fileID: 0}
 --- !u!114 &8447460773073900478
@@ -283,7 +282,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: d92921fc477cd4740a49443fe546ab09, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Game.Gameplay::Game.Gameplay.Monster.MonsterPerception
   player: {fileID: 0}
   occluderMask:
@@ -303,7 +302,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: cb512d7e4bd5448b69b3a4d1125c0075, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Game.Gameplay::Game.Gameplay.Monster.MonsterAngerController
   config: {fileID: 0}
 --- !u!114 &6489110174801484686
@@ -316,7 +315,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: ba3fef7952aeb4109bec2c3b7c594d0a, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Game.Gameplay::Game.Gameplay.Monster.MonsterBrain
   config: {fileID: 0}
   perception: {fileID: 0}
@@ -337,7 +336,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 5fd44d2c9f669684696873e87f4ea795, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Game.Gameplay::Game.Gameplay.Monster.MonsterRuntimeRig
   brain: {fileID: 6489110174801484686}
   navigator: {fileID: 4420776387904455427}
@@ -358,7 +357,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: c3a87024e8206004288a9b11d2d98eda, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Game.Gameplay::Game.Gameplay.Monster.MonsterAnimationController
   animator: {fileID: 5728923931061979120}
   brain: {fileID: 6489110174801484686}
@@ -376,6 +375,7 @@ GameObject:
   - component: {fileID: 6846598866950601592}
   - component: {fileID: 7424518139486706955}
   - component: {fileID: 4898998123029084842}
+  - component: {fileID: 8898164070764764702}
   m_Layer: 0
   m_Name: EyeVisual
   m_TagString: Untagged
@@ -392,11 +392,11 @@ Transform:
   m_GameObject: {fileID: 8926861555121616995}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 1.9, z: 0.5}
-  m_LocalScale: {x: 0.16, y: 0.16, z: 0.16}
+  m_LocalPosition: {x: -0.014, y: -0.263, z: -0.047}
+  m_LocalScale: {x: 0.8409, y: 0.8409, z: 0.8409}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 2365886147439165687}
+  m_Father: {fileID: 7535446069479734951}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!33 &7424518139486706955
 MeshFilter:
@@ -413,7 +413,7 @@ MeshRenderer:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 8926861555121616995}
-  m_Enabled: 1
+  m_Enabled: 0
   m_CastShadows: 1
   m_ReceiveShadows: 1
   m_DynamicOccludee: 1
@@ -455,6 +455,27 @@ MeshRenderer:
   m_SortingOrder: 0
   m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
+--- !u!135 &8898164070764764702
+SphereCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8926861555121616995}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 1
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Radius: 0.50000024
+  m_Center: {x: -0.000000029802322, y: -0.0000009536743, z: 0.000000059604645}
 --- !u!1001 &1165355788325130017
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -521,7 +542,10 @@ PrefabInstance:
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
-    m_AddedGameObjects: []
+    m_AddedGameObjects:
+    - targetCorrespondingSourceObject: {fileID: 8700783698680967558, guid: b4aafb9e7596e7b42a3e62d88be125aa, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 6846598866950601592}
     m_AddedComponents:
     - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: b4aafb9e7596e7b42a3e62d88be125aa, type: 3}
       insertIndex: -1
@@ -559,8 +583,13 @@ Animator:
   m_LinearVelocityBlending: 0
   m_StabilizeFeet: 0
   m_AnimatePhysics: 0
-  m_WarningMessage:
+  m_WarningMessage: 
   m_HasTransformHierarchy: 1
   m_AllowConstantClipSamplingOptimization: 1
   m_KeepAnimatorStateOnDisable: 0
   m_WriteDefaultValuesOnDisable: 0
+--- !u!4 &7535446069479734951 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 8700783698680967558, guid: b4aafb9e7596e7b42a3e62d88be125aa, type: 3}
+  m_PrefabInstance: {fileID: 1165355788325130017}
+  m_PrefabAsset: {fileID: 0}
