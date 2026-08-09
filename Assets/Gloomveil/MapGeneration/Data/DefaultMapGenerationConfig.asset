@@ -15,11 +15,11 @@ MonoBehaviour:
   unitSize: 4
   floorHeight: 4
   moduleCatalog: {fileID: 11400000, guid: 382a0ff575a840c99c4995dbb361da25, type: 2}
-  widthUnits: 16
-  depthUnits: 16
+  widthUnits: 20
+  depthUnits: 20
   floorCount: 2
-  minRoomsPerFloor: 3
-  maxRoomsPerFloor: 5
+  minRoomsPerFloor: 8
+  maxRoomsPerFloor: 15
   roomClearanceUnits: 1
   extraRoomLinksPerFloor: 2
   verticalLinksPerFloorPair: 2

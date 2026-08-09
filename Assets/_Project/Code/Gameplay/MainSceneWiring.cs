@@ -1,4 +1,5 @@
 using Game.Core;
+using Game.Gameplay.Death;
 using Game.Gameplay.Monster;
 using Game.Gameplay.Objectives;
 using Game.Gameplay.World;
@@ -23,6 +24,12 @@ namespace Game.Gameplay
         [SerializeField] private ObjectiveManager objectiveManager;
         [SerializeField] private MapExitController mapExit;
         [SerializeField] private FuseMiniGameController fuseMiniGame;
+        [Header("Death Presentation")]
+        [SerializeField] private DeathSequenceController deathSequence;
+        [SerializeField] private Camera deathCamera;
+        [SerializeField] private AudioClip deathSound;
+        [SerializeField, Min(0f)] private float deathPanelDelaySeconds = 0.65f;
+        [SerializeField] private string mainMenuSceneName = "MainMenu";
         [SerializeField, Tooltip("Target percentage of the non-SafeZone LightZone pool still active after fuse 1, 2, 3, ... (TGD section 32). The last entry is reused for any fuse beyond the array's length.")]
         private float[] shutdownTargetPercents = { 75f, 45f, 15f };
 
@@ -32,6 +39,7 @@ namespace Game.Gameplay
 
         public LightDirector LightDirector => lightDirector;
         public MonsterBrain BoundMonster => brain;
+        public DeathSequenceController DeathSequence => deathSequence;
 
         public void Bind(GameFlowController flow, ObjectiveManager objectives, MapExitController exit,
             FuseMiniGameController miniGame)
@@ -49,6 +57,7 @@ namespace Game.Gameplay
             if (brain != null) brain.OnKill -= HandleMonsterKill;
 
             brain = monsterBrain;
+            deathSequence?.BindMonster(brain);
             if (brain == null) return;
 
             brain.OnKill += HandleMonsterKill;
@@ -61,6 +70,7 @@ namespace Game.Gameplay
 
             brain.OnKill -= HandleMonsterKill;
             brain = null;
+            deathSequence?.BindMonster(null);
         }
 
         // Same Awake+Start double-attempt as SceneWiring — idempotent-guarded, safe either order.
@@ -72,6 +82,20 @@ namespace Game.Gameplay
             if (wired) return;
             if (gameFlow == null || objectiveManager == null || mapExit == null || fuseMiniGame == null) return;
             wired = true;
+
+            if (deathSequence == null)
+            {
+                deathSequence = GetComponent<DeathSequenceController>();
+                if (deathSequence == null) deathSequence = gameObject.AddComponent<DeathSequenceController>();
+            }
+
+            deathSequence.Configure(
+                gameFlow,
+                deathCamera != null ? deathCamera : Camera.main,
+                deathSound,
+                deathPanelDelaySeconds,
+                mainMenuSceneName);
+            deathSequence.BindMonster(brain);
 
             objectiveManager.OnAnyFuseCompleted += lightDirector.OnFuseCompleted;
             lightDirector.SetShutdownTargetPercents(shutdownTargetPercents);

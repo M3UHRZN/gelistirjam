@@ -31,6 +31,18 @@ namespace Game.Gameplay.Tests
         }
 
         [Test]
+        public void BindMonster_ForwardsCurrentMonsterToDeathSequence()
+        {
+            using var fixture = new WiringFixture();
+            MonsterBrain brain = fixture.CreateInactiveBrain("Monster");
+
+            fixture.Wiring.BindMonster(brain);
+
+            Assert.That(fixture.Wiring.DeathSequence, Is.Not.Null);
+            Assert.That(fixture.Wiring.DeathSequence.BoundMonster, Is.SameAs(brain));
+        }
+
+        [Test]
         public void BindMonster_ReplacesKillSubscription()
         {
             using var fixture = new WiringFixture();

@@ -2,7 +2,7 @@ using UnityEngine;
 
 namespace Game.Core
 {
-    /// <summary>Terminal state: the monster caught the player (TGD section 4, 12). Placeholder for a real death sequence/UI.</summary>
+    /// <summary>Terminal state: the monster caught the player (TGD section 4, 12).</summary>
     public class DeathState : IGameState
     {
         private readonly GameFlowController flow;
@@ -12,7 +12,7 @@ namespace Game.Core
         public void Enter()
         {
             flow.SetPlayerControlEnabled(false);
-            Debug.Log("[GameFlow] Death — placeholder for a real death sequence/UI.");
+            Debug.Log("[GameFlow] Death.");
         }
 
         public void Tick(float deltaTime) { }

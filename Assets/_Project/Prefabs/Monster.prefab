@@ -67,6 +67,37 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Game.Gameplay::Game.Gameplay.Monster.MonsterGazeReceiver
   owner: {fileID: 0}
+--- !u!1 &2909299022440758934
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 7960912351527078249}
+  m_Layer: 0
+  m_Name: KillCameraAnchor
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &7960912351527078249
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2909299022440758934}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0.041218147, y: 0.9954079, z: 0.049395833, w: 0.070881784}
+  m_LocalPosition: {x: -0.165, y: -0.326, z: 1.143}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 7535446069479734951}
+  m_LocalEulerAnglesHint: {x: -5.98, y: 172.08, z: -4.328}
 --- !u!1 &7204412094238865275
 GameObject:
   m_ObjectHideFlags: 0
@@ -543,6 +574,9 @@ PrefabInstance:
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects:
+    - targetCorrespondingSourceObject: {fileID: 8700783698680967558, guid: b4aafb9e7596e7b42a3e62d88be125aa, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 7960912351527078249}
     - targetCorrespondingSourceObject: {fileID: 8700783698680967558, guid: b4aafb9e7596e7b42a3e62d88be125aa, type: 3}
       insertIndex: -1
       addedObject: {fileID: 6846598866950601592}
