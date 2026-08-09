@@ -22,6 +22,7 @@ namespace Game.Gameplay.Tests
             AssertParameter(controller, "Aggressive", AnimatorControllerParameterType.Bool);
             AssertParameter(controller, "Retreating", AnimatorControllerParameterType.Bool);
             AssertParameter(controller, "Attack", AnimatorControllerParameterType.Trigger);
+            AssertParameter(controller, "Yell", AnimatorControllerParameterType.Trigger);
 
             AnimatorStateMachine stateMachine = controller.layers[0].stateMachine;
             Assert.That(stateMachine.defaultState.name, Is.EqualTo("Locomotion"));
@@ -37,7 +38,26 @@ namespace Game.Gameplay.Tests
                 && transition.conditions.Any(condition => condition.parameter == "Attack"));
             Assert.That(hasAttackTrigger, Is.True, "Any State must reach Attack through the Attack trigger.");
 
-            AssertLoopingState(stateMachine, "Locomotion", "Idle");
+            AnimatorState yell = stateMachine.states.Select(child => child.state)
+                .SingleOrDefault(state => state.name == "Yell");
+            Assert.That(yell, Is.Not.Null);
+            Assert.That(yell.motion, Is.TypeOf<AnimationClip>());
+            Assert.That(yell.motion.name, Is.EqualTo("Yelling"));
+            Assert.That(((AnimationClip)yell.motion).isLooping, Is.False, "Yelling must be a one-shot clip.");
+
+            bool hasYellTrigger = stateMachine.anyStateTransitions.Any(transition =>
+                transition.destinationState == yell
+                && transition.conditions.Any(condition => condition.parameter == "Yell"));
+            Assert.That(hasYellTrigger, Is.True, "Any State must reach Yell through the Yell trigger.");
+
+            int attackTransitionIndex = System.Array.FindIndex(stateMachine.anyStateTransitions,
+                transition => transition.destinationState == attack);
+            int yellTransitionIndex = System.Array.FindIndex(stateMachine.anyStateTransitions,
+                transition => transition.destinationState == yell);
+            Assert.That(attackTransitionIndex, Is.LessThan(yellTransitionIndex),
+                "Attack must keep higher Any State transition priority than Yell.");
+
+            AssertStateHasClip(stateMachine, "Locomotion");
             AssertLoopingState(stateMachine, "Stalk", "Running Crawl");
             AssertLoopingState(stateMachine, "Retreat", "Run Backward");
             AssertLoopingState(stateMachine, "Chase", "Zombie Running");
@@ -85,6 +105,14 @@ namespace Game.Gameplay.Tests
             Assert.That(state.motion, Is.TypeOf<AnimationClip>());
             Assert.That(state.motion.name, Is.EqualTo(clipName));
             Assert.That(((AnimationClip)state.motion).isLooping, Is.True, $"{clipName} must loop.");
+        }
+
+        private static void AssertStateHasClip(AnimatorStateMachine stateMachine, string stateName)
+        {
+            AnimatorState state = stateMachine.states.Select(child => child.state)
+                .SingleOrDefault(candidate => candidate.name == stateName);
+            Assert.That(state, Is.Not.Null, $"Missing Animator state: {stateName}");
+            Assert.That(state.motion, Is.TypeOf<AnimationClip>());
         }
     }
 }

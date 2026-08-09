@@ -15,6 +15,7 @@ namespace Game.Gameplay.Monster
         private static readonly int AggressiveId = Animator.StringToHash("Aggressive");
         private static readonly int RetreatingId = Animator.StringToHash("Retreating");
         private static readonly int AttackId = Animator.StringToHash("Attack");
+        private static readonly int YellId = Animator.StringToHash("Yell");
 
         [SerializeField] private Animator animator;
         [SerializeField] private MonsterBrain brain;
@@ -25,6 +26,7 @@ namespace Game.Gameplay.Monster
         private bool subscribed;
         private string pendingStateName;
         private bool attackPending;
+        private bool yellPending;
 
         public bool IsBound => animator != null && brain != null && agent != null;
 
@@ -73,6 +75,7 @@ namespace Game.Gameplay.Monster
             if (!isActiveAndEnabled || brain == null || subscribed) return;
 
             brain.OnStateChanged += HandleStateChanged;
+            brain.OnConfirmedGazeStarted += HandleConfirmedGazeStarted;
             brain.OnKill += HandleKill;
             subscribed = true;
         }
@@ -82,6 +85,7 @@ namespace Game.Gameplay.Monster
             if (!subscribed || brain == null) return;
 
             brain.OnStateChanged -= HandleStateChanged;
+            brain.OnConfirmedGazeStarted -= HandleConfirmedGazeStarted;
             brain.OnKill -= HandleKill;
             subscribed = false;
         }
@@ -99,7 +103,16 @@ namespace Game.Gameplay.Monster
 
         private void HandleKill()
         {
+            yellPending = false;
             attackPending = true;
+            ApplyPendingSignals();
+        }
+
+        private void HandleConfirmedGazeStarted()
+        {
+            if (attackPending) return;
+
+            yellPending = true;
             ApplyPendingSignals();
         }
 
@@ -126,9 +139,19 @@ namespace Game.Gameplay.Monster
 
             if (attackPending)
             {
+                animator.ResetTrigger(YellId);
+                yellPending = false;
                 animator.ResetTrigger(AttackId);
                 animator.SetTrigger(AttackId);
                 attackPending = false;
+                return;
+            }
+
+            if (yellPending)
+            {
+                animator.ResetTrigger(YellId);
+                animator.SetTrigger(YellId);
+                yellPending = false;
             }
         }
     }

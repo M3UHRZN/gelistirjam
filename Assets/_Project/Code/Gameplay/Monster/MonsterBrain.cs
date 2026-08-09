@@ -79,8 +79,14 @@ namespace Game.Gameplay.Monster
         public AngerStageTuning Tuning => config.TuningFor(anger.Stage);
 
         private float gazeHoldSeconds;
+        private bool wasGazeConfirmed;
 
         public event Action<string> OnStateChanged;
+        /// <summary>
+        /// Raised once on the false-to-true edge of a confirmed gaze. Presentation systems may
+        /// observe this, but the Brain remains the sole owner of the accompanying anger mutation.
+        /// </summary>
+        public event Action OnConfirmedGazeStarted;
         public event Action OnKill;
 
         /// <summary>
@@ -205,6 +211,8 @@ namespace Game.Gameplay.Monster
         private void OnEnable()
         {
             EnsureInitialized();
+            gazeHoldSeconds = 0f;
+            wasGazeConfirmed = false;
             ChangeState(PatrolState);
         }
 
@@ -225,6 +233,15 @@ namespace Game.Gameplay.Monster
             }
 
             gazeHoldSeconds = IsGazedAtNow ? gazeHoldSeconds + Time.deltaTime : 0f;
+
+            bool gazeConfirmed = IsGazeConfirmed;
+            if (gazeConfirmed && !wasGazeConfirmed && fsm.Current != KillState)
+            {
+                anger.AddAnger(config.AngerPerSpotted);
+                OnConfirmedGazeStarted?.Invoke();
+            }
+
+            wasGazeConfirmed = gazeConfirmed;
 
             // TGD section 21: the anger multiplier is continuous, so it's pushed every frame rather
             // than baked into each state's Enter() — anger changes mid-state (decay while chasing, a
