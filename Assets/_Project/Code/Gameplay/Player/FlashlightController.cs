@@ -6,6 +6,9 @@ namespace Game.Gameplay.Player
     public class FlashlightController : MonoBehaviour
     {
         [SerializeField] private Light flashlight;
+        [SerializeField, Tooltip("Optional. Played on every Toggle() if both this and toggleSound are set.")]
+        private AudioSource audioSource;
+        [SerializeField] private AudioClip toggleSound;
 
         private Light Flashlight => flashlight != null ? flashlight : (flashlight = GetComponentInChildren<Light>());
 
@@ -20,6 +23,7 @@ namespace Game.Gameplay.Player
         public void Toggle()
         {
             if (Flashlight != null) Flashlight.enabled = !Flashlight.enabled;
+            if (audioSource != null && toggleSound != null) audioSource.PlayOneShot(toggleSound);
         }
     }
 }

@@ -2537,8 +2537,8 @@ MonoBehaviour:
           m_BoolArgument: 0
         m_CallState: 2
   audioSource: {fileID: 1361912147502876114}
-  selectSound: {fileID: 0}
-  confirmSound: {fileID: 0}
+  selectSound: {fileID: 8300000, guid: 6fee4579d0029418c85fff0ad2b1f334, type: 3}
+  confirmSound: {fileID: 8300000, guid: 0fbff7fe7a8d84003ada8eb8ab779e42, type: 3}
   selectDuration: 0.15
   confirmPulseDuration: 0.35
   idleBorderColor: {r: 0.3137255, g: 0.67058825, b: 0.4, a: 1}
@@ -3155,8 +3155,8 @@ MonoBehaviour:
           m_BoolArgument: 0
         m_CallState: 2
   audioSource: {fileID: 1361912147502876114}
-  selectSound: {fileID: 0}
-  confirmSound: {fileID: 0}
+  selectSound: {fileID: 8300000, guid: 6fee4579d0029418c85fff0ad2b1f334, type: 3}
+  confirmSound: {fileID: 8300000, guid: 0fbff7fe7a8d84003ada8eb8ab779e42, type: 3}
   selectDuration: 0.15
   confirmPulseDuration: 0.35
   idleBorderColor: {r: 0.3137255, g: 0.67058825, b: 0.4, a: 1}
@@ -3480,8 +3480,8 @@ MonoBehaviour:
           m_BoolArgument: 0
         m_CallState: 2
   audioSource: {fileID: 1361912147502876114}
-  selectSound: {fileID: 0}
-  confirmSound: {fileID: 0}
+  selectSound: {fileID: 8300000, guid: 6fee4579d0029418c85fff0ad2b1f334, type: 3}
+  confirmSound: {fileID: 8300000, guid: 0fbff7fe7a8d84003ada8eb8ab779e42, type: 3}
   selectDuration: 0.15
   confirmPulseDuration: 0.35
   idleBorderColor: {r: 0.3137255, g: 0.67058825, b: 0.4, a: 1}
