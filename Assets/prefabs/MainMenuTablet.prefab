@@ -459,8 +459,8 @@ MonoBehaviour:
   m_fontMaterials: []
   m_fontColor32:
     serializedVersion: 2
-    rgba: 3952869241
-  m_fontColor: {r: 0.4745098, g: 1, b: 0.60784316, a: 0.92156863}
+    rgba: 3944757784
+  m_fontColor: {r: 0.09411765, g: 0.22745098, b: 0.1254902, a: 0.92156863}
   m_enableVertexGradient: 0
   m_colorMode: 3
   m_fontColorGradient:
@@ -920,8 +920,8 @@ MonoBehaviour:
   m_fontMaterials: []
   m_fontColor32:
     serializedVersion: 2
-    rgba: 3952869241
-  m_fontColor: {r: 0.4745098, g: 1, b: 0.60784316, a: 0.92156863}
+    rgba: 4280302104
+  m_fontColor: {r: 0.09411765, g: 0.22745098, b: 0.1254902, a: 1}
   m_enableVertexGradient: 0
   m_colorMode: 3
   m_fontColorGradient:
@@ -1431,8 +1431,8 @@ RectTransform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 4673119567418547541}
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0.00000022256}
+  m_LocalScale: {x: 1.3519, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 1786367249830020628}
@@ -1470,7 +1470,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  panelColor: {r: 0.023529412, g: 0.0627451, b: 0.047058824, a: 0.74509805}
+  panelColor: {r: 0.0033374948, g: 0.009433985, b: 0.0069953883, a: 0.74509805}
   accentColor: {r: 0.4745098, g: 1, b: 0.60784316, a: 0.5803922}
   registrationColor: {r: 0.4745098, g: 1, b: 0.60784316, a: 0.9019608}
   borderThickness: 1.5
@@ -1690,7 +1690,7 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 21.1379, y: 6.1347, z: 2.9235716}
-  m_LocalScale: {x: 201.17542, y: 201.17542, z: 201.17542}
+  m_LocalScale: {x: 238.15146, y: 211.55606, z: 201.17542}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 6951073734785547186}
@@ -2076,7 +2076,7 @@ MonoBehaviour:
   confirmSound: {fileID: 0}
   selectDuration: 0.15
   confirmPulseDuration: 0.35
-  idleBorderColor: {r: 0.086, g: 0.27, b: 0.157, a: 1}
+  idleBorderColor: {r: 0.3137255, g: 0.67058825, b: 0.4, a: 1}
   selectedBorderColor: {r: 0.31, g: 1, b: 0.541, a: 1}
   confirmFlashColor: {r: 0.31, g: 1, b: 0.541, a: 0.9}
 --- !u!1 &6555726255126877836
@@ -2228,8 +2228,8 @@ MonoBehaviour:
   m_fontMaterials: []
   m_fontColor32:
     serializedVersion: 2
-    rgba: 1889271673
-  m_fontColor: {r: 0.4745098, g: 1, b: 0.60784316, a: 0.4392157}
+    rgba: 4280302104
+  m_fontColor: {r: 0.09411765, g: 0.22745098, b: 0.1254902, a: 1}
   m_enableVertexGradient: 0
   m_colorMode: 3
   m_fontColorGradient:
@@ -2541,7 +2541,7 @@ MonoBehaviour:
   confirmSound: {fileID: 0}
   selectDuration: 0.15
   confirmPulseDuration: 0.35
-  idleBorderColor: {r: 0.086, g: 0.27, b: 0.157, a: 1}
+  idleBorderColor: {r: 0.3137255, g: 0.67058825, b: 0.4, a: 1}
   selectedBorderColor: {r: 0.31, g: 1, b: 0.541, a: 1}
   confirmFlashColor: {r: 0.31, g: 1, b: 0.541, a: 0.9}
 --- !u!1 &7392695308085863862
@@ -2874,8 +2874,8 @@ MonoBehaviour:
   m_fontMaterials: []
   m_fontColor32:
     serializedVersion: 2
-    rgba: 3952869241
-  m_fontColor: {r: 0.4745098, g: 1, b: 0.60784316, a: 0.92156863}
+    rgba: 3944757784
+  m_fontColor: {r: 0.09291563, g: 0.2264151, b: 0.12678865, a: 0.92156863}
   m_enableVertexGradient: 0
   m_colorMode: 3
   m_fontColorGradient:
@@ -3041,6 +3041,7 @@ RectTransform:
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
+  - {fileID: 3896764731236279647}
   - {fileID: 4136116148326260435}
   - {fileID: 1893419986692660501}
   - {fileID: 56474086317565656}
@@ -3159,9 +3160,44 @@ MonoBehaviour:
   confirmSound: {fileID: 0}
   selectDuration: 0.15
   confirmPulseDuration: 0.35
-  idleBorderColor: {r: 0.086, g: 0.27, b: 0.157, a: 1}
+  idleBorderColor: {r: 0.3137255, g: 0.67058825, b: 0.4, a: 1}
   selectedBorderColor: {r: 0.31, g: 1, b: 0.541, a: 1}
   confirmFlashColor: {r: 0.31, g: 1, b: 0.541, a: 0.9}
+--- !u!1 &9048214413263325715
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 3896764731236279647}
+  m_Layer: 0
+  m_Name: MaskPanel
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!224 &3896764731236279647
+RectTransform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 9048214413263325715}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1786367249830020628}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_AnchorMin: {x: 0.5, y: 0.5}
+  m_AnchorMax: {x: 0.5, y: 0.5}
+  m_AnchoredPosition: {x: 0, y: 0}
+  m_SizeDelta: {x: 100, y: 100}
+  m_Pivot: {x: 0.5, y: 0.5}
 --- !u!1 &9207626523576728795
 GameObject:
   m_ObjectHideFlags: 0
@@ -3394,6 +3430,6 @@ MonoBehaviour:
   confirmSound: {fileID: 0}
   selectDuration: 0.15
   confirmPulseDuration: 0.35
-  idleBorderColor: {r: 0.086, g: 0.27, b: 0.157, a: 1}
+  idleBorderColor: {r: 0.3137255, g: 0.67058825, b: 0.4, a: 1}
   selectedBorderColor: {r: 0.31, g: 1, b: 0.541, a: 1}
   confirmFlashColor: {r: 0.31, g: 1, b: 0.541, a: 0.9}
