@@ -108,7 +108,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 474bcb49853aa07438625e644c072ee6, type: 3}
-  m_Name: 
+  m_Name:
   m_EditorClassIdentifier: Unity.RenderPipelines.Universal.Runtime::UnityEngine.Rendering.Universal.UniversalAdditionalLightData
   m_UsePipelineSettings: 1
   m_AdditionalLightsShadowResolutionTier: 2
@@ -217,6 +217,7 @@ GameObject:
   - component: {fileID: 6640509160967288797}
   - component: {fileID: 9034873108586501119}
   - component: {fileID: 1031348562271697415}
+  - component: {fileID: 8159718744618975295}
   m_Layer: 0
   m_Name: Player
   m_TagString: Player
@@ -363,6 +364,22 @@ MonoBehaviour:
   m_EditorClassIdentifier: Game.Gameplay::Game.Gameplay.Player.PlayerSpawnGate
   registry: {fileID: 0}
   playerController: {fileID: 6640509160967288797}
+--- !u!114 &8159718744618975295
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7110461859708860221}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f9cc0f8dad82b4a4687a368055a73874, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Game.Gameplay::Game.Gameplay.Player.PlayerVisionModel
+  player: {fileID: 0}
+  fieldOfViewDegrees: 100
+  viewRange: 20
+  perception: {fileID: 0}
 --- !u!1 &7282632043529800239
 GameObject:
   m_ObjectHideFlags: 0
