@@ -101,7 +101,16 @@ namespace Game.Editor
         private static FuseMiniGameController EnsureFuseMiniGameUI()
         {
             FuseMiniGameController existing = Object.FindFirstObjectByType<FuseMiniGameController>();
-            if (existing != null) return existing;
+            if (existing != null)
+            {
+                if (HasCurrentFuseMiniGameUi(existing))
+                {
+                    BindWorldCanvasCamera(existing);
+                    return existing;
+                }
+
+                RemoveLegacyFuseMiniGameUi(existing);
+            }
 
             if (Object.FindFirstObjectByType<EventSystem>() == null)
             {
@@ -113,6 +122,7 @@ namespace Game.Editor
             GameObject canvasGO = new GameObject("FuseMiniGameCanvas");
             Canvas canvas = canvasGO.AddComponent<Canvas>();
             canvas.renderMode = RenderMode.WorldSpace;
+            canvas.worldCamera = Camera.main;
             RectTransform canvasRect = canvasGO.GetComponent<RectTransform>();
             canvasRect.sizeDelta = new Vector2(400f, 300f);
             canvasGO.transform.localScale = Vector3.one * 0.0012f;
@@ -202,6 +212,41 @@ namespace Game.Editor
                 progressText, statusText, buttons, buttonImages);
 
             return controller;
+        }
+
+        private static bool HasCurrentFuseMiniGameUi(FuseMiniGameController controller)
+        {
+            SerializedObject serialized = new SerializedObject(controller);
+            Canvas canvas = serialized.FindProperty("worldCanvas").objectReferenceValue as Canvas;
+
+            return canvas != null &&
+                   canvas.renderMode == RenderMode.WorldSpace &&
+                   serialized.FindProperty("panelRoot").objectReferenceValue != null &&
+                   serialized.FindProperty("crosshairRoot").objectReferenceValue != null &&
+                   serialized.FindProperty("pointer").objectReferenceValue != null &&
+                   serialized.FindProperty("progressText").objectReferenceValue != null &&
+                   serialized.FindProperty("statusText").objectReferenceValue != null;
+        }
+
+        private static void BindWorldCanvasCamera(FuseMiniGameController controller)
+        {
+            SerializedObject serialized = new SerializedObject(controller);
+            Canvas canvas = serialized.FindProperty("worldCanvas").objectReferenceValue as Canvas;
+            if (canvas != null) canvas.worldCamera = Camera.main;
+        }
+
+        private static void RemoveLegacyFuseMiniGameUi(FuseMiniGameController controller)
+        {
+            SerializedObject serialized = new SerializedObject(controller);
+            GameObject panel = serialized.FindProperty("panelRoot").objectReferenceValue as GameObject;
+            Canvas legacyCanvas = panel != null ? panel.GetComponentInParent<Canvas>() : null;
+            GameObject crosshair = serialized.FindProperty("crosshairRoot").objectReferenceValue as GameObject;
+            FuseScreenPointer pointer = serialized.FindProperty("pointer").objectReferenceValue as FuseScreenPointer;
+
+            if (legacyCanvas != null) Object.DestroyImmediate(legacyCanvas.gameObject);
+            if (crosshair != null) Object.DestroyImmediate(crosshair);
+            if (pointer != null) Object.DestroyImmediate(pointer.gameObject);
+            Object.DestroyImmediate(controller.gameObject);
         }
 
         private static GameObject NewUIObject(string name, Transform parent)

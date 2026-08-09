@@ -150,17 +150,19 @@ namespace Game.Gameplay.Tests
             var objectivesObject = new GameObject("FuseBoxPresenterFixture_Objectives");
             ObjectiveManager objectives = objectivesObject.AddComponent<ObjectiveManager>();
 
-            var miniGameObject = new GameObject("FuseBoxPresenterFixture_MiniGame");
+            var miniGameObject = new GameObject("FuseBoxPresenterFixture_MiniGame", typeof(Canvas));
             FuseMiniGameController miniGame = miniGameObject.AddComponent<FuseMiniGameController>();
             WireMinimalValidUi(miniGame, miniGameObject.transform);
+
+            var screenAnchorObject = new GameObject("FuseBoxPresenterFixture_ScreenAnchor");
 
             var boxObject = new GameObject("FuseBoxPresenterFixture_Box", typeof(BoxCollider));
             FuseBox box = boxObject.AddComponent<FuseBox>();
 
-            var presenter = new SpyPresenter();
+            var presenter = new SpyPresenter(screenAnchorObject.transform);
             box.Bind(gameFlow, objectives, miniGame, presenter);
 
-            return new Fixture(gameFlowObject, objectivesObject, miniGameObject, boxObject,
+            return new Fixture(gameFlowObject, objectivesObject, miniGameObject, boxObject, screenAnchorObject,
                 gameFlow, miniGame, box, presenter);
         }
 
@@ -168,9 +170,9 @@ namespace Game.Gameplay.Tests
         /// Wires just enough UI for FuseMiniGameController.ValidateConfiguration() to pass — a panel
         /// GameObject and 4 distinct Button/Image pairs — so Begin() actually starts the RunFuse
         /// coroutine instead of bailing synchronously (see chat: code review on this task found the
-        /// suite's earlier reliance on that synchronous bail-out left the guard fix unpinned). No Canvas
-        /// or EventSystem: nothing here simulates a real pointer click, only ForceCancel()/timeouts, so
-        /// raycasting infrastructure would be unused weight. darkenOverlay/panelGroup are left unbound
+        /// suite's earlier reliance on that synchronous bail-out left the guard fix unpinned). A Canvas
+        /// is required after the world-space migration; EventSystem and raycasting infrastructure remain
+        /// unused because these tests only exercise ForceCancel()/timeouts. panelGroup is left unbound
         /// (both null-checked in FuseMiniGameController) so no CanvasGroup fades run; fadeDuration is
         /// zeroed anyway for defence if that ever changes.
         ///
@@ -199,6 +201,7 @@ namespace Game.Gameplay.Tests
             }
 
             var serialized = new SerializedObject(miniGame);
+            serialized.FindProperty("worldCanvas").objectReferenceValue = parent.GetComponent<Canvas>();
             serialized.FindProperty("panelRoot").objectReferenceValue = panel;
 
             SerializedProperty buttonsProp = serialized.FindProperty("buttons");
@@ -221,11 +224,18 @@ namespace Game.Gameplay.Tests
         /// </summary>
         private sealed class SpyPresenter : IFuseViewPresenter
         {
+            private readonly Transform screenAnchor;
+
+            public SpyPresenter(Transform screenAnchor)
+            {
+                this.screenAnchor = screenAnchor;
+            }
+
             public int ActivateCount { get; private set; }
             public int DeactivateCount { get; private set; }
             public int CompletionCount { get; private set; }
 
-            public Transform ScreenAnchor => null;
+            public Transform ScreenAnchor => screenAnchor;
 
             public void Activate() => ActivateCount++;
 
@@ -244,6 +254,7 @@ namespace Game.Gameplay.Tests
             private readonly GameObject objectivesObject;
             private readonly GameObject miniGameObject;
             private readonly GameObject boxObject;
+            private readonly GameObject screenAnchorObject;
 
             public GameFlowController GameFlow { get; }
             public FuseMiniGameController MiniGame { get; }
@@ -255,6 +266,7 @@ namespace Game.Gameplay.Tests
                 GameObject objectivesObject,
                 GameObject miniGameObject,
                 GameObject boxObject,
+                GameObject screenAnchorObject,
                 GameFlowController gameFlow,
                 FuseMiniGameController miniGame,
                 FuseBox box,
@@ -264,6 +276,7 @@ namespace Game.Gameplay.Tests
                 this.objectivesObject = objectivesObject;
                 this.miniGameObject = miniGameObject;
                 this.boxObject = boxObject;
+                this.screenAnchorObject = screenAnchorObject;
                 GameFlow = gameFlow;
                 MiniGame = miniGame;
                 Box = box;
@@ -273,6 +286,7 @@ namespace Game.Gameplay.Tests
             public void Dispose()
             {
                 UnityEngine.Object.DestroyImmediate(boxObject);
+                UnityEngine.Object.DestroyImmediate(screenAnchorObject);
                 UnityEngine.Object.DestroyImmediate(miniGameObject);
                 UnityEngine.Object.DestroyImmediate(objectivesObject);
                 UnityEngine.Object.DestroyImmediate(gameFlowObject);
