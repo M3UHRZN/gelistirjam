@@ -1,0 +1,14 @@
+{
+  "name": "Game.Gameplay.EditModeTests",
+  "rootNamespace": "Game.Gameplay.Tests",
+  "references": [
+    "Game.Gameplay",
+    "Gloomveil.MapGeneration"
+  ],
+  "optionalUnityReferences": [
+    "TestAssemblies"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ]
+}
