@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using Game.Core;
-using Game.Gameplay.Player;
 using Gloomveil.MapGeneration;
 using UnityEngine;
 
@@ -411,7 +410,8 @@ namespace Game.Gameplay.World
                 relay = trigger.gameObject.AddComponent<ExitTriggerRelay>();
             }
 
-            relay.Entered += HandleTriggerEntered;
+            relay.CanInteract = IsOpen;
+            relay.Interacted += HandleInteracted;
         }
 
         private void DetachRelay()
@@ -421,7 +421,7 @@ namespace Game.Gameplay.World
                 return;
             }
 
-            relay.Entered -= HandleTriggerEntered;
+            relay.Interacted -= HandleInteracted;
             relay = null;
         }
 
@@ -449,6 +449,11 @@ namespace Game.Gameplay.World
             }
 
             IsOpen = true;
+            if (relay != null)
+            {
+                relay.CanInteract = true;
+            }
+
             OpenBlocker();
             OnExitOpened?.Invoke();
             gameFlow.ChangeState(gameFlow.FinalChaseState);
@@ -470,9 +475,15 @@ namespace Game.Gameplay.World
             }
         }
 
-        private void HandleTriggerEntered(Collider other)
+        /// <summary>
+        /// Fired by ExitTriggerRelay.Interacted — the player held E while aiming at the (unlocked)
+        /// exit. Reaching the exit no longer ends the run by itself (see chat: exit now requires an
+        /// explicit interact instead of auto-completing on trigger enter); the door only responds
+        /// once IsOpen, so this can't fire before FinalChase starts.
+        /// </summary>
+        private void HandleInteracted()
         {
-            if (!IsOpen || !IsPlayer(other))
+            if (!IsOpen)
             {
                 return;
             }
@@ -483,13 +494,5 @@ namespace Game.Gameplay.World
                 gameFlow.ChangeState(gameFlow.VictoryState);
             }
         }
-
-        // No tag or layer scheme exists in this project yet, so the player is identified by its
-        // controller component. Both rigs count: PlayerController (Rigidbody + CapsuleCollider) is
-        // the real one, TestPlayerController is a CharacterController. ExitController only checks
-        // for CharacterController, which is why it never fires for the real player rig.
-        private static bool IsPlayer(Collider other) =>
-            other.GetComponentInParent<PlayerController>() != null ||
-            other.GetComponentInParent<CharacterController>() != null;
     }
 }
