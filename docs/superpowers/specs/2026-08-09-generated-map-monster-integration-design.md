@@ -102,7 +102,7 @@ Completion is reported even when the relevant anchor collection is empty, after 
 
 Add a neutral `GeneratedMapRegistry.MapCleared` lifecycle event carrying the data being cleared. `Clear` removes the current publication before raising the event. The event contains no gameplay or enemy type and therefore preserves the package boundary.
 
-`MapMonsterGate` listens for it, unbinds the current brain from `MainSceneWiring`, destroys the monster, clears pending state, and lets destroyed runtime `StalkPoint` components unregister through `OnDisable`.
+`MapMonsterGate` listens for it, unbinds the current brain from `MainSceneWiring`, destroys the monster, clears pending state, and disables/removes only the runtime `StalkPoint` components that the gate added. Disabling invokes `OnDisable` immediately so the runtime set is clean even when a caller clears the registry directly instead of using `MapGenerationBootstrap.ClearGeneratedMap`.
 
 ## Runtime data flow
 
@@ -187,7 +187,7 @@ If a brain is bound while the game is already in Final Chase, apply relentless A
 - Missing parent module for an anchor: warn, keep a safe metadata fallback, and continue.
 - Zero reachable spawn positions: log an error and do not leave a partial monster instance.
 - Duplicate readiness callbacks: ignored by runtime-data identity and the idempotent build guard.
-- Map clear/republication: unbind and destroy the old monster before another is accepted.
+- Map clear/republication: unbind and destroy the old monster, disable/remove gate-added stalk components, and clear their runtime-set registrations before another map is accepted.
 
 ## Scene integration
 
