@@ -71,8 +71,8 @@ namespace Game.Gameplay.Monster
             lastVelocityDirection = direction;
         }
 
-        // The player CharacterController's pivot is at chest height while the NavMeshAgent pivot
-        // is at floor height. AI range and contact decisions are horizontal gameplay distances.
+        // Awareness and navigation decisions use horizontal distance so vertical movement and
+        // different pivot heights do not make the omniscient AI lose its target.
         public float DistanceToPlayer
         {
             get
@@ -84,6 +84,13 @@ namespace Game.Gameplay.Monster
                 return delta.magnitude;
             }
         }
+
+        // Contact is different from awareness: floors may overlap in XZ, so an instant kill must
+        // use real spatial proximity instead of treating a player one storey above as distance zero.
+        public float ContactDistanceToPlayer => player == null
+            ? Mathf.Infinity
+            : Vector3.Distance(player.position, transform.position);
+
         public bool IsPlayerWithinRadius(float radius) => DistanceToPlayer <= radius;
 
         /// <summary>

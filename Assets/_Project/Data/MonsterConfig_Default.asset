@@ -12,27 +12,78 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4ffe2b3f569e545a2bc9c1db94da271e, type: 3}
   m_Name: MonsterConfig_Default
   m_EditorClassIdentifier: Game.MonsterAI::Game.MonsterAI.MonsterConfig
-  patrolSpeed: 1.8
-  patrolRadius: 10
+  patrolSpeed: 4
+  patrolRadius: 20
   detectionRadius: 12
   interestedSpeed: 4.2
   stalkBehindDistance: 3
   stalkRepathInterval: 0.45
   loseInterestRadius: 16
-  shySpeed: 5.5
+  shySpeed: 10
   shyFleeRadius: 14
   shyFleeDuration: 24
   staredownAngerInterval: 1
   staredownCheckInterval: 1
   staredownChance: 0.35
   aggressiveSpeed: 4.8
-  loseAggroRadius: 20
+  loseAggroRadius: 8
   aggressiveAngerDecayPerSecond: 1
   contactKillRange: 1
-  gazeRayCount: 5
-  gazeRequiredHits: 3
-  gazeConeHalfAngleDegrees: 3
+  gazeRayCount: 7
+  gazeRequiredHits: 1
+  gazeRayOriginSpread: 0.15
   gazeMaxDistance: 25
   gazeAggroHardCap: 4
   angerPerSpotted: 1
   maxAnger: 12
+  angerSpeedMultiplierMax: 1.75
+  criticalDistance: 2.5
+  gazeConfirmDurationSeconds: 0.2
+  repositionSpeed: 4.5
+  repositionChance: 0.25
+  predictionSeconds: 1.5
+  repositionInterval: 0.6
+  repositionStickyBonus: 1.5
+  finalChaseRepositionIntervalMultiplier: 0.5
+  finalChaseDistanceWeightMultiplier: 2.5
+  flankOffsetDistance: 5
+  ambushTriggerRadius: 6
+  ambushMaxDurationSeconds: 12
+  stalkAbandonRadius: 22
+  commitSpeed: 7.5
+  commitDistance: 5
+  commitLoseRadius: 12
+  safeZoneCampDistance: 6
+  safeZoneCampDuration: 20
+  safeZoneCampRepositionInterval: 3
+  fakeRetreatChance: 0.25
+  aggressionDistanceWeight: 0.15
+  aggressionStaredownBonus: 0.1
+  aggressionFinalChaseBonus: 0.25
+  angerStageTuning:
+  - StalkDistanceMultiplier: 1.35
+    RepositionChanceMultiplier: 0.5
+    RepositionIntervalMultiplier: 1.5
+    CutOffPreference: 0
+    FakeRetreatChanceMultiplier: 0.5
+    VisibilityRiskTolerance: 0
+  - StalkDistanceMultiplier: 1
+    RepositionChanceMultiplier: 1
+    RepositionIntervalMultiplier: 1
+    CutOffPreference: 0.15
+    FakeRetreatChanceMultiplier: 1
+    VisibilityRiskTolerance: 0.2
+  - StalkDistanceMultiplier: 0.85
+    RepositionChanceMultiplier: 1.4
+    RepositionIntervalMultiplier: 0.8
+    CutOffPreference: 0.45
+    FakeRetreatChanceMultiplier: 1.3
+    VisibilityRiskTolerance: 0.5
+  - StalkDistanceMultiplier: 0.7
+    RepositionChanceMultiplier: 1.8
+    RepositionIntervalMultiplier: 0.6
+    CutOffPreference: 0.7
+    FakeRetreatChanceMultiplier: 1.8
+    VisibilityRiskTolerance: 0.85
+  fuseApproachRadius: 8
+  fuseAwarenessAngerPerSecond: 0.25

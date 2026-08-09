@@ -9,6 +9,7 @@ namespace Gloomveil.MapGeneration
         private GeneratedMapRuntimeData current;
 
         public event Action<GeneratedMapRuntimeData> MapReady;
+        public event Action<GeneratedMapRuntimeData> MapCleared;
 
         public bool IsReady => current != null;
         public GeneratedMapRuntimeData Current => current ?? throw new InvalidOperationException(
@@ -39,7 +40,14 @@ namespace Gloomveil.MapGeneration
 
         public void Clear()
         {
+            if (current == null)
+            {
+                return;
+            }
+
+            GeneratedMapRuntimeData cleared = current;
             current = null;
+            MapCleared?.Invoke(cleared);
         }
     }
 }

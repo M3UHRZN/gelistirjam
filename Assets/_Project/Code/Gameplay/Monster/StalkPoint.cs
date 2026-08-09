@@ -59,6 +59,9 @@ namespace Game.Gameplay.Monster
             ambushAllowed = allowAmbush;
         }
 
+        public void ConfigureStaticDarkness(float darkness) =>
+            staticDarknessLevel = Mathf.Clamp01(darkness);
+
         public void Bind(SafeZoneRuntimeSet zones, LightZone zone, StalkPointRuntimeSet stalkRegistry)
         {
             safeZones = zones;

@@ -21,7 +21,6 @@ namespace Game.Gameplay.Monster
         {
             brain.Navigator.Stop();
             brain.Navigator.SetAutoRotate(false);
-            brain.Anger.AddAnger(brain.Config.AngerPerSpotted); // being caught mid-stalk is worse than a passive glance
         }
 
         public void Tick(float deltaTime)

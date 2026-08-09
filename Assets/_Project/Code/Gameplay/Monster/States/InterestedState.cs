@@ -55,7 +55,6 @@ namespace Game.Gameplay.Monster
             {
                 if (!wasGazedLastFrame)
                 {
-                    brain.Anger.AddAnger(brain.Config.AngerPerSpotted); // "the moment you look at it, this adds to anger" (wiki)
                     brain.Navigator.Stop();
                     brain.Navigator.SetAutoRotate(false);
                 }
