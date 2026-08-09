@@ -194,6 +194,8 @@ namespace Game.Gameplay.Tests
                 root.AddComponent<MonsterPerception>();
                 root.AddComponent<MonsterAngerController>();
                 Brain = root.AddComponent<MonsterBrain>();
+                root.AddComponent<Animator>();
+                root.AddComponent<MonsterAnimationController>();
                 root.AddComponent<MonsterVisualDriver>();
                 MonsterRuntimeRig rig = root.AddComponent<MonsterRuntimeRig>();
 

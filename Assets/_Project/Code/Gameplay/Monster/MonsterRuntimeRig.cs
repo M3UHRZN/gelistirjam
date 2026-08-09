@@ -18,6 +18,8 @@ namespace Game.Gameplay.Monster
         [SerializeField] private MonsterGazeReceiver gazeReceiver;
         [SerializeField] private MonsterVisualDriver visualDriver;
         [SerializeField] private Renderer bodyRenderer;
+        [SerializeField] private MonsterAnimationController animationController;
+        [SerializeField] private Animator animator;
 
         public MonsterBrain Brain => brain;
         public MonsterPerception Perception => perception;
@@ -39,7 +41,8 @@ namespace Game.Gameplay.Monster
             if (config == null || player == null || velocitySource == null || playerCamera == null
                 || safeZones == null || stalkPoints == null || visionModel == null
                 || brain == null || navigator == null || perception == null || anger == null
-                || gazeReceiver == null || visualDriver == null || bodyRenderer == null)
+                || gazeReceiver == null || visualDriver == null || bodyRenderer == null
+                || animationController == null || animator == null)
             {
                 return false;
             }
@@ -53,6 +56,9 @@ namespace Game.Gameplay.Monster
             brain.BindStalkSystems(stalkPoints, visionModel);
             visionModel.Bind(player, perception);
             visualDriver.Bind(bodyRenderer, brain);
+            animationController.Bind(animator, brain, navigator.GetComponent<UnityEngine.AI.NavMeshAgent>());
+
+            if (!animationController.IsBound) return false;
 
             IsInitialized = true;
             return true;
@@ -67,6 +73,8 @@ namespace Game.Gameplay.Monster
             if (gazeReceiver == null) gazeReceiver = GetComponentInChildren<MonsterGazeReceiver>(true);
             if (visualDriver == null) visualDriver = GetComponent<MonsterVisualDriver>();
             if (bodyRenderer == null) bodyRenderer = GetComponentInChildren<Renderer>(true);
+            if (animationController == null) animationController = GetComponent<MonsterAnimationController>();
+            if (animator == null) animator = GetComponentInChildren<Animator>(true);
         }
     }
 }

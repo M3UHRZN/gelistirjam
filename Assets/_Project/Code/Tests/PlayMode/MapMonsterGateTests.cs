@@ -24,6 +24,8 @@ namespace Game.Gameplay.Tests
     {
         private const string CatalogPath =
             "Assets/Gloomveil/MapGeneration/Data/GrayboxMapModuleCatalog.asset";
+        private const string MonsterControllerPath =
+            "Assets/_Project/Animations/MonsterAnimator.controller";
         private static readonly FloorSeedCase[] FloorSeedCases =
         {
             new FloorSeedCase(2, 1042),
@@ -122,6 +124,17 @@ namespace Game.Gameplay.Tests
 
             Assert.That(killRaised, Is.True, "same-floor physical contact must still kill");
             Assert.That(brain.CurrentStateName, Is.EqualTo(nameof(KillState)));
+
+            Animator animator = brain.GetComponentInChildren<Animator>();
+            bool attackEntered = false;
+            for (int frame = 0; frame < 10 && !attackEntered; frame++)
+            {
+                yield return null;
+                attackEntered = animator.GetCurrentAnimatorStateInfo(0).IsName("Attack")
+                    || animator.GetNextAnimatorStateInfo(0).IsName("Attack");
+            }
+            Assert.That(attackEntered, Is.True,
+                "the authoritative kill event must trigger the attack animation");
         }
 
         [UnityTest]
@@ -452,6 +465,12 @@ namespace Game.Gameplay.Tests
                 root.AddComponent<MonsterPerception>();
                 root.AddComponent<MonsterAngerController>();
                 root.AddComponent<MonsterBrain>();
+                Animator animator = root.AddComponent<Animator>();
+#if UNITY_EDITOR
+                animator.runtimeAnimatorController =
+                    AssetDatabase.LoadAssetAtPath<RuntimeAnimatorController>(MonsterControllerPath);
+#endif
+                root.AddComponent<MonsterAnimationController>();
                 root.AddComponent<MonsterVisualDriver>();
                 rig = root.AddComponent<MonsterRuntimeRig>();
 

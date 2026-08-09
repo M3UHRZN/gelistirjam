@@ -40,6 +40,7 @@ namespace Game.Gameplay.Tests
             Assert.That(fixture.Rig.Brain.VisionModel, Is.SameAs(fixture.VisionModel));
             Assert.That(fixture.Rig.Perception.HasVelocitySource, Is.True);
             Assert.That(fixture.GazeReceiver.Owner, Is.SameAs(fixture.Rig.Brain));
+            Assert.That(fixture.Root.GetComponent<MonsterAnimationController>().IsBound, Is.True);
             Assert.That(fixture.Root.activeSelf, Is.False);
         }
 
@@ -74,6 +75,8 @@ namespace Game.Gameplay.Tests
                 Root.AddComponent<MonsterPerception>();
                 Root.AddComponent<MonsterAngerController>();
                 Root.AddComponent<MonsterBrain>();
+                Root.AddComponent<Animator>();
+                Root.AddComponent<MonsterAnimationController>();
                 Root.AddComponent<MonsterVisualDriver>();
                 Rig = Root.AddComponent<MonsterRuntimeRig>();
 
