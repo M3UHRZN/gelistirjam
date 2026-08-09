@@ -239,14 +239,14 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 5186045094648843853}
   serializedVersion: 2
-  m_LocalRotation: {x: 0.7071068, y: -0, z: -0, w: 0.7071068}
+  m_LocalRotation: {x: 0.70710677, y: 0, z: 0, w: 0.70710677}
   m_LocalPosition: {x: 0.1107, y: 0.041751802, z: -0.3225956}
   m_LocalScale: {x: 0.042350847, y: 0.042350847, z: 0.042350847}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 8060999523478291375}
   m_Father: {fileID: 155780438051580596}
-  m_LocalEulerAnglesHint: {x: 90, y: 0, z: 0}
+  m_LocalEulerAnglesHint: {x: 90, y: 90, z: 90}
 --- !u!33 &344833416306771621
 MeshFilter:
   m_ObjectHideFlags: 0
@@ -581,8 +581,8 @@ MonoBehaviour:
   lookSensitivity: 0.08
   maxYawDegrees: 15
   maxPitchDegrees: 10
-  leverClosedEuler: {x: 90, y: 0, z: 0}
-  leverOpenEuler: {x: -35, y: 0, z: 0}
+  leverClosedEuler: {x: 90, y: 90, z: 90}
+  leverOpenEuler: {x: -35, y: 90, z: 90}
   leverTweenDuration: 1
 --- !u!1 &7974633016852631397
 GameObject:
