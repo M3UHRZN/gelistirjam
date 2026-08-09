@@ -22,6 +22,39 @@ namespace Game.Gameplay.Tests
     {
         private const string CatalogPath =
             "Assets/Gloomveil/MapGeneration/Data/GrayboxMapModuleCatalog.asset";
+        private static readonly FloorSeedCase[] FloorSeedCases =
+        {
+            new FloorSeedCase(2, 1042),
+            new FloorSeedCase(3, 1042),
+            new FloorSeedCase(4, 1042),
+            new FloorSeedCase(2, 2024),
+        };
+
+        [UnityTest]
+        public IEnumerator GeneratedFloorCase_SpawnsOneReachableDeterministicMonster(
+            [ValueSource(nameof(FloorSeedCases))] FloorSeedCase testCase)
+        {
+            Vector3 firstPosition;
+            using (var first = new Fixture(floorCount: testCase.FloorCount))
+            {
+                first.Bootstrap.Generate(testCase.Seed);
+                AssertValidSpawn(first, testCase);
+                firstPosition = first.MonsterGate.SpawnedBrain.transform.position;
+            }
+
+            yield return null;
+
+            using (var second = new Fixture(floorCount: testCase.FloorCount))
+            {
+                second.Bootstrap.Generate(testCase.Seed);
+                AssertValidSpawn(second, testCase);
+                Assert.That(Vector3.Distance(
+                    firstPosition,
+                    second.MonsterGate.SpawnedBrain.transform.position), Is.LessThanOrEqualTo(0.01f));
+            }
+
+            yield return null;
+        }
 
         [UnityTest]
         public IEnumerator OnMapReady_WaitsForBothLightAndSafeZoneBuilds()
@@ -161,6 +194,40 @@ namespace Game.Gameplay.Tests
             yield return null;
         }
 
+        private static void AssertValidSpawn(Fixture fixture, FloorSeedCase testCase)
+        {
+            Assert.That(fixture.Registry.IsReady, Is.True, testCase.ToString());
+            Assert.That(fixture.Registry.Current.FloorCount, Is.EqualTo(testCase.FloorCount));
+            Assert.That(fixture.MonsterGate.SpawnedBrain, Is.Not.Null, testCase.ToString());
+            Assert.That(fixture.MonsterGate.SpawnCount, Is.EqualTo(1), testCase.ToString());
+            Assert.That(fixture.MonsterGate.SpawnedStalkPoints, Is.Not.Empty, testCase.ToString());
+
+            NavMeshAgent agent = fixture.MonsterGate.SpawnedBrain.GetComponent<NavMeshAgent>();
+            Assert.That(agent.isOnNavMesh, Is.True, testCase.ToString());
+            Assert.That(fixture.MonsterGate.SelectedSpawnPathDistance, Is.GreaterThan(0f), testCase.ToString());
+
+            var path = new NavMeshPath();
+            Assert.That(NavMesh.CalculatePath(
+                fixture.Registry.Current.StartAnchor.position,
+                fixture.MonsterGate.SpawnedBrain.transform.position,
+                NavMesh.AllAreas,
+                path), Is.True, testCase.ToString());
+            Assert.That(path.status, Is.EqualTo(NavMeshPathStatus.PathComplete), testCase.ToString());
+        }
+
+        public readonly struct FloorSeedCase
+        {
+            public FloorSeedCase(int floorCount, int seed)
+            {
+                FloorCount = floorCount;
+                Seed = seed;
+            }
+
+            public int FloorCount { get; }
+            public int Seed { get; }
+            public override string ToString() => $"floors={FloorCount}, seed={Seed}";
+        }
+
         private sealed class Fixture : IDisposable
         {
             private readonly GameObject mapRoot;
@@ -175,7 +242,10 @@ namespace Game.Gameplay.Tests
             private readonly MonsterConfig monsterConfig;
             private readonly SafeZoneRuntimeSet safeZones;
 
-            public Fixture(bool lightGateActive = true, bool safeZoneGateActive = true)
+            public Fixture(
+                bool lightGateActive = true,
+                bool safeZoneGateActive = true,
+                int floorCount = 2)
             {
 #if UNITY_EDITOR
                 MapModuleCatalog catalog = AssetDatabase.LoadAssetAtPath<MapModuleCatalog>(CatalogPath);
@@ -185,7 +255,7 @@ namespace Game.Gameplay.Tests
                 Assert.That(catalog, Is.Not.Null, CatalogPath);
 
                 mapConfig = ScriptableObject.CreateInstance<MapGenerationConfig>();
-                mapConfig.ConfigureGeneratedContent(catalog, 2);
+                mapConfig.ConfigureGeneratedContent(catalog, floorCount);
 
                 mapRoot = new GameObject("MapMonsterGateFixture_Map");
                 Registry = mapRoot.AddComponent<GeneratedMapRegistry>();
