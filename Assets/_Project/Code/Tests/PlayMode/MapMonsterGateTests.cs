@@ -1,6 +1,8 @@
 using System;
 using System.Collections;
 using System.Linq;
+using System.Reflection;
+using System.Text.RegularExpressions;
 using Game.Core;
 using Game.Gameplay.Monster;
 using Game.Gameplay.Objectives;
@@ -85,6 +87,22 @@ namespace Game.Gameplay.Tests
         }
 
         [UnityTest]
+        public IEnumerator FinalChaseBeforeMapPublication_SpawnsActiveAggressiveMonster()
+        {
+            using var fixture = new Fixture();
+            fixture.Flow.ChangeState(fixture.Flow.FinalChaseState);
+
+            fixture.Bootstrap.Generate(2024);
+
+            MonsterBrain brain = fixture.MonsterGate.SpawnedBrain;
+            Assert.That(brain, Is.Not.Null);
+            Assert.That(brain.gameObject.activeSelf, Is.True);
+            Assert.That(brain.IsRelentless, Is.True);
+            Assert.That(brain.CurrentStateName, Is.EqualTo(nameof(AggressiveState)));
+            yield break;
+        }
+
+        [UnityTest]
         public IEnumerator GeneratedMap_ConvertsEveryStalkPointAndWiresAReachableMonster()
         {
             using var fixture = new Fixture();
@@ -127,6 +145,43 @@ namespace Game.Gameplay.Tests
                 path), Is.True);
             Assert.That(path.status, Is.EqualTo(NavMeshPathStatus.PathComplete));
 
+            yield break;
+        }
+
+        [UnityTest]
+        public IEnumerator BelowMinimumSpawnSelection_LogsFallbackWarning()
+        {
+            using var fixture = new Fixture();
+            FieldInfo distanceField = typeof(MapMonsterGate).GetField(
+                "minimumInitialPathDistance",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(distanceField, Is.Not.Null);
+            distanceField.SetValue(fixture.MonsterGate, 10000f);
+
+            LogAssert.Expect(LogType.Warning, new Regex(
+                "Generated monster spawn fallback for seed 2024: OrdinaryFarthest.*10000[,.]0m minimum"));
+            fixture.Bootstrap.Generate(2024);
+
+            Assert.That(fixture.MonsterGate.SpawnedBrain, Is.Not.Null);
+            yield break;
+        }
+
+        [UnityTest]
+        public IEnumerator ModulelessStalkAnchor_LogsWarningAndUsesDarknessFallback()
+        {
+            using var fixture = new Fixture(lightGateActive: false);
+            fixture.Bootstrap.Generate(2024);
+            Transform anchor = fixture.Registry.Current.StalkPoints[0];
+            anchor.SetParent(fixture.Registry.Current.Root.transform, true);
+
+            LogAssert.Expect(LogType.Warning,
+                $"Generated stalk anchor '{anchor.name}' for seed 2024 has no parent " +
+                "GeneratedMapModule; using full-darkness fallback.");
+            fixture.LightGate.gameObject.SetActive(true);
+
+            StalkPoint converted = anchor.GetComponent<StalkPoint>();
+            Assert.That(converted, Is.Not.Null);
+            Assert.That(converted.DarknessLevel, Is.EqualTo(1f));
             yield break;
         }
 
@@ -192,6 +247,25 @@ namespace Game.Gameplay.Tests
             Assert.That(fixture.Wiring.BoundMonster, Is.Null);
 
             yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator DisableThenRegistryClear_ReenableReconcilesStaleMonster()
+        {
+            using var fixture = new Fixture();
+            fixture.Bootstrap.Generate(2024);
+            Assert.That(fixture.MonsterGate.SpawnedBrain, Is.Not.Null);
+
+            fixture.MonsterGate.gameObject.SetActive(false);
+            fixture.Registry.Clear();
+            fixture.MonsterGate.gameObject.SetActive(true);
+
+            Assert.That(fixture.MonsterGate.SpawnedBrain, Is.Null);
+            Assert.That(fixture.MonsterGate.SpawnCount, Is.Zero);
+            Assert.That(fixture.MonsterGate.SpawnedStalkPoints, Is.Empty);
+            Assert.That(fixture.StalkPoints.Items, Is.Empty);
+            Assert.That(fixture.Wiring.BoundMonster, Is.Null);
+            yield break;
         }
 
         private static void AssertValidSpawn(Fixture fixture, FloorSeedCase testCase)
@@ -268,15 +342,15 @@ namespace Game.Gameplay.Tests
                 Bootstrap.Configure(mapConfig, navMeshController, Registry);
 
                 coreRoot = new GameObject("Core");
-                GameFlowController flow = coreRoot.AddComponent<GameFlowController>();
+                Flow = coreRoot.AddComponent<GameFlowController>();
                 ObjectiveManager objectives = coreRoot.AddComponent<ObjectiveManager>();
                 MapExitController exit = coreRoot.AddComponent<MapExitController>();
-                exit.Bind(Registry, flow);
+                exit.Bind(Registry, Flow);
                 FuseMiniGameController miniGame = coreRoot.AddComponent<FuseMiniGameController>();
 
                 wiringObject = new GameObject("Wiring");
                 Wiring = wiringObject.AddComponent<MainSceneWiring>();
-                Wiring.Bind(flow, objectives, exit, miniGame);
+                Wiring.Bind(Flow, objectives, exit, miniGame);
 
                 safeZones = ScriptableObject.CreateInstance<SafeZoneRuntimeSet>();
                 StalkPoints = ScriptableObject.CreateInstance<StalkPointRuntimeSet>();
@@ -321,6 +395,7 @@ namespace Game.Gameplay.Tests
 
             public MapGenerationBootstrap Bootstrap { get; }
             public GeneratedMapRegistry Registry { get; }
+            public GameFlowController Flow { get; }
             public MapLightGate LightGate { get; }
             public MapSafeZoneGate SafeZoneGate { get; }
             public MapMonsterGate MonsterGate { get; }

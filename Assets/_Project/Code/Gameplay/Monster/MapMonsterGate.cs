@@ -101,7 +101,16 @@ namespace Game.Gameplay.Monster
             lightGate.BuildCompleted += HandleDependencyBuildCompleted;
             safeZoneGate.BuildCompleted += HandleDependencyBuildCompleted;
 
-            if (registry.TryGetCurrent(out GeneratedMapRuntimeData data)) HandleMapReady(data);
+            if (registry.TryGetCurrent(out GeneratedMapRuntimeData data))
+            {
+                HandleMapReady(data);
+            }
+            else if (pendingData != null || builtFor != null || spawnedRig != null)
+            {
+                CleanupSpawnedContent();
+                pendingData = null;
+                builtFor = null;
+            }
         }
 
         private void Unsubscribe()
@@ -208,13 +217,24 @@ namespace Game.Gameplay.Monster
             spawnedRig = instance;
             SelectedSpawnPathDistance = selected.PathLength;
             builtFor = data;
-            wiring.BindMonster(instance.Brain);
             instance.gameObject.SetActive(true);
+            wiring.BindMonster(instance.Brain);
 
-            Debug.Log(
-                $"Spawned monster for seed {data.Seed}: {reason}, path " +
-                $"{selected.PathLength:0.0}m, key {selected.StableKey}.",
-                instance);
+            if (reason == MonsterSpawnSelectionReason.SeededDistant)
+            {
+                Debug.Log(
+                    $"Spawned monster for seed {data.Seed}: {reason}, path " +
+                    $"{selected.PathLength:0.0}m, key {selected.StableKey}.",
+                    instance);
+            }
+            else
+            {
+                Debug.LogWarning(
+                    $"Generated monster spawn fallback for seed {data.Seed}: {reason} selected at " +
+                    $"{selected.PathLength:0.0}m because no reachable ordinary candidate met the " +
+                    $"{minimumInitialPathDistance:0.0}m minimum; key {selected.StableKey}.",
+                    instance);
+            }
         }
 
         private void ConvertStalkPoints(GeneratedMapRuntimeData data)
@@ -226,6 +246,14 @@ namespace Game.Gameplay.Monster
                 if (anchor == null) continue;
 
                 GeneratedMapModule module = anchor.GetComponentInParent<GeneratedMapModule>();
+                if (module == null)
+                {
+                    Debug.LogWarning(
+                        $"Generated stalk anchor '{anchor.name}' for seed {data.Seed} has no parent " +
+                        "GeneratedMapModule; using full-darkness fallback.",
+                        anchor);
+                }
+
                 GeneratedStalkPointMetadata metadata = GeneratedStalkPointMetadata.Infer(
                     anchor.name,
                     module != null ? module.CatalogEntryId : string.Empty);
@@ -246,7 +274,7 @@ namespace Game.Gameplay.Monster
                 LightZone zone = module != null && lightGate.TryGetLightZone(module, out LightZone found)
                     ? found
                     : null;
-                if (module != null && zone == null) point.ConfigureStaticDarkness(1f);
+                if (zone == null) point.ConfigureStaticDarkness(1f);
 
                 point.enabled = true;
                 point.Bind(safeZoneSet, zone, stalkPointSet);

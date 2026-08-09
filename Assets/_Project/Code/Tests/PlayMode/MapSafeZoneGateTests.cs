@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using System.Linq;
 using Game.Gameplay.World;
 using Gloomveil.MapGeneration;
 using NUnit.Framework;
@@ -37,6 +38,66 @@ namespace Game.Gameplay.Tests
                 Assert.That(fixture.Gate.IsBuiltFor(fixture.Registry.Current), Is.True);
                 Assert.That(zonesVisibleInsideCallback, Is.EqualTo(fixture.Gate.SpawnedSafeZones.Count));
                 Assert.That(zonesVisibleInsideCallback, Is.GreaterThan(0));
+            }
+            finally
+            {
+                fixture.Dispose();
+            }
+
+            yield break;
+        }
+
+        [UnityTest]
+        public IEnumerator ImmediateRegeneration_BuildCompletedSeesOnlyNewMapSafeZones()
+        {
+            Fixture fixture = CreateFixture();
+
+            try
+            {
+                fixture.Bootstrap.Generate(2024);
+                SafeZone[] previousZones = fixture.Gate.SpawnedSafeZones.ToArray();
+                bool inspectedReplacement = false;
+
+                fixture.Gate.BuildCompleted += data =>
+                {
+                    if (data.Seed != 1042) return;
+
+                    inspectedReplacement = true;
+                    Assert.That(fixture.SafeZoneSet.Items.Count,
+                        Is.EqualTo(fixture.Gate.SpawnedSafeZones.Count));
+                    foreach (SafeZone previous in previousZones)
+                    {
+                        Assert.That(fixture.SafeZoneSet.Items.Contains(previous), Is.False);
+                    }
+                };
+
+                fixture.Bootstrap.Generate(1042);
+                Assert.That(inspectedReplacement, Is.True);
+            }
+            finally
+            {
+                fixture.Dispose();
+            }
+
+            yield break;
+        }
+
+        [UnityTest]
+        public IEnumerator RegistryClear_UnregistersAndRemovesSpawnedSafeZonesImmediately()
+        {
+            Fixture fixture = CreateFixture();
+
+            try
+            {
+                fixture.Bootstrap.Generate(2024);
+                GeneratedMapRuntimeData published = fixture.Registry.Current;
+                Assert.That(fixture.SafeZoneSet.Items, Is.Not.Empty);
+
+                fixture.Registry.Clear();
+
+                Assert.That(fixture.Gate.IsBuiltFor(published), Is.False);
+                Assert.That(fixture.Gate.SpawnedSafeZones, Is.Empty);
+                Assert.That(fixture.SafeZoneSet.Items, Is.Empty);
             }
             finally
             {

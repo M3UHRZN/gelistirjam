@@ -54,6 +54,7 @@ namespace Game.Gameplay.World
         {
             if (!subscribed) return;
             registry.MapReady -= OnMapReady;
+            registry.MapCleared -= OnMapCleared;
             subscribed = false;
         }
 
@@ -63,6 +64,7 @@ namespace Game.Gameplay.World
 
             subscribed = true;
             registry.MapReady += OnMapReady;
+            registry.MapCleared += OnMapCleared;
             if (registry.TryGetCurrent(out GeneratedMapRuntimeData data))
             {
                 SpawnAll(data);
@@ -70,6 +72,11 @@ namespace Game.Gameplay.World
         }
 
         private void OnMapReady(GeneratedMapRuntimeData data) => SpawnAll(data);
+
+        private void OnMapCleared(GeneratedMapRuntimeData data)
+        {
+            if (ReferenceEquals(builtFor, data)) ClearSpawned();
+        }
 
         private void SpawnAll(GeneratedMapRuntimeData data)
         {
@@ -127,7 +134,10 @@ namespace Game.Gameplay.World
         {
             foreach (SafeZone zone in spawned)
             {
-                if (zone != null) Destroy(zone.gameObject);
+                if (zone == null) continue;
+
+                zone.gameObject.SetActive(false);
+                Destroy(zone.gameObject);
             }
             spawned.Clear();
             builtFor = null;
