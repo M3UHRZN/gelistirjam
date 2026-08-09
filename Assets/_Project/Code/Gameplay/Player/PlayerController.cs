@@ -21,7 +21,7 @@ namespace Game.Gameplay.Player
     /// </summary>
     [RequireComponent(typeof(Rigidbody))]
     [RequireComponent(typeof(CapsuleCollider))]
-    public class PlayerController : MonoBehaviour, IPlayerControlGate
+    public class PlayerController : MonoBehaviour, IPlayerControlGate, IPlayerVelocitySource
     {
         [Header("Movement (TGD section 6)")]
         [SerializeField] private float walkSpeed = 3.75f;
