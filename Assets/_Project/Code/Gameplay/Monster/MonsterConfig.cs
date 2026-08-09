@@ -102,7 +102,7 @@ namespace Game.Gameplay.Monster
         private float repositionInterval = 0.6f;
         [SerializeField, Tooltip("Flat score bonus given to the StalkPoint the monster is already committed to during a rescore, so a marginally-better candidate doesn't yank the destination away every tick (hysteresis fix — see chat).")]
         private float repositionStickyBonus = 1.5f;
-        [SerializeField, Range(0.1f, 1f), Tooltip("TGD section 38: 'Reposition cooldown azalır' during FinalChase (MonsterBrain.IsRelentless). Multiplies RepositionInterval on top of the anger-stage multiplier.")]
+        [SerializeField, Range(0.1f, 1f), Tooltip("TGD section 38: 'Reposition cooldown azalır' during FinalChase (MonsterBrain.IsFinalHunt). Multiplies RepositionInterval on top of the anger-stage multiplier.")]
         private float finalChaseRepositionIntervalMultiplier = 0.5f;
         [SerializeField, Tooltip("TGD section 38: 'Monster daha yakın candidate point'leri seçer' during FinalChase. Multiplies StalkPointScorer's distance-penalty weights so nearer points score relatively higher.")]
         private float finalChaseDistanceWeightMultiplier = 2.5f;
@@ -139,8 +139,6 @@ namespace Game.Gameplay.Monster
         private float aggressionDistanceWeight = 0.15f;
         [SerializeField, Tooltip("Flat bonus added when the aggro roll follows an actual held staredown (Interested's freeze, Observed's catch, or Shy's staredown) rather than a passive glance — a deliberate confrontation should read as more likely to provoke than a stray look.")]
         private float aggressionStaredownBonus = 0.1f;
-        [SerializeField, Tooltip("Flat bonus added to every aggro roll during FinalChase (MonsterBrain.IsRelentless) — TGD section 38's 'monster gets more dangerous' progression factor.")]
-        private float aggressionFinalChaseBonus = 0.25f;
 
         [Header("Anger Stages (TGD section 20)")]
         [SerializeField, Tooltip("One entry per AngerStage: Calm (0-25%), Wary (25-50%), Agitated (50-75%), Furious (75%+).")]
@@ -232,7 +230,6 @@ namespace Game.Gameplay.Monster
 
         public float AggressionDistanceWeight => aggressionDistanceWeight;
         public float AggressionStaredownBonus => aggressionStaredownBonus;
-        public float AggressionFinalChaseBonus => aggressionFinalChaseBonus;
 
         private void OnValidate()
         {
@@ -282,7 +279,6 @@ namespace Game.Gameplay.Monster
 
             aggressionDistanceWeight = Mathf.Max(0f, aggressionDistanceWeight);
             aggressionStaredownBonus = Mathf.Max(0f, aggressionStaredownBonus);
-            aggressionFinalChaseBonus = Mathf.Max(0f, aggressionFinalChaseBonus);
         }
     }
 }

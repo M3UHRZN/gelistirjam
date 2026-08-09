@@ -21,6 +21,12 @@ namespace Game.Gameplay.Monster
 
         public void Enter()
         {
+            if (brain.IsFinalHunt)
+            {
+                brain.ChangeState(brain.RepositionState);
+                return;
+            }
+
             brain.Navigator.SetAutoRotate(true);
             brain.Navigator.Resume();
             brain.Navigator.SetSpeed(brain.Config.AggressiveSpeed);
@@ -44,7 +50,7 @@ namespace Game.Gameplay.Monster
                 angerDecayAccumulator -= 1f;
             }
 
-            if (!brain.IsRelentless && brain.Anger.Anger <= 0)
+            if (brain.Anger.Anger <= 0)
             {
                 brain.ChangeState(brain.ShyState);
                 return;

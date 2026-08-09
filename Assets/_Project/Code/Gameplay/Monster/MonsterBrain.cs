@@ -34,14 +34,19 @@ namespace Game.Gameplay.Monster
         public string CurrentStateName => fsm?.Current?.GetType().Name ?? "-";
 
         /// <summary>
-        /// Set true by the composition root when FinalChase begins (TGD section 38). AggressiveState
-        /// normally reverts to Shy once Anger decays to 0 (~12s at default settings) — fine for a
-        /// regular chase, but during the final sprint to the exit that would let the monster give up
-        /// on its own after a fixed timer regardless of how close it still is, undermining "the
-        /// monster gets more dangerous" once the fuses are done. Losing the player by distance still
-        /// works normally — outrunning it while sprinting is fair play, not a bug.
+        /// Set by the composition root when every fuse is complete. Final hunt keeps exact player
+        /// awareness and the faster/closer final-phase stalk-point tuning, but deliberately does not
+        /// turn the monster into a permanent direct-chase enemy.
         /// </summary>
-        public bool IsRelentless { get; set; }
+        public bool IsFinalHunt { get; private set; }
+
+        public void BeginFinalHunt()
+        {
+            EnsureInitialized();
+            IsFinalHunt = true;
+            SetDecisionReason("Final hunt: track player continuously through stalking routes");
+            ChangeState(RepositionState);
+        }
 
         /// <summary>
         /// True while the player is actively working a fuse box (TGD section 36 — the monster must be
@@ -121,8 +126,6 @@ namespace Game.Gameplay.Monster
             }
 
             if (followedStaredown) probability += config.AggressionStaredownBonus;
-            if (IsRelentless) probability += config.AggressionFinalChaseBonus;
-
             return Mathf.Clamp01(probability);
         }
 
@@ -270,7 +273,7 @@ namespace Game.Gameplay.Monster
             }
 
             // TGD section 3 loop: "monster becomes more aggressive" while a fuse is being worked, not
-            // only once every fuse is done (that part is already covered by FinalChase/IsRelentless).
+            // only once every fuse is done (that part is covered by FinalChase/IsFinalHunt).
             // A slow passive drip while unaware would be pointless during Aggressive/Kill, so it only
             // accrues in the calmer states where the player is otherwise safe from an anger climb.
             if (IsAwareOfFuse && fsm.Current != KillState && fsm.Current != AggressiveState)

@@ -78,22 +78,19 @@ namespace Game.Gameplay
             objectiveManager.OnFuseInteractionStarted += position => brain.SetFuseAwareness(true, position);
             objectiveManager.OnFuseInteractionStopped += () => brain.SetFuseAwareness(false, Vector3.zero);
 
-            // FinalChase (TGD section 38): kill the remaining lights and force a guaranteed,
-            // relentless chase — see MonsterBrain.IsRelentless for why Anger alone isn't enough.
+            // FinalChase: kill the remaining lights and begin continuous player-aware stalking.
             // Deliberately does NOT touch Anger: the TGD is explicit that "Monster'ın current Anger
             // değeri korunur" (preserved) precisely so that "oyuncu run boyunca monster'a ne kadar çok
             // baktıysa final o kadar zordur" — a player who avoided eye contact all run should reach
             // an easier final chase, not a forced-maximum one. AddAnger(MaxAnger) used to run here,
             // which overwrote that carried-over value instead of preserving it (see chat) — the
-            // "aggression artar" the TGD also asks for comes entirely from the other three bullets
-            // (lights out, shorter reposition cooldown, closer candidate points) plus IsRelentless,
-            // not from the Anger stat itself.
+            // Final pressure now comes from lights out, shorter reposition cooldown and closer
+            // candidate points rather than replacing the game's stalking identity with direct chase.
             gameFlow.OnStateChanged += stateName =>
             {
                 if (stateName != nameof(FinalChaseState)) return;
                 lightDirector.ShutdownAll();
-                brain.IsRelentless = true;
-                brain.ChangeState(brain.AggressiveState);
+                brain.BeginFinalHunt();
             };
 
             // Death mid-minigame (prompt section 27, found live via Unity MCP testing — see chat): the

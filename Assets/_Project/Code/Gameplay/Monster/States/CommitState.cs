@@ -40,7 +40,7 @@ namespace Game.Gameplay.Monster
         {
             if (!brain.Perception.IsPlayerWithinRadius(brain.Config.CommitLoseRadius))
             {
-                brain.ChangeState(brain.AggressiveState);
+                brain.ChangeState(brain.IsFinalHunt ? brain.RepositionState : brain.AggressiveState);
                 return;
             }
 

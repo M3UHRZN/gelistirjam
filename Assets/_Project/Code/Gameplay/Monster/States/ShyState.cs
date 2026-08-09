@@ -60,7 +60,7 @@ namespace Game.Gameplay.Monster
                 {
                     // Only an actual stopped staredown can fuel the anger roll. Merely watching a
                     // retreating monster keeps it away; it should not turn every glance into a chase.
-                    if (staredown.IsActive)
+                    if (staredown.IsActive && !brain.IsFinalHunt)
                     {
                         float aggroChance = brain.ComputeAggressionProbability(followedStaredown: true);
                         bool aggro = Random.value < aggroChance;
@@ -101,7 +101,7 @@ namespace Game.Gameplay.Monster
 
                 if (fleeTimer <= 0f)
                 {
-                    brain.ChangeState(brain.PatrolState);
+                    brain.ChangeState(brain.IsFinalHunt ? brain.RepositionState : brain.PatrolState);
                     return;
                 }
             }

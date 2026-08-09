@@ -99,7 +99,7 @@ namespace Game.Gameplay.Tests
         }
 
         [Test]
-        public void FinalChase_AppliesToCurrentMonster()
+        public void FinalChase_StartsStalkingCurrentMonster()
         {
             using var fixture = new WiringFixture();
             using var monster = new ActiveMonsterFixture();
@@ -107,12 +107,11 @@ namespace Game.Gameplay.Tests
             fixture.Wiring.BindMonster(monster.Brain);
             fixture.Flow.ChangeState(fixture.Flow.FinalChaseState);
 
-            Assert.That(monster.Brain.IsRelentless, Is.True);
-            Assert.That(monster.Brain.CurrentStateName, Is.EqualTo(nameof(AggressiveState)));
+            Assert.That(monster.Brain.CurrentStateName, Is.EqualTo(nameof(InterestedState)));
         }
 
         [Test]
-        public void BindMonster_AfterFinalChaseAppliesStateImmediately()
+        public void BindMonster_AfterFinalChaseStartsStalkingImmediately()
         {
             using var fixture = new WiringFixture();
             using var monster = new ActiveMonsterFixture();
@@ -120,8 +119,39 @@ namespace Game.Gameplay.Tests
 
             fixture.Wiring.BindMonster(monster.Brain);
 
-            Assert.That(monster.Brain.IsRelentless, Is.True);
-            Assert.That(monster.Brain.CurrentStateName, Is.EqualTo(nameof(AggressiveState)));
+            Assert.That(monster.Brain.CurrentStateName, Is.EqualTo(nameof(InterestedState)));
+        }
+
+        [Test]
+        public void FinalHunt_DoesNotForgetDistantPlayer()
+        {
+            using var fixture = new WiringFixture();
+            using var monster = new ActiveMonsterFixture();
+            fixture.Wiring.BindMonster(monster.Brain);
+            fixture.Flow.ChangeState(fixture.Flow.FinalChaseState);
+            monster.Brain.Player.position = monster.Brain.transform.position
+                + Vector3.forward * (monster.Brain.Config.LoseInterestRadius + 10f);
+
+            monster.Brain.ChangeState(monster.Brain.InterestedState);
+            monster.Brain.InterestedState.Tick(0.1f);
+
+            Assert.That(monster.Brain.CurrentStateName, Is.Not.EqualTo(nameof(PatrolState)));
+            Assert.That(monster.Brain.CurrentStateName, Is.Not.EqualTo(nameof(AggressiveState)));
+        }
+
+        [Test]
+        public void FinalHunt_ConfirmedGazeRetreatsAtMaximumAnger()
+        {
+            using var fixture = new WiringFixture();
+            using var monster = new ActiveMonsterFixture();
+            fixture.Wiring.BindMonster(monster.Brain);
+            fixture.Flow.ChangeState(fixture.Flow.FinalChaseState);
+            monster.Brain.Anger.AddAnger(monster.Brain.Config.MaxAnger);
+
+            monster.Brain.ChangeState(monster.Brain.ObservedState);
+            monster.Brain.ObservedState.Tick(0.1f);
+
+            Assert.That(monster.Brain.CurrentStateName, Is.EqualTo(nameof(ShyState)));
         }
 
         private static void RaiseFuseStarted(ObjectiveManager objectives, Vector3 position) =>

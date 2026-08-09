@@ -43,7 +43,8 @@ namespace Game.Gameplay.Monster
 
         public void Tick(float deltaTime)
         {
-            if (!brain.Perception.IsPlayerWithinRadius(brain.Config.LoseInterestRadius))
+            if (!brain.IsFinalHunt
+                && !brain.Perception.IsPlayerWithinRadius(brain.Config.LoseInterestRadius))
             {
                 brain.ChangeState(brain.PatrolState);
                 return;
@@ -62,7 +63,8 @@ namespace Game.Gameplay.Monster
                 brain.Navigator.FaceTowards(brain.Player.position, FaceTurnSpeed, deltaTime);
                 continuousStareSeconds += deltaTime;
 
-                if (continuousStareSeconds >= brain.Config.GazeAggroHardCap)
+                if (!brain.IsFinalHunt
+                    && continuousStareSeconds >= brain.Config.GazeAggroHardCap)
                 {
                     brain.ChangeState(brain.AggressiveState);
                     return;
@@ -73,6 +75,13 @@ namespace Game.Gameplay.Monster
             }
             else if (wasGazedLastFrame)
             {
+                if (brain.IsFinalHunt)
+                {
+                    brain.SetDecisionReason("Shy: final-hunt gaze broke the stalking approach");
+                    brain.ChangeState(brain.ShyState);
+                    return;
+                }
+
                 // Gaze just broke — decide the reaction (tutorial's IsStaringTooLong, blended with
                 // the wiki's anger-chance roll instead of a hard binary threshold).
                 // Interested's freeze-and-stare-back is itself a held confrontation (every gaze here

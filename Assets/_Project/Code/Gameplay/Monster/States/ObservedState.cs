@@ -29,6 +29,13 @@ namespace Game.Gameplay.Monster
 
             if (brain.IsGazeConfirmed) return; // still being stared at — hold the freeze
 
+            if (brain.IsFinalHunt)
+            {
+                brain.SetDecisionReason("Shy: observed during final hunt, retreat before stalking again");
+                brain.ChangeState(brain.ShyState);
+                return;
+            }
+
             float aggroChance = brain.ComputeAggressionProbability(followedStaredown: true);
             bool aggro = Random.value < aggroChance;
             brain.SetDecisionReason(aggro

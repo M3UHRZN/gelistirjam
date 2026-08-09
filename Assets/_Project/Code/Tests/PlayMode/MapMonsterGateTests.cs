@@ -89,7 +89,7 @@ namespace Game.Gameplay.Tests
         }
 
         [UnityTest]
-        public IEnumerator FinalChaseBeforeMapPublication_SpawnsActiveAggressiveMonster()
+        public IEnumerator FinalChaseBeforeMapPublication_SpawnsActiveStalkingMonster()
         {
             using var fixture = new Fixture();
             fixture.Flow.ChangeState(fixture.Flow.FinalChaseState);
@@ -99,8 +99,8 @@ namespace Game.Gameplay.Tests
             MonsterBrain brain = fixture.MonsterGate.SpawnedBrain;
             Assert.That(brain, Is.Not.Null);
             Assert.That(brain.gameObject.activeSelf, Is.True);
-            Assert.That(brain.IsRelentless, Is.True);
-            Assert.That(brain.CurrentStateName, Is.EqualTo(nameof(AggressiveState)));
+            Assert.That(brain.CurrentStateName, Is.Not.EqualTo(nameof(AggressiveState)));
+            Assert.That(brain.CurrentStateName, Is.Not.EqualTo(nameof(PatrolState)));
             yield break;
         }
 

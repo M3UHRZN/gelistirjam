@@ -51,7 +51,8 @@ namespace Game.Gameplay.Monster
                 return;
             }
 
-            if (!brain.Perception.IsPlayerWithinRadius(brain.Config.StalkAbandonRadius))
+            if (!brain.IsFinalHunt
+                && !brain.Perception.IsPlayerWithinRadius(brain.Config.StalkAbandonRadius))
             {
                 brain.ChangeState(brain.PatrolState);
                 return;
@@ -95,11 +96,11 @@ namespace Game.Gameplay.Monster
             // anger-stage multiplier, not instead of it (a relentless monster is also necessarily at
             // Furious anger already, but the two multipliers are separate documented mechanisms).
             float intervalMultiplier = tuning.RepositionIntervalMultiplier;
-            if (brain.IsRelentless) intervalMultiplier *= brain.Config.FinalChaseRepositionIntervalMultiplier;
+            if (brain.IsFinalHunt) intervalMultiplier *= brain.Config.FinalChaseRepositionIntervalMultiplier;
             rescoreTimer = brain.Config.RepositionInterval * intervalMultiplier;
 
             // TGD section 38: "Monster daha yakın candidate point'leri seçer" during FinalChase.
-            float distanceWeightMultiplier = brain.IsRelentless ? brain.Config.FinalChaseDistanceWeightMultiplier : 1f;
+            float distanceWeightMultiplier = brain.IsFinalHunt ? brain.Config.FinalChaseDistanceWeightMultiplier : 1f;
 
             Vector3 predicted = brain.Perception.PredictedPlayerPosition(brain.Config.PredictionSeconds);
 
