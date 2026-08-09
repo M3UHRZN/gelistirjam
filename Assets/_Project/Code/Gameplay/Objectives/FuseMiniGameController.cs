@@ -43,6 +43,13 @@ namespace Game.Gameplay.Objectives
         [SerializeField, Tooltip("Resolves which button the crosshair is on. Bound to the world canvas's GraphicRaycaster.")]
         private FuseScreenPointer pointer;
 
+        [Header("Audio")]
+        [SerializeField, Tooltip("Optional. Played once on a wrong input, and again when the fuse fully completes.")]
+        private AudioSource audioSource;
+        [SerializeField] private AudioClip electricitySound;
+        [SerializeField, Tooltip("Played once on every color-button click, right or wrong.")]
+        private AudioClip clickSound;
+
         [Header("Colors — prompt section 7: fixed roles, configurable values")]
         [SerializeField] private Color[] buttonColors =
         {
@@ -312,6 +319,7 @@ namespace Game.Gameplay.Objectives
                 else
                 {
                     SetButtonsInteractable(false);
+                    PlayElectricitySound();
                     yield return FlashButton(pressed, wrongColor, buttonPressFeedbackDuration);
                     reportWrong(true);
                     yield break;
@@ -346,9 +354,15 @@ namespace Game.Gameplay.Objectives
         private IEnumerator FuseCompleteFeedback()
         {
             SetStatusText("FUSE AKTİF");
+            PlayElectricitySound();
             for (int i = 0; i < ButtonCount; i++) SetButtonColor(i, buttonColors[i] * highlightBrightness);
             yield return WaitSecondsOrCancel(fuseCompleteFeedbackDuration);
             for (int i = 0; i < ButtonCount; i++) SetButtonColor(i, DimColor(i));
+        }
+
+        private void PlayElectricitySound()
+        {
+            if (audioSource != null && electricitySound != null) audioSource.PlayOneShot(electricitySound);
         }
 
         private IEnumerator OpenPanel(Transform screenAnchor)
@@ -474,7 +488,11 @@ namespace Game.Gameplay.Objectives
             }
         }
 
-        private void OnButtonClicked(int index) => pendingButtonPress = index;
+        private void OnButtonClicked(int index)
+        {
+            pendingButtonPress = index;
+            if (audioSource != null && clickSound != null) audioSource.PlayOneShot(clickSound);
+        }
 
         private void SetButtonsInteractable(bool interactable)
         {
