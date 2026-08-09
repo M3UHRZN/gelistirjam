@@ -41,10 +41,27 @@ namespace Game.Gameplay.World
 
         [SerializeField] private MainSceneWiring wiring;
         private readonly List<LightZone> spawnedZones = new List<LightZone>();
+        private readonly Dictionary<GeneratedMapModule, LightZone> zonesByModule =
+            new Dictionary<GeneratedMapModule, LightZone>();
+        private GeneratedMapRuntimeData builtFor;
         private bool subscribed;
 
+        public event Action<GeneratedMapRuntimeData> BuildCompleted;
         public IReadOnlyList<LightZone> SpawnedLightZones => spawnedZones;
         public IReadOnlyList<LightZone> SafeZoneLightZones { get; private set; } = Array.Empty<LightZone>();
+
+        public bool IsBuiltFor(GeneratedMapRuntimeData data) => ReferenceEquals(builtFor, data);
+
+        public bool TryGetLightZone(GeneratedMapModule module, out LightZone zone)
+        {
+            if (module == null)
+            {
+                zone = null;
+                return false;
+            }
+
+            return zonesByModule.TryGetValue(module, out zone);
+        }
 
         public void Bind(GeneratedMapRegistry mapRegistry, MainSceneWiring sceneWiring)
         {
@@ -91,6 +108,7 @@ namespace Game.Gameplay.World
                     $"Generated map (seed {data.Seed}) published no Light anchors — no LightZones were built.",
                     this);
                 wiring.LightDirector.SetShutdownOrder(Array.Empty<LightZone>());
+                CompleteBuild(data);
                 return;
             }
 
@@ -132,6 +150,7 @@ namespace Game.Gameplay.World
 
                 LightZone zone = BuildLightZone(module, BuildLights(anchorsByModule[module]));
                 spawnedZones.Add(zone);
+                zonesByModule[module] = zone;
 
                 if (safeZoneModules.Contains(module))
                 {
@@ -155,6 +174,13 @@ namespace Game.Gameplay.World
 
             Shuffle(shutdownCandidates, data.Seed);
             wiring.LightDirector.SetShutdownOrder(shutdownCandidates);
+            CompleteBuild(data);
+        }
+
+        private void CompleteBuild(GeneratedMapRuntimeData data)
+        {
+            builtFor = data;
+            BuildCompleted?.Invoke(data);
         }
 
         private List<Light> BuildLights(List<Transform> anchors)
@@ -275,7 +301,9 @@ namespace Game.Gameplay.World
                 if (zone != null) Destroy(zone.gameObject);
             }
             spawnedZones.Clear();
+            zonesByModule.Clear();
             SafeZoneLightZones = Array.Empty<LightZone>();
+            builtFor = null;
         }
     }
 }

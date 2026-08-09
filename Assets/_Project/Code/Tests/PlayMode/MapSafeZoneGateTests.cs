@@ -17,6 +17,89 @@ namespace Game.Gameplay.Tests
             "Assets/Gloomveil/MapGeneration/Data/GrayboxMapModuleCatalog.asset";
 
         [UnityTest]
+        public IEnumerator OnMapReady_ReportsCompletedBuildAfterSafeZonesExist()
+        {
+            Fixture fixture = CreateFixture();
+            GeneratedMapRuntimeData completedFor = null;
+            int zonesVisibleInsideCallback = -1;
+
+            try
+            {
+                fixture.Gate.BuildCompleted += data =>
+                {
+                    completedFor = data;
+                    zonesVisibleInsideCallback = fixture.Gate.SpawnedSafeZones.Count;
+                };
+
+                fixture.Bootstrap.Generate(2024);
+
+                Assert.That(completedFor, Is.SameAs(fixture.Registry.Current));
+                Assert.That(fixture.Gate.IsBuiltFor(fixture.Registry.Current), Is.True);
+                Assert.That(zonesVisibleInsideCallback, Is.EqualTo(fixture.Gate.SpawnedSafeZones.Count));
+                Assert.That(zonesVisibleInsideCallback, Is.GreaterThan(0));
+            }
+            finally
+            {
+                fixture.Dispose();
+            }
+
+            yield break;
+        }
+
+        [UnityTest]
+        public IEnumerator OnMapReady_NoSafeZoneAnchorsStillReportsCompletedBuild()
+        {
+            var registryObject = new GameObject("Registry");
+            var generatedRoot = new GameObject("GeneratedMap");
+            var gateObject = new GameObject("SafeZoneGate");
+            GeneratedMapRegistry registry = registryObject.AddComponent<GeneratedMapRegistry>();
+            MapSafeZoneGate gate = gateObject.AddComponent<MapSafeZoneGate>();
+            SafeZoneRuntimeSet safeZoneSet = ScriptableObject.CreateInstance<SafeZoneRuntimeSet>();
+            GeneratedMapRuntimeData data = CreateEmptyRuntimeData(generatedRoot);
+            GeneratedMapRuntimeData completedFor = null;
+
+            try
+            {
+                gate.Bind(registry, safeZoneSet);
+                gate.BuildCompleted += completed => completedFor = completed;
+
+                registry.Publish(data);
+
+                Assert.That(completedFor, Is.SameAs(data));
+                Assert.That(gate.IsBuiltFor(data), Is.True);
+                Assert.That(gate.SpawnedSafeZones, Is.Empty);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(gateObject);
+                UnityEngine.Object.DestroyImmediate(registryObject);
+                UnityEngine.Object.DestroyImmediate(generatedRoot);
+                UnityEngine.Object.DestroyImmediate(safeZoneSet);
+            }
+
+            yield break;
+        }
+
+        private static GeneratedMapRuntimeData CreateEmptyRuntimeData(GameObject root) =>
+            new GeneratedMapRuntimeData(
+                root,
+                Array.Empty<GeneratedMapModule>(),
+                Array.Empty<Transform>(),
+                Array.Empty<Transform>(),
+                Array.Empty<Transform>(),
+                Array.Empty<Transform>(),
+                Array.Empty<Transform>(),
+                null,
+                null,
+                null,
+                null,
+                1042,
+                1,
+                1,
+                2,
+                "empty-safe-zone-test");
+
+        [UnityTest]
         public IEnumerator OnMapReady_SpawnsOneSafeZonePerAnchor_RegisteredInRuntimeSet()
         {
             Fixture fixture = CreateFixture();

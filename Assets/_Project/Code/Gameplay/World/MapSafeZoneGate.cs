@@ -32,9 +32,13 @@ namespace Game.Gameplay.World
         private Vector2 fallbackFootprint = new Vector2(4f, 4f);
 
         private readonly List<SafeZone> spawned = new List<SafeZone>();
+        private GeneratedMapRuntimeData builtFor;
         private bool subscribed;
 
+        public event System.Action<GeneratedMapRuntimeData> BuildCompleted;
         public IReadOnlyList<SafeZone> SpawnedSafeZones => spawned;
+
+        public bool IsBuiltFor(GeneratedMapRuntimeData data) => ReferenceEquals(builtFor, data);
 
         public void Bind(GeneratedMapRegistry mapRegistry, SafeZoneRuntimeSet set)
         {
@@ -78,6 +82,7 @@ namespace Game.Gameplay.World
                 Debug.LogWarning(
                     $"Generated map (seed {data.Seed}) published no SafeZone anchors — no SafeZones were built.",
                     this);
+                CompleteBuild(data);
                 return;
             }
 
@@ -86,6 +91,14 @@ namespace Game.Gameplay.World
                 if (anchor == null) continue;
                 spawned.Add(BuildSafeZone(anchor));
             }
+
+            CompleteBuild(data);
+        }
+
+        private void CompleteBuild(GeneratedMapRuntimeData data)
+        {
+            builtFor = data;
+            BuildCompleted?.Invoke(data);
         }
 
         private SafeZone BuildSafeZone(Transform anchor)
@@ -117,6 +130,7 @@ namespace Game.Gameplay.World
                 if (zone != null) Destroy(zone.gameObject);
             }
             spawned.Clear();
+            builtFor = null;
         }
     }
 }

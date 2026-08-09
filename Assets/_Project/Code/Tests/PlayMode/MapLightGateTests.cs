@@ -20,6 +20,100 @@ namespace Game.Gameplay.Tests
             "Assets/Gloomveil/MapGeneration/Data/GrayboxMapModuleCatalog.asset";
 
         [UnityTest]
+        public IEnumerator OnMapReady_ReportsCompletedBuildAndModuleLookupAfterZonesExist()
+        {
+            Fixture fixture = CreateFixture();
+            GeneratedMapRuntimeData completedFor = null;
+            int zonesVisibleInsideCallback = -1;
+
+            try
+            {
+                fixture.Gate.BuildCompleted += data =>
+                {
+                    completedFor = data;
+                    zonesVisibleInsideCallback = fixture.Gate.SpawnedLightZones.Count;
+                };
+
+                fixture.Bootstrap.Generate(2024);
+
+                Assert.That(completedFor, Is.SameAs(fixture.Registry.Current));
+                Assert.That(fixture.Gate.IsBuiltFor(fixture.Registry.Current), Is.True);
+                Assert.That(zonesVisibleInsideCallback, Is.EqualTo(fixture.Gate.SpawnedLightZones.Count));
+                Assert.That(zonesVisibleInsideCallback, Is.GreaterThan(0));
+
+                int mappedModuleCount = 0;
+                foreach (GeneratedMapModule module in fixture.Registry.Current.Modules)
+                {
+                    if (!fixture.Gate.TryGetLightZone(module, out LightZone zone)) continue;
+                    mappedModuleCount++;
+                    Assert.That(fixture.Gate.SpawnedLightZones, Does.Contain(zone));
+                }
+
+                Assert.That(mappedModuleCount, Is.EqualTo(fixture.Gate.SpawnedLightZones.Count));
+            }
+            finally
+            {
+                fixture.Dispose();
+            }
+
+            yield break;
+        }
+
+        [UnityTest]
+        public IEnumerator OnMapReady_NoLightAnchorsStillReportsCompletedBuild()
+        {
+            var registryObject = new GameObject("Registry");
+            var generatedRoot = new GameObject("GeneratedMap");
+            var gateObject = new GameObject("LightGate");
+            var wiringObject = new GameObject("Wiring");
+            GeneratedMapRegistry registry = registryObject.AddComponent<GeneratedMapRegistry>();
+            MapLightGate gate = gateObject.AddComponent<MapLightGate>();
+            MainSceneWiring wiring = wiringObject.AddComponent<MainSceneWiring>();
+            GeneratedMapRuntimeData data = CreateEmptyRuntimeData(generatedRoot);
+            GeneratedMapRuntimeData completedFor = null;
+
+            try
+            {
+                gate.Bind(registry, wiring);
+                gate.BuildCompleted += completed => completedFor = completed;
+
+                registry.Publish(data);
+
+                Assert.That(completedFor, Is.SameAs(data));
+                Assert.That(gate.IsBuiltFor(data), Is.True);
+                Assert.That(gate.SpawnedLightZones, Is.Empty);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(gateObject);
+                UnityEngine.Object.DestroyImmediate(wiringObject);
+                UnityEngine.Object.DestroyImmediate(registryObject);
+                UnityEngine.Object.DestroyImmediate(generatedRoot);
+            }
+
+            yield break;
+        }
+
+        private static GeneratedMapRuntimeData CreateEmptyRuntimeData(GameObject root) =>
+            new GeneratedMapRuntimeData(
+                root,
+                Array.Empty<GeneratedMapModule>(),
+                Array.Empty<Transform>(),
+                Array.Empty<Transform>(),
+                Array.Empty<Transform>(),
+                Array.Empty<Transform>(),
+                Array.Empty<Transform>(),
+                null,
+                null,
+                null,
+                null,
+                1042,
+                1,
+                1,
+                2,
+                "empty-light-test");
+
+        [UnityTest]
         public IEnumerator OnMapReady_BuildsOneZonePerLitModule_AndExemptsAllSafeZonesFromShutdown()
         {
             Fixture fixture = CreateFixture();
