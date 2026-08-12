@@ -76,6 +76,17 @@ namespace Game.Gameplay.Tests
                 "The monster's current body must not hide its hypothetical destination from the player camera.");
         }
 
+        [Test]
+        public void BodyVisibility_RejectsSamplesInsideTheCameraNearClipPlane()
+        {
+            using var fixture = new VisibilityFixture();
+            fixture.Camera.nearClipPlane = 1f;
+
+            Assert.That(fixture.Vision.IsMonsterBodyVisibleAt(
+                new Vector3(0f, 0f, 0.5f), 2.2f, 0.35f), Is.False,
+                "Geometry closer than the real camera near plane is not rendered and must not count as visible.");
+        }
+
         private sealed class VisibilityFixture : IDisposable
         {
             private readonly GameObject root;

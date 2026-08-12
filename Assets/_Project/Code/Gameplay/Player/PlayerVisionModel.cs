@@ -90,7 +90,8 @@ namespace Game.Gameplay.Player
                 if (Vector3.Distance(cameraPosition, sample) > viewRange) continue;
 
                 Vector3 viewport = viewCamera.WorldToViewportPoint(sample);
-                if (viewport.z <= 0f || viewport.x < 0f || viewport.x > 1f
+                if (viewport.z < viewCamera.nearClipPlane || viewport.z > viewCamera.farClipPlane
+                    || viewport.x < 0f || viewport.x > 1f
                     || viewport.y < 0f || viewport.y > 1f)
                 {
                     continue;

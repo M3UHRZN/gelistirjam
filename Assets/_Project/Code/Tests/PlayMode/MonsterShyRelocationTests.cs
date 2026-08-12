@@ -28,9 +28,20 @@ namespace Game.Gameplay.Tests
             StalkPoint firstTarget = shy.CurrentTarget;
 
             Assert.That(firstTarget, Is.SameAs(fixture.FirstCorner));
-            fixture.Navigator.Stop();
+            yield return fixture.WaitUntilTravelling();
+            Vector3 destinationBeforeGaze = fixture.Agent.destination;
 
             yield return fixture.HoldConfirmedGaze();
+
+            Assert.That(shy.CurrentTarget, Is.SameAs(firstTarget),
+                "A held gaze may yell or stare down, but must not switch corners before gaze release.");
+            Assert.That(Vector3.Distance(fixture.Agent.destination, destinationBeforeGaze), Is.LessThan(0.001f),
+                "The in-flight destination must stay stable while gaze is held.");
+            Assert.That(Vector3.Dot(
+                fixture.MonsterTransform.forward,
+                fixture.Agent.desiredVelocity.normalized), Is.LessThan(-0.25f),
+                "Shy must keep facing the player while retreating backwards.");
+
             yield return fixture.ReleaseGaze();
 
             Assert.That(shy.CurrentTarget, Is.SameAs(fixture.SecondCorner));
@@ -68,6 +79,66 @@ namespace Game.Gameplay.Tests
                 "No hidden alternative must never resume a stale or visible destination.");
         }
 
+        [UnityTest]
+        public IEnumerator ActiveStaredown_AccumulatesAngerThenAggressesBeforeRelocation()
+        {
+            using var fixture = new RelocationFixture(
+                includeSecondCorner: true,
+                staredownChance: 1f,
+                aggressionStaredownBonus: 1f,
+                staredownAngerInterval: 0.02f);
+            fixture.EnterShy();
+
+            int angerBeforeGaze = fixture.Anger.Anger;
+            yield return fixture.HoldConfirmedGaze(holdAfterConfirmationSeconds: 0.08f);
+
+            Assert.That(fixture.Agent.isStopped, Is.True,
+                "A successful Shy staredown must freeze the retreat.");
+            Assert.That(fixture.Anger.Anger, Is.GreaterThan(angerBeforeGaze + fixture.Config.AngerPerSpotted),
+                "Held staredown time must continue adding anger after the confirmed-gaze anger event.");
+
+            yield return fixture.ReleaseGaze();
+
+            Assert.That(fixture.Brain.CurrentStateName, Is.EqualTo(nameof(AggressiveState)),
+                "The existing staredown aggression roll must run before any hidden-corner relocation.");
+        }
+
+        [UnityTest]
+        public IEnumerator UnobservedMidpoint_PreservesFakeRetreatTransition()
+        {
+            using var fixture = new RelocationFixture(
+                includeSecondCorner: true,
+                shyFleeDuration: 0.2f,
+                fakeRetreatChance: 1f);
+            bool enteredFakeRetreat = false;
+            fixture.Brain.OnStateChanged += state => enteredFakeRetreat |= state == nameof(FakeRetreatState);
+            fixture.EnterShy();
+
+            float deadline = Time.time + 0.5f;
+            while (!enteredFakeRetreat && Time.time < deadline) yield return null;
+
+            Assert.That(enteredFakeRetreat, Is.True,
+                "The hidden-corner integration must preserve Shy's midpoint FakeRetreat roll.");
+        }
+
+        [UnityTest]
+        public IEnumerator UnobservedLifetimeExpiry_PreservesPatrolReturn()
+        {
+            using var fixture = new RelocationFixture(
+                includeSecondCorner: true,
+                shyFleeDuration: 0.2f,
+                fakeRetreatChance: 0f);
+            bool returnedToPatrol = false;
+            fixture.Brain.OnStateChanged += state => returnedToPatrol |= state == nameof(PatrolState);
+            fixture.EnterShy();
+
+            float deadline = Time.time + 0.5f;
+            while (!returnedToPatrol && Time.time < deadline) yield return null;
+
+            Assert.That(returnedToPatrol, Is.True,
+                "The hidden-corner integration must preserve Shy's lifetime expiry back to Patrol.");
+        }
+
         private sealed class RelocationFixture : IDisposable
         {
             private readonly GameObject root;
@@ -82,7 +153,13 @@ namespace Game.Gameplay.Tests
             private readonly VelocitySourceStub velocitySource;
             private readonly PlayerGazeDetector gazeDetector;
 
-            public RelocationFixture(bool includeSecondCorner)
+            public RelocationFixture(
+                bool includeSecondCorner,
+                float staredownChance = 0f,
+                float aggressionStaredownBonus = 0.1f,
+                float staredownAngerInterval = 1f,
+                float shyFleeDuration = 24f,
+                float fakeRetreatChance = 0.25f)
             {
                 root = new GameObject("ShyRelocationFixture");
 
@@ -145,9 +222,13 @@ namespace Game.Gameplay.Tests
                 gazeTarget = gazeVolume.transform;
 
                 Config = ScriptableObject.CreateInstance<MonsterConfig>();
-                typeof(MonsterConfig)
-                    .GetField("staredownChance", BindingFlags.Instance | BindingFlags.NonPublic)
-                    ?.SetValue(Config, 0f);
+                SetConfig("staredownChance", staredownChance);
+                SetConfig("staredownCheckInterval", 0.01f);
+                SetConfig("staredownAngerInterval", staredownAngerInterval);
+                SetConfig("aggressionStaredownBonus", aggressionStaredownBonus);
+                SetConfig("shyFleeDuration", shyFleeDuration);
+                SetConfig("fakeRetreatChance", fakeRetreatChance);
+                Config.TuningFor(AngerStage.Calm).FakeRetreatChanceMultiplier = 1f;
                 safeZones = ScriptableObject.CreateInstance<SafeZoneRuntimeSet>();
                 stalkPoints = ScriptableObject.CreateInstance<StalkPointRuntimeSet>();
                 FirstCorner = CreateCorner("FirstCorner", new Vector3(-4f, 0f, 6f));
@@ -176,8 +257,10 @@ namespace Game.Gameplay.Tests
             public NavMeshAgent Agent { get; }
             public PlayerVisionModel Vision { get; }
             public MonsterConfig Config { get; }
+            public MonsterAngerController Anger => monster.GetComponent<MonsterAngerController>();
             public StalkPoint FirstCorner { get; }
             public StalkPoint SecondCorner { get; }
+            public Transform MonsterTransform => monster.transform;
 
             public void EnterShy()
             {
@@ -187,6 +270,9 @@ namespace Game.Gameplay.Tests
             }
 
             public IEnumerator HoldConfirmedGaze()
+                => HoldConfirmedGaze(0f);
+
+            public IEnumerator HoldConfirmedGaze(float holdAfterConfirmationSeconds)
             {
                 float deadline = Time.time + 1.5f;
                 while (!Brain.IsGazeConfirmed && Time.time < deadline)
@@ -198,6 +284,22 @@ namespace Game.Gameplay.Tests
 
                 Assert.That(Brain.IsGazeConfirmed, Is.True,
                     "The real gaze detector must confirm the exposed Shy monster.");
+
+                float holdDeadline = Time.time + holdAfterConfirmationSeconds;
+                while (Time.time < holdDeadline)
+                {
+                    camera.transform.LookAt(gazeTarget.position);
+                    Physics.SyncTransforms();
+                    yield return null;
+                }
+            }
+
+            public IEnumerator WaitUntilTravelling()
+            {
+                float deadline = Time.time + 0.5f;
+                while (Agent.desiredVelocity.sqrMagnitude < 0.01f && Time.time < deadline) yield return null;
+                Assert.That(Agent.desiredVelocity.sqrMagnitude, Is.GreaterThan(0.01f),
+                    "The regression fixture must exercise a real in-flight retreat.");
             }
 
             public IEnumerator ReleaseGaze()
@@ -220,6 +322,15 @@ namespace Game.Gameplay.Tests
                 point.ConfigureStaticDarkness(0.8f);
                 stalkPoints.Register(point);
                 return point;
+            }
+
+            private void SetConfig(string fieldName, object value)
+            {
+                FieldInfo field = typeof(MonsterConfig).GetField(
+                    fieldName,
+                    BindingFlags.Instance | BindingFlags.NonPublic);
+                Assert.That(field, Is.Not.Null, $"Missing MonsterConfig field {fieldName}.");
+                field.SetValue(Config, value);
             }
 
             public void Dispose()

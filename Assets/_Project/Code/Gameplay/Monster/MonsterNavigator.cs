@@ -81,14 +81,40 @@ namespace Game.Gameplay.Monster
             => TrySetReachableDestination(point, sampleRadius);
 
         /// <summary>
+        /// Resolves an authored point to the exact reachable NavMesh position without moving the
+        /// agent. Callers that validate properties of the eventual body position (for example Shy's
+        /// camera visibility) must inspect this resolved point and later commit that same point.
+        /// </summary>
+        public bool TryResolveReachableDestination(
+            Vector3 point,
+            out Vector3 resolvedDestination,
+            float sampleRadius = 2f)
+        {
+            resolvedDestination = default;
+            if (!NavMesh.SamplePosition(point, out NavMeshHit hit, sampleRadius, NavMesh.AllAreas)) return false;
+            if (IsInsideAnySafeZone(hit.position) || !IsPathReachable(hit.position)) return false;
+
+            resolvedDestination = hit.position;
+            return true;
+        }
+
+        /// <summary>
+        /// Commits an already-resolved destination without sampling it to a different point.
+        /// Reachability is rechecked because the NavMesh may have changed between selection and use.
+        /// </summary>
+        public bool TrySetResolvedDestination(Vector3 resolvedDestination)
+        {
+            if (IsInsideAnySafeZone(resolvedDestination) || !IsPathReachable(resolvedDestination)) return false;
+            SetDestination(resolvedDestination);
+            return true;
+        }
+
+        /// <summary>
         /// Reachability test without committing to the destination — used by StalkPointScorer to drop
         /// candidates outright (TGD section 16: "NavMesh path yok: -Invalid").
         /// </summary>
         public bool IsReachable(Vector3 point, float sampleRadius = 2f)
-        {
-            if (!NavMesh.SamplePosition(point, out NavMeshHit hit, sampleRadius, NavMesh.AllAreas)) return false;
-            return !IsInsideAnySafeZone(hit.position) && IsPathReachable(hit.position);
-        }
+            => TryResolveReachableDestination(point, out _, sampleRadius);
 
         /// <summary>
         /// Sets the state's *base* speed. The live anger multiplier is applied on top and refreshed
@@ -247,9 +273,8 @@ namespace Game.Gameplay.Monster
 
         private bool TrySetReachableDestination(Vector3 candidate, float sampleRadius)
         {
-            if (!NavMesh.SamplePosition(candidate, out NavMeshHit hit, sampleRadius, NavMesh.AllAreas)) return false;
-            if (IsInsideAnySafeZone(hit.position) || !IsPathReachable(hit.position)) return false;
-            SetDestination(hit.position);
+            if (!TryResolveReachableDestination(candidate, out Vector3 resolved, sampleRadius)) return false;
+            SetDestination(resolved);
             return true;
         }
 

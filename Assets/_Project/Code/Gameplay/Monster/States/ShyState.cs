@@ -137,9 +137,10 @@ namespace Game.Gameplay.Monster
                 brain.transform.position,
                 brain.VisionModel,
                 brain.Navigator,
-                excluded);
+                excluded,
+                out Vector3 resolvedDestination);
 
-            if (selected == null || !brain.Navigator.TrySetValidatedDestination(selected.Position))
+            if (selected == null || !brain.Navigator.TrySetResolvedDestination(resolvedDestination))
             {
                 currentTarget = null;
                 relocationPending = true;

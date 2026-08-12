@@ -87,13 +87,47 @@ namespace Game.Gameplay.Tests
             Assert.That(selected, Is.Not.SameAs(near));
         }
 
+        [Test]
+        public void PickBest_RejectsCornerWhoseResolvedNavMeshPositionIsVisible()
+        {
+            using var fixture = new SelectorFixture(floorWidth: 20f);
+            StalkPoint offMeshCorner = fixture.CreatePoint(
+                "OffMeshHiddenAnchor",
+                new Vector3(11f, 0f, 6f));
+
+            Assert.That(fixture.Vision.IsMonsterBodyVisibleAt(
+                offMeshCorner.Position,
+                fixture.Navigator.AgentHeight,
+                fixture.Navigator.AgentRadius), Is.False,
+                "The authored anchor must begin outside the camera viewport for this regression setup.");
+            Assert.That(fixture.Navigator.TryResolveReachableDestination(
+                offMeshCorner.Position,
+                out Vector3 resolved), Is.True);
+            Assert.That(fixture.Vision.IsMonsterBodyVisibleAt(
+                resolved,
+                fixture.Navigator.AgentHeight,
+                fixture.Navigator.AgentRadius), Is.True,
+                "The NavMesh snap must move the body into view for this regression setup.");
+
+            StalkPoint selected = ShyEscapePointSelector.PickBest(
+                fixture.Points,
+                fixture.PlayerPosition,
+                fixture.MonsterPosition,
+                fixture.Vision,
+                fixture.Navigator,
+                excluded: null);
+
+            Assert.That(selected, Is.Null,
+                "Shy must evaluate the exact resolved destination, not the hidden authored anchor.");
+        }
+
         private sealed class SelectorFixture : IDisposable
         {
             private readonly GameObject root;
             private readonly NavMeshSurface surface;
             private readonly SafeZoneRuntimeSet safeZones;
 
-            public SelectorFixture(bool lookAway = false)
+            public SelectorFixture(bool lookAway = false, float floorWidth = 30f)
             {
                 root = new GameObject("ShySelectorFixture");
 
@@ -101,7 +135,7 @@ namespace Game.Gameplay.Tests
                 floor.name = "Floor";
                 floor.transform.SetParent(root.transform, false);
                 floor.transform.position = new Vector3(0f, -0.1f, 4f);
-                floor.transform.localScale = new Vector3(30f, 0.2f, 30f);
+                floor.transform.localScale = new Vector3(floorWidth, 0.2f, 30f);
 
                 surface = root.AddComponent<NavMeshSurface>();
                 surface.collectObjects = CollectObjects.Children;

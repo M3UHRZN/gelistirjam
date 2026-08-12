@@ -18,10 +18,29 @@ namespace Game.Gameplay.Monster
             PlayerVisionModel visionModel,
             MonsterNavigator navigator,
             StalkPoint excluded)
+            => PickBest(
+                points,
+                playerPosition,
+                monsterPosition,
+                visionModel,
+                navigator,
+                excluded,
+                out _);
+
+        public static StalkPoint PickBest(
+            StalkPointRuntimeSet points,
+            Vector3 playerPosition,
+            Vector3 monsterPosition,
+            PlayerVisionModel visionModel,
+            MonsterNavigator navigator,
+            StalkPoint excluded,
+            out Vector3 resolvedDestination)
         {
+            resolvedDestination = default;
             if (points == null || visionModel == null || navigator == null) return null;
 
             StalkPoint best = null;
+            Vector3 bestDestination = default;
             float bestPlayerDistance = float.NegativeInfinity;
             float bestDarkness = float.NegativeInfinity;
             float bestMonsterDistance = float.PositiveInfinity;
@@ -31,19 +50,24 @@ namespace Game.Gameplay.Monster
             {
                 StalkPoint candidate = items[i];
                 if (candidate == null || candidate == excluded || !candidate.IsNearCorner) continue;
-                if (visionModel.IsMonsterBodyVisibleAt(
+                if (!navigator.TryResolveReachableDestination(
                         candidate.Position,
+                        out Vector3 candidateDestination))
+                {
+                    continue;
+                }
+
+                if (visionModel.IsMonsterBodyVisibleAt(
+                        candidateDestination,
                         navigator.AgentHeight,
                         navigator.AgentRadius))
                 {
                     continue;
                 }
 
-                if (!navigator.IsReachable(candidate.Position)) continue;
-
-                float playerDistance = Vector3.Distance(candidate.Position, playerPosition);
+                float playerDistance = Vector3.Distance(candidateDestination, playerPosition);
                 float darkness = candidate.DarknessLevel;
-                float monsterDistance = Vector3.Distance(candidate.Position, monsterPosition);
+                float monsterDistance = Vector3.Distance(candidateDestination, monsterPosition);
 
                 bool fartherFromPlayer = playerDistance > bestPlayerDistance + ComparisonTolerance;
                 bool samePlayerDistance = Mathf.Abs(playerDistance - bestPlayerDistance) <= ComparisonTolerance;
@@ -59,11 +83,13 @@ namespace Game.Gameplay.Monster
                 }
 
                 best = candidate;
+                bestDestination = candidateDestination;
                 bestPlayerDistance = playerDistance;
                 bestDarkness = darkness;
                 bestMonsterDistance = monsterDistance;
             }
 
+            resolvedDestination = bestDestination;
             return best;
         }
     }
