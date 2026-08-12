@@ -19,6 +19,12 @@ namespace Game.Gameplay.Monster
         private float fleeTimer;
         private bool wasGazedLastFrame;
         private bool triedFakeRetreat;
+        private StalkPoint currentTarget;
+        private StalkPoint exposedTarget;
+        private bool relocationPending;
+        private float relocationRetryTimer;
+
+        public StalkPoint CurrentTarget => currentTarget;
 
         public ShyState(MonsterBrain brain)
         {
@@ -33,7 +39,11 @@ namespace Game.Gameplay.Monster
             brain.Navigator.SetAutoRotate(false);
             brain.Navigator.Resume();
             brain.Navigator.SetSpeed(brain.Config.ShySpeed);
-            brain.Navigator.SetFleeDestinationAwayFrom(brain.Player.position, brain.Config.ShyFleeRadius);
+            currentTarget = null;
+            exposedTarget = null;
+            relocationPending = false;
+            relocationRetryTimer = 0f;
+            TrySelectHiddenCorner(excluded: null);
             fleeTimer = brain.Config.ShyFleeDuration;
             wasGazedLastFrame = false;
             staredown.Reset();
@@ -44,6 +54,12 @@ namespace Game.Gameplay.Monster
         {
             bool gazedNow = brain.IsGazeConfirmed;
             brain.Navigator.FaceTowards(brain.Player.position, FaceTurnSpeed, deltaTime);
+
+            if (gazedNow && !wasGazedLastFrame)
+            {
+                if (currentTarget != null) exposedTarget = currentTarget;
+                relocationPending = true;
+            }
 
             if (gazedNow)
             {
@@ -74,9 +90,13 @@ namespace Game.Gameplay.Monster
                         }
                     }
 
-                    brain.Navigator.Resume();
-                    brain.Navigator.SetFleeDestinationAwayFrom(brain.Player.position, brain.Config.ShyFleeRadius);
                     staredown.EndStaredown();
+                    TrySelectHiddenCorner(exposedTarget);
+                }
+                else if (relocationPending)
+                {
+                    relocationRetryTimer -= deltaTime;
+                    if (relocationRetryTimer <= 0f) TrySelectHiddenCorner(exposedTarget);
                 }
                 else if (brain.Navigator.HasArrived)
                 {
@@ -107,6 +127,35 @@ namespace Game.Gameplay.Monster
             }
 
             wasGazedLastFrame = gazedNow;
+        }
+
+        private bool TrySelectHiddenCorner(StalkPoint excluded)
+        {
+            StalkPoint selected = ShyEscapePointSelector.PickBest(
+                brain.StalkPoints,
+                brain.Player.position,
+                brain.transform.position,
+                brain.VisionModel,
+                brain.Navigator,
+                excluded);
+
+            if (selected == null || !brain.Navigator.TrySetValidatedDestination(selected.Position))
+            {
+                currentTarget = null;
+                relocationPending = true;
+                relocationRetryTimer = brain.Config.RepositionInterval;
+                brain.Navigator.Stop();
+                brain.SetDecisionReason("Shy waiting: no different hidden reachable corner");
+                return false;
+            }
+
+            currentTarget = selected;
+            exposedTarget = null;
+            relocationPending = false;
+            relocationRetryTimer = 0f;
+            brain.Navigator.Resume();
+            brain.SetDecisionReason($"Shy retreat: hidden corner {selected.name}");
+            return true;
         }
 
         public void Exit() { }
