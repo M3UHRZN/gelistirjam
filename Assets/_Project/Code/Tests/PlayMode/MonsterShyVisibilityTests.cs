@@ -65,9 +65,21 @@ namespace Game.Gameplay.Tests
                 "A body beyond the camera's vertical FOV must not count as visible.");
         }
 
+        [Test]
+        public void BodyVisibility_DoesNotTreatTheCurrentMonsterBodyAsEnvironmentOcclusion()
+        {
+            using var fixture = new VisibilityFixture();
+            fixture.CreateCurrentMonsterBody(new Vector3(0f, 0f, 2.5f));
+
+            Assert.That(fixture.Vision.IsMonsterBodyVisibleAt(
+                new Vector3(0f, 0f, 6f), 2.2f, 0.35f), Is.True,
+                "The monster's current body must not hide its hypothetical destination from the player camera.");
+        }
+
         private sealed class VisibilityFixture : IDisposable
         {
             private readonly GameObject root;
+            private readonly GameObject perceptionObject;
 
             public VisibilityFixture()
             {
@@ -87,7 +99,7 @@ namespace Game.Gameplay.Tests
                 Camera.nearClipPlane = 0.01f;
                 Camera.farClipPlane = 50f;
 
-                var perceptionObject = new GameObject("MonsterPerception");
+                perceptionObject = new GameObject("MonsterPerception");
                 perceptionObject.transform.SetParent(root.transform, false);
                 MonsterPerception perception = perceptionObject.AddComponent<MonsterPerception>();
                 perception.Bind(player.transform);
@@ -108,6 +120,16 @@ namespace Game.Gameplay.Tests
                 occluder.transform.localScale = scale;
                 Physics.SyncTransforms();
                 return occluder;
+            }
+
+            public void CreateCurrentMonsterBody(Vector3 position)
+            {
+                perceptionObject.transform.position = position;
+                CapsuleCollider body = perceptionObject.AddComponent<CapsuleCollider>();
+                body.center = Vector3.up * 1.1f;
+                body.height = 2.2f;
+                body.radius = 0.35f;
+                Physics.SyncTransforms();
             }
 
             public void Dispose() => UnityEngine.Object.DestroyImmediate(root);

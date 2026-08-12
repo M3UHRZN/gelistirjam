@@ -33,6 +33,7 @@ namespace Game.Gameplay.Monster
 
         private Vector3 lastVelocityDirection;
         private float directionStability = 1f;
+        private readonly RaycastHit[] lineOfSightHits = new RaycastHit[32];
 
         private IPlayerVelocitySource cachedVelocitySource;
         private IPlayerVelocitySource VelocitySource =>
@@ -128,8 +129,39 @@ namespace Game.Gameplay.Monster
         /// Shared world-geometry visibility primitive. Kept separate from IsPlayerVisibleFrom so the
         /// existing candidate-to-player stalk query retains its original semantics.
         /// </summary>
-        public bool HasClearLineOfSight(Vector3 origin, Vector3 target) =>
-            !Physics.Linecast(origin, target, occluderMask, QueryTriggerInteraction.Ignore);
+        public bool HasClearLineOfSight(Vector3 origin, Vector3 target)
+        {
+            Vector3 delta = target - origin;
+            float distance = delta.magnitude;
+            if (distance <= 0.0001f) return true;
+
+            int hitCount = Physics.RaycastNonAlloc(
+                origin,
+                delta / distance,
+                lineOfSightHits,
+                distance,
+                occluderMask,
+                QueryTriggerInteraction.Ignore);
+
+            for (int i = 0; i < hitCount; i++)
+            {
+                Transform hitTransform = lineOfSightHits[i].collider.transform;
+                if (IsPartOfHierarchy(hitTransform, transform)
+                    || IsPartOfHierarchy(hitTransform, player))
+                {
+                    continue;
+                }
+
+                return false;
+            }
+
+            // Saturation means there may be an unexamined environmental hit. Fail closed instead of
+            // accepting a corner as visible based on an incomplete occlusion query.
+            return hitCount < lineOfSightHits.Length;
+        }
+
+        private static bool IsPartOfHierarchy(Transform candidate, Transform root) =>
+            candidate != null && root != null && (candidate == root || candidate.IsChildOf(root));
 
         /// <summary>
         /// Linear extrapolation of where the player will be in `seconds` at their current velocity
