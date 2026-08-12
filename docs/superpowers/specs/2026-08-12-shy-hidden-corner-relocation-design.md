@@ -2,7 +2,7 @@
 
 **Date:** 2026-08-12
 
-**Status:** Approved behavior and technical design; implementation plan pending written-spec review
+**Status:** Implemented; corrected after live-play regression feedback
 
 ## Context
 
@@ -12,7 +12,7 @@ The generated map is a narrow collection of corridors and rooms with registered 
 
 ## Goal
 
-When the player confirms gaze on a monster that is already in Shy, invalidate its exposed corner and, after the gaze breaks, send it to a different reachable `StalkPoint` corner whose entire representative body volume is outside the player's actual unobstructed view.
+When the player confirms gaze on a monster that is already in Shy, immediately invalidate its exposed corner and send it to a different reachable `StalkPoint` corner whose entire representative body volume is outside the player's actual unobstructed view.
 
 ## Non-Goals
 
@@ -27,11 +27,11 @@ When the player confirms gaze on a monster that is already in Shy, invalidate it
 
 1. On Shy entry, the monster selects a hidden, reachable `StalkPoint` marked as a corner and retreats toward it while retaining the existing backward-facing movement and yelling reaction.
 2. On arrival, the monster stops at that point and retains the existing Shy timer behavior.
-3. A false-to-true confirmed-gaze edge while in Shy marks the current target corner as exposed. The state does not recompute a destination every frame while gaze is held.
+3. A false-to-true confirmed-gaze edge while in Shy marks the current target corner as exposed and immediately selects a different hidden corner. The state does not recompute a destination every frame after a successful selection.
 4. While gaze remains confirmed, the current timer reset, yelling/staredown, anger accumulation, and possible aggression behavior remain unchanged.
-5. When gaze breaks, the existing aggression roll runs first. If it transitions to Aggressive, no Shy relocation is performed.
-6. If Shy continues, it selects another hidden corner, excluding the exposed target, resumes navigation, and keeps facing the player as it retreats.
-7. If the monster is confirmed-gazed while travelling, its current destination is likewise marked exposed and replaced only after gaze breaks.
+5. If a staredown activates, it may still stop the retreat and run the existing aggression roll when gaze breaks. If Shy continues, it resumes the already selected hidden destination rather than choosing again.
+6. If the immediate selection fails, Shy stops and retries while gaze is held and after it breaks, using the bounded retry cadence.
+7. If the monster is confirmed-gazed while travelling, its current destination is likewise marked exposed and replaced immediately.
 8. Only the most recently exposed/current target is excluded. An older corner may become eligible again after the player and camera have moved, but Shy may never immediately reselect the corner that triggered the relocation.
 9. If no eligible corner exists at a selection attempt, the monster stops and retries at the existing `RepositionInterval` cadence. It never accepts a visible, unreachable, non-corner, or SafeZone destination as a fallback.
 
@@ -65,7 +65,7 @@ This allows a point inside the geometric FOV but fully behind a wall to remain v
 
 `ShyState` remains the sole owner of Shy lifecycle decisions. It gains only the state needed to track the selected corner, the most recently exposed corner, whether relocation is pending, and the retry countdown. Existing staredown and aggression ordering stays intact.
 
-Destination selection is called on entry, after a confirmed gaze breaks, and on a bounded retry cadence after a failed selection. It is not called every frame.
+Destination selection is called on entry, on the confirmed-gaze rising edge, and on a bounded retry cadence after a failed selection. It is not called every frame after success.
 
 ### `ShyEscapePointSelector`
 
@@ -95,7 +95,7 @@ Preserve `IsPlayerVisibleFrom` for existing stalk scoring. Add a narrowly named 
 
 ### `MonsterNavigator`
 
-Preserve all current navigation behavior. Expose read-only NavMesh capsule height/radius for visibility sampling and continue using `IsReachable` plus `TrySetValidatedDestination` for complete-path and SafeZone enforcement.
+Preserve all current navigation behavior. Expose read-only NavMesh capsule height/radius for visibility sampling, resolve each candidate once through `TryResolveReachableDestination`, evaluate visibility at that exact resolved point, and commit the same point through `TrySetResolvedDestination` for complete-path and SafeZone enforcement.
 
 ### Runtime Wiring
 
@@ -106,10 +106,10 @@ Preserve all current navigation behavior. Expose read-only NavMesh capsule heigh
 1. `PlayerGazeDetector` confirms eye gaze through the existing hold duration.
 2. `MonsterBrain` exposes the confirmed gaze to `ShyState` and continues to own anger mutation.
 3. `ShyState` marks its current destination exposed on the confirmed-gaze edge.
-4. After gaze breaks and the aggression branch declines, `ShyState` requests a replacement from `ShyEscapePointSelector`.
+4. On that same confirmed-gaze edge, `ShyState` requests a replacement from `ShyEscapePointSelector`.
 5. The selector filters registered corner points through camera/body visibility and navigator reachability.
-6. `ShyState` commits the selected point through validated navigation and resumes the existing backward-facing retreat.
-7. On failure, Shy stops and retries later without changing state or accepting an unsafe fallback.
+6. `ShyState` commits the selected point through validated navigation and immediately resumes the existing player-facing retreat.
+7. On failure, Shy stops and retries later without changing state or accepting an unsafe fallback; gaze release never causes a redundant second relocation after success.
 
 ## Failure Handling
 
@@ -128,13 +128,13 @@ Add focused PlayMode coverage for the Unity camera, physics, NavMesh, and state-
 3. Floor/ceiling geometry hides a same-XZ corner on another storey.
 4. A doorway that exposes only one body sample still causes rejection.
 5. A point outside horizontal or vertical camera view remains eligible.
-6. A confirmed gaze marks the current Shy target exposed, and gaze release selects a different hidden corner.
-7. A confirmed gaze during travel invalidates the in-flight target without per-frame destination churn.
+6. A confirmed gaze at a stopped hiding corner immediately selects a different hidden corner and resumes movement while gaze remains held.
+7. A confirmed gaze during travel immediately invalidates and replaces the in-flight target without per-frame destination churn after success.
 8. A SafeZone corner and a corner without a complete NavMesh path are rejected.
 9. With no valid hidden corner, the navigator stops and retries without selecting a visible fallback or stale destination.
 10. Existing yelling, backward facing, Shy timer reset, staredown anger, aggression roll, FakeRetreat, and Shy exit behavior remain intact.
 
-Run the new focused fixture first, then the existing `Game.Gameplay.PlayModeTests` suite. Finally, perform a manual generated-map Play Mode pass in `MainGame`: expose Shy at one corner, hold and release gaze, confirm a different fully hidden corner is chosen, then repeat with a doorway, a wall, and a different-floor candidate. Runtime success is claimed only after those checks actually run.
+Run the new focused fixture first, then the existing `Game.Gameplay.PlayModeTests` suite. Finally, perform a manual generated-map Play Mode pass in `MainGame`: expose Shy at one corner, hold gaze, confirm a different fully hidden corner is chosen immediately and movement resumes, then repeat with a doorway, a wall, and a different-floor candidate. Runtime success is claimed only after those checks actually run.
 
 ## Acceptance Criteria
 

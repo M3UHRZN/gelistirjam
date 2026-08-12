@@ -20,7 +20,7 @@ namespace Game.Gameplay.Tests
         }
 
         [UnityTest]
-        public IEnumerator ConfirmedGazeRelease_ReplacesTheExposedInFlightCorner()
+        public IEnumerator ConfirmedGazeAtHidingCorner_ImmediatelyRunsToADifferentHiddenCorner()
         {
             using var fixture = new RelocationFixture(includeSecondCorner: true);
             fixture.EnterShy();
@@ -28,27 +28,32 @@ namespace Game.Gameplay.Tests
             StalkPoint firstTarget = shy.CurrentTarget;
 
             Assert.That(firstTarget, Is.SameAs(fixture.FirstCorner));
-            yield return fixture.WaitUntilTravelling();
-            Vector3 destinationBeforeGaze = fixture.Agent.destination;
+            yield return fixture.WaitUntilHiddenAtCurrentTarget();
+            Assert.That(fixture.Agent.isStopped, Is.True,
+                "Shy must begin this regression scenario waiting at its first hiding corner.");
 
-            yield return fixture.HoldConfirmedGaze();
+            yield return fixture.HoldConfirmedGaze(holdAfterConfirmationSeconds: 0.1f);
 
-            Assert.That(shy.CurrentTarget, Is.SameAs(firstTarget),
-                "A held gaze may yell or stare down, but must not switch corners before gaze release.");
-            Assert.That(Vector3.Distance(fixture.Agent.destination, destinationBeforeGaze), Is.LessThan(0.001f),
-                "The in-flight destination must stay stable while gaze is held.");
+            Assert.That(shy.CurrentTarget, Is.SameAs(fixture.SecondCorner),
+                "Confirmed gaze must burn the exposed hiding corner immediately, without waiting for gaze release.");
+            Assert.That(shy.CurrentTarget, Is.Not.SameAs(firstTarget));
+            Assert.That(fixture.Agent.isStopped, Is.False,
+                "After choosing a different hidden corner, Shy must resume its retreat while watched.");
+            Assert.That(fixture.Agent.desiredVelocity.sqrMagnitude, Is.GreaterThan(0.01f),
+                "The resumed NavMesh retreat must produce real movement while gaze remains confirmed.");
+            Vector3 directionToPlayer = fixture.PlayerPosition - fixture.MonsterTransform.position;
+            directionToPlayer.y = 0f;
             Assert.That(Vector3.Dot(
                 fixture.MonsterTransform.forward,
-                fixture.Agent.desiredVelocity.normalized), Is.LessThan(-0.25f),
-                "Shy must keep facing the player while retreating backwards.");
+                directionToPlayer.normalized), Is.GreaterThan(0.9f),
+                "Shy must keep facing the player while its retreat path moves toward the hidden corner.");
 
             yield return fixture.ReleaseGaze();
 
             Assert.That(shy.CurrentTarget, Is.SameAs(fixture.SecondCorner));
-            Assert.That(shy.CurrentTarget, Is.Not.SameAs(firstTarget),
-                "A confirmed gaze must burn the exposed in-flight target for the next retreat.");
+            Assert.That(shy.CurrentTarget, Is.Not.SameAs(firstTarget));
             Assert.That(fixture.Vision.IsMonsterBodyVisibleAt(
-                shy.CurrentTarget.Position,
+                fixture.Agent.destination,
                 fixture.Navigator.AgentHeight,
                 fixture.Navigator.AgentRadius), Is.False);
         }
@@ -80,7 +85,89 @@ namespace Game.Gameplay.Tests
         }
 
         [UnityTest]
-        public IEnumerator ActiveStaredown_AccumulatesAngerThenAggressesBeforeRelocation()
+        public IEnumerator GazeRelease_DoesNotBypassTheFailedSelectionRetryCadence()
+        {
+            using var fixture = new RelocationFixture(includeSecondCorner: false);
+            fixture.EnterShy();
+            ShyState shy = (ShyState)fixture.Brain.ShyState;
+            yield return fixture.WaitUntilHiddenAtCurrentTarget();
+
+            yield return fixture.HoldConfirmedGaze();
+            Assert.That(shy.CurrentTarget, Is.Null,
+                "The exposed only corner must be rejected on the confirmed-gaze edge.");
+
+            fixture.AddSecondHiddenCorner();
+            yield return fixture.ReleaseGaze();
+
+            Assert.That(shy.CurrentTarget, Is.Null,
+                "Gaze release must not perform an extra selection before RepositionInterval expires.");
+            Assert.That(fixture.Agent.isStopped, Is.True);
+
+            float retryDeadline = Time.time + fixture.Config.RepositionInterval + 0.15f;
+            while (shy.CurrentTarget == null && Time.time < retryDeadline) yield return null;
+
+            Assert.That(shy.CurrentTarget, Is.SameAs(fixture.SecondCorner),
+                "The normal bounded retry must select the newly available hidden corner.");
+        }
+
+        [UnityTest]
+        public IEnumerator ConfirmedGazeDuringTravel_ReplacesTargetOnceWithoutHeldGazeChurn()
+        {
+            using var fixture = new RelocationFixture(includeSecondCorner: true);
+            fixture.EnterShy();
+            ShyState shy = (ShyState)fixture.Brain.ShyState;
+            StalkPoint firstTarget = shy.CurrentTarget;
+            yield return fixture.WaitUntilTravelling();
+
+            yield return fixture.HoldConfirmedGaze(holdAfterConfirmationSeconds: 0.05f);
+
+            Assert.That(shy.CurrentTarget, Is.SameAs(fixture.SecondCorner));
+            Assert.That(shy.CurrentTarget, Is.Not.SameAs(firstTarget));
+            Vector3 replacementDestination = fixture.Agent.destination;
+
+            fixture.AddThirdHiddenCorner();
+            yield return fixture.KeepHoldingGaze(0.2f);
+
+            Assert.That(shy.CurrentTarget, Is.SameAs(fixture.SecondCorner),
+                "A successful rising-edge relocation must not rescore each frame while gaze remains held.");
+            Assert.That(shy.CurrentTarget, Is.Not.SameAs(fixture.ThirdCorner));
+            Assert.That(Vector3.Distance(fixture.Agent.destination, replacementDestination), Is.LessThan(0.001f),
+                "Held gaze must not churn an already accepted destination.");
+        }
+
+        [UnityTest]
+        public IEnumerator NonAggressiveStaredownRelease_ResumesTheImmediateReplacementTarget()
+        {
+            using var fixture = new RelocationFixture(
+                includeSecondCorner: true,
+                staredownChance: 1f,
+                aggressionStaredownBonus: 0f,
+                staredownAngerInterval: 10f,
+                angerPerSpotted: 0,
+                aggressionDistanceWeight: 0f);
+            fixture.EnterShy();
+            ShyState shy = (ShyState)fixture.Brain.ShyState;
+            yield return fixture.WaitUntilHiddenAtCurrentTarget();
+
+            yield return fixture.HoldConfirmedGaze(holdAfterConfirmationSeconds: 0.05f);
+            StalkPoint replacement = shy.CurrentTarget;
+            Vector3 replacementDestination = fixture.Agent.destination;
+
+            Assert.That(replacement, Is.SameAs(fixture.SecondCorner));
+            Assert.That(fixture.Agent.isStopped, Is.True,
+                "The deterministic staredown must stop the immediate replacement retreat.");
+
+            yield return fixture.ReleaseGaze();
+
+            Assert.That(fixture.Brain.CurrentStateName, Is.EqualTo(nameof(ShyState)));
+            Assert.That(shy.CurrentTarget, Is.SameAs(replacement),
+                "A non-aggressive staredown release must resume, not select a third target.");
+            Assert.That(Vector3.Distance(fixture.Agent.destination, replacementDestination), Is.LessThan(0.001f));
+            Assert.That(fixture.Agent.isStopped, Is.False);
+        }
+
+        [UnityTest]
+        public IEnumerator ActiveStaredown_AccumulatesAngerThenAggressesAfterImmediateRelocation()
         {
             using var fixture = new RelocationFixture(
                 includeSecondCorner: true,
@@ -100,7 +187,7 @@ namespace Game.Gameplay.Tests
             yield return fixture.ReleaseGaze();
 
             Assert.That(fixture.Brain.CurrentStateName, Is.EqualTo(nameof(AggressiveState)),
-                "The existing staredown aggression roll must run before any hidden-corner relocation.");
+                "The existing staredown aggression roll must still override the immediate Shy replacement on release.");
         }
 
         [UnityTest]
@@ -159,7 +246,9 @@ namespace Game.Gameplay.Tests
                 float aggressionStaredownBonus = 0.1f,
                 float staredownAngerInterval = 1f,
                 float shyFleeDuration = 24f,
-                float fakeRetreatChance = 0.25f)
+                float fakeRetreatChance = 0.25f,
+                int angerPerSpotted = 1,
+                float aggressionDistanceWeight = 0.15f)
             {
                 root = new GameObject("ShyRelocationFixture");
 
@@ -228,6 +317,8 @@ namespace Game.Gameplay.Tests
                 SetConfig("aggressionStaredownBonus", aggressionStaredownBonus);
                 SetConfig("shyFleeDuration", shyFleeDuration);
                 SetConfig("fakeRetreatChance", fakeRetreatChance);
+                SetConfig("angerPerSpotted", angerPerSpotted);
+                SetConfig("aggressionDistanceWeight", aggressionDistanceWeight);
                 Config.TuningFor(AngerStage.Calm).FakeRetreatChanceMultiplier = 1f;
                 safeZones = ScriptableObject.CreateInstance<SafeZoneRuntimeSet>();
                 stalkPoints = ScriptableObject.CreateInstance<StalkPointRuntimeSet>();
@@ -235,6 +326,9 @@ namespace Game.Gameplay.Tests
                 if (includeSecondCorner)
                 {
                     SecondCorner = CreateCorner("SecondCorner", new Vector3(4f, 0f, 6f));
+                    CreateVisionOnlyWall(
+                        new Vector3(2f, 1.5f, 1f),
+                        new Vector3(1f, 3f, 0.25f));
                 }
 
                 Physics.SyncTransforms();
@@ -259,8 +353,27 @@ namespace Game.Gameplay.Tests
             public MonsterConfig Config { get; }
             public MonsterAngerController Anger => monster.GetComponent<MonsterAngerController>();
             public StalkPoint FirstCorner { get; }
-            public StalkPoint SecondCorner { get; }
+            public StalkPoint SecondCorner { get; private set; }
+            public StalkPoint ThirdCorner { get; private set; }
             public Transform MonsterTransform => monster.transform;
+            public Vector3 PlayerPosition => player.transform.position;
+
+            public void AddSecondHiddenCorner()
+            {
+                Assert.That(SecondCorner, Is.Null,
+                    "This helper models one newly available alternative corner exactly once.");
+                SecondCorner = CreateCorner("SecondCorner_Late", new Vector3(4f, 0f, 6f));
+            }
+
+            public void AddThirdHiddenCorner()
+            {
+                Assert.That(ThirdCorner, Is.Null,
+                    "This helper adds one newly eligible, higher-ranked hidden corner.");
+                ThirdCorner = CreateCorner("ThirdCorner_Late", new Vector3(8f, 0f, 6f));
+                CreateVisionOnlyWall(
+                    new Vector3(4f, 1.5f, 1f),
+                    new Vector3(1f, 3f, 0.25f));
+            }
 
             public void EnterShy()
             {
@@ -294,12 +407,41 @@ namespace Game.Gameplay.Tests
                 }
             }
 
+            public IEnumerator KeepHoldingGaze(float seconds)
+            {
+                float deadline = Time.time + seconds;
+                while (Time.time < deadline)
+                {
+                    camera.transform.LookAt(gazeTarget.position);
+                    Physics.SyncTransforms();
+                    yield return null;
+                    Assert.That(Brain.IsGazeConfirmed, Is.True,
+                        "The churn regression must keep one continuous confirmed gaze.");
+                }
+            }
+
             public IEnumerator WaitUntilTravelling()
             {
                 float deadline = Time.time + 0.5f;
                 while (Agent.desiredVelocity.sqrMagnitude < 0.01f && Time.time < deadline) yield return null;
                 Assert.That(Agent.desiredVelocity.sqrMagnitude, Is.GreaterThan(0.01f),
                     "The regression fixture must exercise a real in-flight retreat.");
+            }
+
+            public IEnumerator WaitUntilHiddenAtCurrentTarget()
+            {
+                float deadline = Time.time + 3f;
+                while ((!Agent.isOnNavMesh || Agent.pathPending || !Agent.isStopped
+                        || Agent.remainingDistance > Agent.stoppingDistance + 0.05f)
+                    && Time.time < deadline)
+                {
+                    yield return null;
+                }
+
+                Assert.That(Agent.isOnNavMesh && !Agent.pathPending
+                    && Agent.isStopped
+                    && Agent.remainingDistance <= Agent.stoppingDistance + 0.05f, Is.True,
+                    "The regression fixture must reach its first hiding corner before gaze begins.");
             }
 
             public IEnumerator ReleaseGaze()
@@ -322,6 +464,16 @@ namespace Game.Gameplay.Tests
                 point.ConfigureStaticDarkness(0.8f);
                 stalkPoints.Register(point);
                 return point;
+            }
+
+            private void CreateVisionOnlyWall(Vector3 position, Vector3 scale)
+            {
+                GameObject wall = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                wall.name = "VisionOnlyWall";
+                wall.transform.SetParent(root.transform, false);
+                wall.transform.position = position;
+                wall.transform.localScale = scale;
+                Physics.SyncTransforms();
             }
 
             private void SetConfig(string fieldName, object value)

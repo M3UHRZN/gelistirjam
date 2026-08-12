@@ -25,7 +25,7 @@
 - Create `Assets/_Project/Code/Gameplay/Monster/ShyEscapePointSelector.cs`: Shy-only hard filtering and deterministic corner ranking.
 - Create `Assets/_Project/Code/Tests/PlayMode/MonsterShyVisibilityTests.cs`: real camera/body-sample and physics-occlusion coverage.
 - Create `Assets/_Project/Code/Tests/PlayMode/ShyEscapePointSelectorTests.cs`: corner eligibility/ranking coverage on a runtime NavMesh fixture.
-- Create `Assets/_Project/Code/Tests/PlayMode/MonsterShyRelocationTests.cs`: confirmed-gaze edge, target invalidation, gaze-release relocation, and no-fallback behavior.
+- Create `Assets/_Project/Code/Tests/PlayMode/MonsterShyRelocationTests.cs`: confirmed-gaze edge, immediate target invalidation/relocation, and no-fallback behavior.
 - Modify `Assets/_Project/Code/Gameplay/Player/PlayerVisionModel.cs`: additive camera-bound hypothetical-body visibility API; preserve existing methods.
 - Modify `Assets/_Project/Code/Gameplay/Monster/MonsterPerception.cs`: additive camera-to-sample line-of-sight query.
 - Modify `Assets/_Project/Code/Gameplay/Monster/MonsterNavigator.cs`: read-only agent capsule dimensions; no navigation semantic changes.
@@ -240,12 +240,12 @@ git commit -m "feat: select hidden stalk corners for shy"
 - Create: `Assets/_Project/Code/Tests/PlayMode/MonsterShyRelocationTests.cs`
 
 **Interfaces:**
-- Consumes: `ShyEscapePointSelector.PickBest`, `MonsterNavigator.TrySetValidatedDestination`, existing `MonsterBrain.IsGazeConfirmed`, existing staredown controller, and `MonsterConfig.RepositionInterval`.
+- Consumes: `ShyEscapePointSelector.PickBest`, `MonsterNavigator.TryResolveReachableDestination`, `MonsterNavigator.TrySetResolvedDestination`, existing `MonsterBrain.IsGazeConfirmed`, existing staredown controller, and `MonsterConfig.RepositionInterval`.
 - Produces: read-only `StalkPoint ShyState.CurrentTarget` for debug/test observation; no cross-state transition API changes.
 
 - [ ] **Step 1: Write the failing Shy relocation test**
 
-Build an inactive production-shaped rig on a small runtime NavMesh with two hidden registered corner points. Activate it, force `brain.ChangeState(brain.ShyState)`, and record `((ShyState)brain.ShyState).CurrentTarget`. Turn the camera to the real `MonsterGazeReceiver` until gaze confirms, turn away until gaze breaks, then assert:
+Build an inactive production-shaped rig on a small runtime NavMesh with two registered corner points separated by a vision-only wall. Activate it, force `brain.ChangeState(brain.ShyState)`, wait at the first corner, and record `((ShyState)brain.ShyState).CurrentTarget`. Turn the camera to the real `MonsterGazeReceiver` until gaze confirms, then assert before releasing gaze:
 
 ```csharp
 Assert.That(firstTarget, Is.Not.Null);
@@ -281,9 +281,9 @@ private float relocationRetryTimer;
 public StalkPoint CurrentTarget => currentTarget;
 ```
 
-Add `TrySelectHiddenCorner()` that calls the selector, commits through `TrySetValidatedDestination`, resumes on success, and stops/records a decision reason on failure. On entry, reset state and call it with no exclusion. Never call `SetFleeDestinationAwayFrom` from Shy.
+Add `TrySelectHiddenCorner()` that calls the selector, evaluates and returns one resolved NavMesh point, commits that same point through `TrySetResolvedDestination`, resumes on success, and stops/records a decision reason on failure. On entry, reset state and call it with no exclusion. Never call `SetFleeDestinationAwayFrom` from Shy.
 
-- [ ] **Step 4: Preserve gaze/anger ordering and relocate only on gaze release**
+- [ ] **Step 4: Preserve gaze/anger ordering and relocate on confirmed gaze**
 
 On the confirmed-gaze false-to-true edge:
 
@@ -292,10 +292,11 @@ if (gazedNow && !wasGazedLastFrame)
 {
     exposedTarget = currentTarget;
     relocationPending = true;
+    TrySelectHiddenCorner(exposedTarget);
 }
 ```
 
-In the existing `wasGazedLastFrame` branch, keep the current staredown aggression roll first. Only if it does not transition to Aggressive, end staredown and attempt the new destination excluding `exposedTarget`. Clear `relocationPending` only after a successful selection; otherwise stop and arm `relocationRetryTimer = brain.Config.RepositionInterval`.
+The rising edge immediately attempts the new destination excluding `exposedTarget`. Clear `relocationPending` only after a successful selection; otherwise stop and arm `relocationRetryTimer = brain.Config.RepositionInterval`. While gaze remains held, retry only on that bounded cadence. If a staredown activates, keep the current aggression roll on gaze release; if Shy continues, resume the already selected destination instead of selecting a second time.
 
 When not gazed and relocation remains pending, decrement the retry timer and retry only when it reaches zero. Keep the current Shy timer/FakeRetreat/exit logic unchanged.
 
@@ -309,7 +310,7 @@ Game.Gameplay.Tests.MonsterConfirmedGazeTests
 Game.Gameplay.Tests.MainSceneWiringMonsterTests
 ```
 
-Expected: all pass; confirmed gaze still raises one event/anger and enters Yell, while Shy selects a different hidden target on release.
+Expected: all pass; confirmed gaze still raises one event/anger and enters Yell, while Shy immediately selects a different hidden target and resumes movement.
 
 - [ ] **Step 6: Commit Task 3**
 
@@ -368,11 +369,11 @@ Use a generated narrow-corridor map and verify:
 
 1. Shy initially retreats backward to a registered corner.
 2. Looking into its eyes preserves Yell/staredown behavior.
-3. Releasing gaze sends it to a different corner.
+3. Confirmed gaze immediately sends it to a different hidden corner while gaze is still held.
 4. A wall-hidden corner may be selected even inside the camera's geometric cone.
 5. A doorway exposing any body portion is rejected.
 6. A different-floor point hidden by floor/ceiling geometry is accepted only when all samples are occluded.
-7. Repeated reveals keep burning the current target without destination churn while gaze is held.
+7. Repeated reveals burn the current target once per confirmed-gaze edge without per-frame destination churn after success.
 8. Patrol, Interested, Reposition, and Aggressive transitions still behave normally before and after Shy.
 
 Expected: all eight observations match. If Unity cannot be run, report manual acceptance as outstanding rather than claiming runtime completion.

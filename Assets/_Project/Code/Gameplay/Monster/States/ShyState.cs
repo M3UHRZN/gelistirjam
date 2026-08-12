@@ -3,8 +3,8 @@ using UnityEngine;
 namespace Game.Gameplay.Monster
 {
     /// <summary>
-    /// Spotted and fleeing (tutorial's "shy"). Runs to the furthest reachable point away from the
-    /// player. While fleeing, being looked at again freezes it into a staredown (wiki: "Brackens
+    /// Spotted and fleeing (tutorial's "shy"). Runs to a reachable corner outside the player's
+    /// unobstructed camera view. While fleeing, being looked at again can freeze it into a staredown (wiki: "Brackens
     /// will stop retreating and enter a stare down... allowing anger to fill") which also keeps its
     /// flee timer pinned at max ("resets back to full if employees maintain eye contact"). When the
     /// timer runs out unlooked, it returns to Patrol. A staredown that ends can still roll into
@@ -59,13 +59,20 @@ namespace Game.Gameplay.Monster
             {
                 if (currentTarget != null) exposedTarget = currentTarget;
                 relocationPending = true;
+                TrySelectHiddenCorner(exposedTarget);
             }
 
             if (gazedNow)
             {
                 fleeTimer = brain.Config.ShyFleeDuration; // eye contact resets phase-2's timer
 
-                if (staredown.TickWhileGazed(deltaTime))
+                if (relocationPending)
+                {
+                    relocationRetryTimer -= deltaTime;
+                    if (relocationRetryTimer <= 0f) TrySelectHiddenCorner(exposedTarget);
+                }
+
+                if (staredown.TickWhileGazed(deltaTime) || staredown.IsActive)
                 {
                     brain.Navigator.Stop();
                 }
@@ -91,7 +98,10 @@ namespace Game.Gameplay.Monster
                     }
 
                     staredown.EndStaredown();
-                    TrySelectHiddenCorner(exposedTarget);
+                    if (!relocationPending)
+                    {
+                        brain.Navigator.Resume();
+                    }
                 }
                 else if (relocationPending)
                 {
