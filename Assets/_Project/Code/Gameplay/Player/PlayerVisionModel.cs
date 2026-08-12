@@ -19,9 +19,19 @@ namespace Game.Gameplay.Player
         [SerializeField] private float viewRange = 20f;
         [SerializeField] private MonsterPerception perception;
 
+        private readonly Vector3[] bodySamples = new Vector3[5];
+        private Camera viewCamera;
+
         public void Bind(Transform playerTransform, MonsterPerception monsterPerception)
         {
             player = playerTransform;
+            perception = monsterPerception;
+        }
+
+        public void Bind(Transform playerTransform, Camera playerCamera, MonsterPerception monsterPerception)
+        {
+            player = playerTransform;
+            viewCamera = playerCamera;
             perception = monsterPerception;
         }
 
@@ -49,6 +59,47 @@ namespace Game.Gameplay.Player
             if (!IsPotentiallyVisible(worldPoint)) return false;
             if (perception == null) return true;
             return perception.IsPlayerVisibleFrom(worldPoint);
+        }
+
+        /// <summary>
+        /// True when any representative point of a hypothetical monster capsule is inside the real
+        /// camera viewport and has unobstructed line of sight. This is intentionally additive: the
+        /// horizontal point checks above remain unchanged for tactical StalkPoint scoring.
+        /// </summary>
+        public bool IsMonsterBodyVisibleAt(Vector3 feetPosition, float height, float radius)
+        {
+            // Missing runtime wiring must fail closed for hiding: treating a point as hidden without a
+            // camera or occlusion source would let Shy deliberately choose an unverified visible corner.
+            if (viewCamera == null || perception == null) return true;
+
+            float safeHeight = Mathf.Max(0.1f, height);
+            float safeRadius = Mathf.Max(0f, radius);
+            Vector3 torso = feetPosition + Vector3.up * (safeHeight * 0.55f);
+            Vector3 cameraRight = viewCamera.transform.right * safeRadius;
+
+            bodySamples[0] = feetPosition + Vector3.up * (safeHeight * 0.2f);
+            bodySamples[1] = torso;
+            bodySamples[2] = feetPosition + Vector3.up * (safeHeight * 0.9f);
+            bodySamples[3] = torso - cameraRight;
+            bodySamples[4] = torso + cameraRight;
+
+            Vector3 cameraPosition = viewCamera.transform.position;
+            for (int i = 0; i < bodySamples.Length; i++)
+            {
+                Vector3 sample = bodySamples[i];
+                if (Vector3.Distance(cameraPosition, sample) > viewRange) continue;
+
+                Vector3 viewport = viewCamera.WorldToViewportPoint(sample);
+                if (viewport.z <= 0f || viewport.x < 0f || viewport.x > 1f
+                    || viewport.y < 0f || viewport.y > 1f)
+                {
+                    continue;
+                }
+
+                if (perception.HasClearLineOfSight(cameraPosition, sample)) return true;
+            }
+
+            return false;
         }
     }
 }

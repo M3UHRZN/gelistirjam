@@ -44,6 +44,10 @@ namespace Game.Gameplay.Monster
         /// <summary>Current NavMeshAgent destination, for debug visualization (TGD section 53).</summary>
         public Vector3 CurrentDestination => Agent.destination;
 
+        /// <summary>Live agent capsule dimensions used to test a hypothetical Shy destination's body visibility.</summary>
+        public float AgentHeight => Agent.height;
+        public float AgentRadius => Agent.radius;
+
         /// <summary>True if worldPoint falls inside any registered SafeZone (TGD section 29).</summary>
         public bool IsPointInSafeZone(Vector3 worldPoint)
         {

@@ -125,6 +125,13 @@ namespace Game.Gameplay.Monster
         }
 
         /// <summary>
+        /// Shared world-geometry visibility primitive. Kept separate from IsPlayerVisibleFrom so the
+        /// existing candidate-to-player stalk query retains its original semantics.
+        /// </summary>
+        public bool HasClearLineOfSight(Vector3 origin, Vector3 target) =>
+            !Physics.Linecast(origin, target, occluderMask, QueryTriggerInteraction.Ignore);
+
+        /// <summary>
         /// Linear extrapolation of where the player will be in `seconds` at their current velocity
         /// (TGD section 18). Still deliberately naive — no curve-fitting or path prediction, matching
         /// the TGD's own scope ("simple linear prediction is acceptable") — but the time horizon itself

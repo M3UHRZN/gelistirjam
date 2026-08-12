@@ -810,7 +810,8 @@ namespace Game.Editor
             // chat: they'd instantly bounce back to Interested every time). PlayerVisionModel lives on
             // the player (it models what the player can see), not the monster.
             PlayerVisionModel visionModel = player.gameObject.AddComponent<PlayerVisionModel>();
-            visionModel.Bind(player, perception);
+            Camera playerCamera = gazeDetector.GetComponent<Camera>();
+            visionModel.Bind(player, playerCamera, perception);
             brain.BindStalkSystems(stalkSet, visionModel);
 
             MonsterVisualDriver visualDriver = bodyGO.AddComponent<MonsterVisualDriver>();

@@ -54,7 +54,7 @@ namespace Game.Gameplay.Monster
             gazeReceiver.Bind(brain);
             brain.Bind(config, perception, anger, navigator, gazeDetector, gazeReceiver, player);
             brain.BindStalkSystems(stalkPoints, visionModel);
-            visionModel.Bind(player, perception);
+            visionModel.Bind(player, playerCamera, perception);
             visualDriver.Bind(bodyRenderer, brain);
             animationController.Bind(animator, brain, navigator.GetComponent<UnityEngine.AI.NavMeshAgent>());
 
