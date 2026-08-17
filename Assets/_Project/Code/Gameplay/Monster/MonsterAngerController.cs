@@ -9,8 +9,8 @@ namespace Game.Gameplay.Monster
     /// <summary>
     /// Persistent anger meter (Bracken wiki, section "Enraged"). Never resets on its own — the only
     /// way it drains is by being in Aggressive and losing 1/sec (AggressiveState), or contact-killing
-    /// the player. Higher anger means a higher chance of escalating to Aggressive the next time a
-    /// staredown ends (see InterestedState/ShyState) — this is the probabilistic "aggro roll".
+    /// the player. Anger still scales movement/tuning brackets, but player gaze no longer consumes it
+    /// as a probabilistic attack roll; a gaze reaction is always a Shy retreat.
     /// </summary>
     public class MonsterAngerController : MonoBehaviour
     {

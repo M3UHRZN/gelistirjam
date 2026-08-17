@@ -70,10 +70,9 @@ namespace Game.Gameplay.Monster
         public bool IsGazedAtNow => gazeDetector != null && ReferenceEquals(gazeDetector.CurrentTarget, gazeReceiver);
 
         /// <summary>
-        /// TGD section 24: a look only "counts" once it's been held continuously for
-        /// GazeConfirmDurationSeconds — filters out a single accidental frame of raycast overlap
-        /// (e.g. swinging the camera past the monster) from a deliberate stare. States that react to
-        /// gaze (Interested/Shy/Observed) should use this instead of the raw IsGazedAtNow.
+        /// A held-gaze presentation/anger threshold. Escape behavior deliberately uses the raw
+        /// IsGazedAtNow edge so the monster begins fleeing on the first detected frame; confirmation
+        /// remains responsible for the one-shot anger mutation and Yell event.
         /// </summary>
         public bool IsGazeConfirmed => gazeHoldSeconds >= config.GazeConfirmDurationSeconds;
 
@@ -85,6 +84,7 @@ namespace Game.Gameplay.Monster
 
         private float gazeHoldSeconds;
         private bool wasGazeConfirmed;
+        private bool wasRawGazedLastFrame;
 
         public event Action<string> OnStateChanged;
         /// <summary>
@@ -103,31 +103,6 @@ namespace Game.Gameplay.Monster
         /// </summary>
         public string LastDecisionReason { get; private set; } = "-";
         public void SetDecisionReason(string reason) => LastDecisionReason = reason;
-
-        /// <summary>
-        /// MASTER_PROMPT.md section 28: "Do not make aggression simply `if anger > threshold`.
-        /// Instead consider anger + recent gaze history + current state + distance + Staredown +
-        /// progression." Anger itself already IS the accumulated "recent gaze history" term (TGD
-        /// section 19/25 — it only rises from gaze events, so double-tracking a separate gaze-history
-        /// counter would just restate the same signal — see chat), so this adds the three genuinely
-        /// distinct factors the old `Anger/MaxAnger`-only roll ignored: how close the confrontation
-        /// currently is, whether this was an actual held staredown vs a passing glance, and whether
-        /// FinalChase is active. Single shared implementation so InterestedState/ObservedState/ShyState
-        /// can't drift into three different formulas for what should be one decision.
-        /// </summary>
-        public float ComputeAggressionProbability(bool followedStaredown)
-        {
-            float probability = anger != null ? anger.AggroChance : 0f;
-
-            if (perception != null && config != null && config.LoseInterestRadius > 0.0001f)
-            {
-                float closeness = 1f - Mathf.Clamp01(perception.DistanceToPlayer / config.LoseInterestRadius);
-                probability += closeness * config.AggressionDistanceWeight;
-            }
-
-            if (followedStaredown) probability += config.AggressionStaredownBonus;
-            return Mathf.Clamp01(probability);
-        }
 
         public IMonsterState PatrolState { get; private set; }
         public IMonsterState InterestedState { get; private set; }
@@ -216,6 +191,7 @@ namespace Game.Gameplay.Monster
             EnsureInitialized();
             gazeHoldSeconds = 0f;
             wasGazeConfirmed = false;
+            wasRawGazedLastFrame = false;
             ChangeState(PatrolState);
         }
 
@@ -235,7 +211,9 @@ namespace Game.Gameplay.Monster
                 ChangeState(KillState);
             }
 
-            gazeHoldSeconds = IsGazedAtNow ? gazeHoldSeconds + Time.deltaTime : 0f;
+            bool rawGazedNow = IsGazedAtNow;
+            bool rawGazeStartedThisFrame = rawGazedNow && !wasRawGazedLastFrame;
+            gazeHoldSeconds = rawGazedNow ? gazeHoldSeconds + Time.deltaTime : 0f;
 
             bool gazeConfirmed = IsGazeConfirmed;
             if (gazeConfirmed && !wasGazeConfirmed && fsm.Current != KillState)
@@ -286,7 +264,32 @@ namespace Game.Gameplay.Monster
                 }
             }
 
+            // Gaze is a global interruption for every calm/stalking state. It runs after the lethal
+            // contact/critical-distance and SafeZone priorities above, so looking at the monster can
+            // never cancel a kill, committed rush, or an already independent aggressive chase. The
+            // raw detector edge is intentional: escape starts on the first acquired frame, while the
+            // confirmed-gaze edge above remains available for Yell/anger presentation.
+            if (!playerIsSafe && ShouldFleeFromPlayerGaze(rawGazeStartedThisFrame))
+            {
+                SetDecisionReason($"Shy: raw player gaze interrupted {CurrentStateName}");
+                ChangeState(ShyState);
+            }
+
             fsm.Tick(Time.deltaTime);
+            // Consume this raw edge after every state transition in the frame. Holding the same gaze
+            // through Shy expiry/FakeRetreat must not start a second Shy lifetime.
+            wasRawGazedLastFrame = rawGazedNow;
+        }
+
+        private bool ShouldFleeFromPlayerGaze(bool rawGazeStartedThisFrame)
+        {
+            if (!rawGazeStartedThisFrame) return false;
+
+            IMonsterState current = fsm.Current;
+            return current != ShyState
+                && current != AggressiveState
+                && current != CommitState
+                && current != KillState;
         }
 
         public void ChangeState(IMonsterState next)

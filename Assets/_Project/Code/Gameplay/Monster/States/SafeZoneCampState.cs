@@ -38,12 +38,6 @@ namespace Game.Gameplay.Monster
                 return;
             }
 
-            if (brain.IsGazeConfirmed)
-            {
-                brain.ChangeState(brain.ObservedState);
-                return;
-            }
-
             if (!brain.IsFinalHunt
                 && !brain.Perception.IsPlayerWithinRadius(brain.Config.StalkAbandonRadius))
             {

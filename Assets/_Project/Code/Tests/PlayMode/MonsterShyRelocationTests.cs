@@ -20,9 +20,11 @@ namespace Game.Gameplay.Tests
         }
 
         [UnityTest]
-        public IEnumerator ConfirmedGazeAtHidingCorner_ImmediatelyRunsToADifferentHiddenCorner()
+        public IEnumerator RawGazeAtHidingCorner_ImmediatelyRunsToADifferentHiddenCornerBeforeConfirmation()
         {
-            using var fixture = new RelocationFixture(includeSecondCorner: true);
+            using var fixture = new RelocationFixture(
+                includeSecondCorner: true,
+                gazeConfirmDuration: 1f);
             fixture.EnterShy();
             ShyState shy = (ShyState)fixture.Brain.ShyState;
             StalkPoint firstTarget = shy.CurrentTarget;
@@ -32,13 +34,15 @@ namespace Game.Gameplay.Tests
             Assert.That(fixture.Agent.isStopped, Is.True,
                 "Shy must begin this regression scenario waiting at its first hiding corner.");
 
-            yield return fixture.HoldConfirmedGaze(holdAfterConfirmationSeconds: 0.1f);
+            yield return fixture.BeginRawGaze();
 
             Assert.That(shy.CurrentTarget, Is.SameAs(fixture.SecondCorner),
-                "Confirmed gaze must burn the exposed hiding corner immediately, without waiting for gaze release.");
+                "Raw gaze must burn the exposed hiding corner immediately, before the confirmation timer elapses.");
             Assert.That(shy.CurrentTarget, Is.Not.SameAs(firstTarget));
+            Assert.That(fixture.Brain.IsGazeConfirmed, Is.False,
+                "The retreat must start on the detector's raw gaze edge, not after gaze confirmation.");
             Assert.That(fixture.Agent.isStopped, Is.False,
-                "After choosing a different hidden corner, Shy must resume its retreat while watched.");
+                "After choosing a different hidden corner, Shy must keep retreating while watched.");
             Assert.That(fixture.Agent.desiredVelocity.sqrMagnitude, Is.GreaterThan(0.01f),
                 "The resumed NavMesh retreat must produce real movement while gaze remains confirmed.");
             Vector3 directionToPlayer = fixture.PlayerPosition - fixture.MonsterTransform.position;
@@ -56,6 +60,116 @@ namespace Game.Gameplay.Tests
                 fixture.Agent.destination,
                 fixture.Navigator.AgentHeight,
                 fixture.Navigator.AgentRadius), Is.False);
+        }
+
+        [UnityTest]
+        public IEnumerator RawGazeFromInterested_EntersShyBeforeConfirmation()
+        {
+            using var fixture = new RelocationFixture(
+                includeSecondCorner: true,
+                gazeConfirmDuration: 1f);
+            fixture.EnterInterested();
+
+            yield return fixture.BeginRawGaze();
+
+            Assert.That(fixture.Brain.IsGazeConfirmed, Is.False,
+                "This regression must exercise the pre-confirmation gaze window.");
+            Assert.That(fixture.Brain.CurrentStateName, Is.EqualTo(nameof(ShyState)),
+                "A calm stalking state must hand off to Shy on the first raw gaze frame.");
+            Assert.That(fixture.Agent.isStopped, Is.False,
+                "The gaze reaction must flee instead of freezing into a staredown.");
+        }
+
+        [UnityTest]
+        public IEnumerator RawGaze_DoesNotCancelAnAlreadyAggressiveChase()
+        {
+            using var fixture = new RelocationFixture(
+                includeSecondCorner: true,
+                gazeConfirmDuration: 1f);
+            fixture.EnterAggressive();
+
+            yield return fixture.BeginRawGaze();
+
+            Assert.That(fixture.Brain.IsGazedAtNow, Is.True);
+            Assert.That(fixture.Brain.CurrentStateName, Is.EqualTo(nameof(AggressiveState)),
+                "Raw gaze may interrupt calm stalking states, but must not cancel an existing independent chase.");
+        }
+
+        [UnityTest]
+        public IEnumerator ConfirmedGazeWhilePlayerIsSafe_PreservesOneStableSafeZoneCamp()
+        {
+            using var fixture = new RelocationFixture(
+                includeSecondCorner: true,
+                gazeConfirmDuration: 0.05f);
+            fixture.AddSafeZoneAroundPlayer();
+
+            int campEntries = 0;
+            int shyEntries = 0;
+            int observedEntries = 0;
+            fixture.Brain.OnStateChanged += stateName =>
+            {
+                campEntries += stateName == nameof(SafeZoneCampState) ? 1 : 0;
+                shyEntries += stateName == nameof(ShyState) ? 1 : 0;
+                observedEntries += stateName == nameof(ObservedState) ? 1 : 0;
+            };
+            fixture.EnterInterested();
+
+            yield return fixture.HoldConfirmedGaze(holdAfterConfirmationSeconds: 0.2f);
+
+            Assert.That(fixture.Brain.IsPlayerInSafeZone, Is.True);
+            Assert.That(fixture.Brain.CurrentStateName, Is.EqualTo(nameof(SafeZoneCampState)),
+                "SafeZone camping must outrank gaze retreat while the player is invulnerable.");
+            Assert.That(campEntries, Is.EqualTo(1),
+                "Held gaze must not churn repeatedly through SafeZoneCamp.");
+            Assert.That(shyEntries, Is.Zero,
+                "SafeZone gaze must not interrupt camping with a Shy retreat.");
+            Assert.That(observedEntries, Is.Zero,
+                "Confirmed SafeZone gaze must not reintroduce the legacy Observed staredown path.");
+        }
+
+        [UnityTest]
+        public IEnumerator UnconfirmedRawGaze_DoesNotResetTheShyLifetime()
+        {
+            using var fixture = new RelocationFixture(
+                includeSecondCorner: true,
+                shyFleeDuration: 0.3f,
+                fakeRetreatChance: 0f,
+                gazeConfirmDuration: 1f);
+            bool returnedToPatrol = false;
+            fixture.EnterShy();
+            int shyReentries = 0;
+            fixture.Brain.OnStateChanged += state =>
+            {
+                returnedToPatrol |= state == nameof(PatrolState);
+                shyReentries += state == nameof(ShyState) ? 1 : 0;
+            };
+
+            float nearExpiryDeadline = Time.time + 0.6f;
+            while (fixture.ShyFleeTimer > 0.08f && Time.time < nearExpiryDeadline) yield return null;
+            Assert.That(fixture.ShyFleeTimer, Is.LessThanOrEqualTo(0.08f),
+                "The fixture must reach Shy's near-expiry window before the incidental gaze.");
+
+            yield return fixture.BeginRawGaze();
+            Assert.That(fixture.Brain.IsGazeConfirmed, Is.False,
+                "The lifetime regression must use an incidental gaze below confirmation time.");
+            Assert.That(fixture.ShyFleeTimer, Is.LessThan(0.15f),
+                "An unconfirmed raw gaze must not refill the configured 0.3 second flee lifetime.");
+
+            yield return fixture.KeepHoldingRawGaze(0.12f);
+            Assert.That(returnedToPatrol, Is.True,
+                "An unconfirmed raw gaze must not pause Shy's countdown or postpone its expiry.");
+            Assert.That(fixture.Brain.CurrentStateName, Is.Not.EqualTo(nameof(ShyState)),
+                "One continuous raw gaze must not start a fresh Shy lifetime after expiry.");
+            Assert.That(shyReentries, Is.Zero,
+                "The global gaze interruption must fire once per continuous gaze, not once per state transition.");
+
+            yield return fixture.ReleaseGaze();
+
+            float patrolDeadline = Time.time + 0.25f;
+            while (!returnedToPatrol && Time.time < patrolDeadline) yield return null;
+
+            Assert.That(returnedToPatrol, Is.True,
+                "An unconfirmed raw gaze may relocate Shy immediately, but must not refill its full flee lifetime.");
         }
 
         [UnityTest]
@@ -136,38 +250,7 @@ namespace Game.Gameplay.Tests
         }
 
         [UnityTest]
-        public IEnumerator NonAggressiveStaredownRelease_ResumesTheImmediateReplacementTarget()
-        {
-            using var fixture = new RelocationFixture(
-                includeSecondCorner: true,
-                staredownChance: 1f,
-                aggressionStaredownBonus: 0f,
-                staredownAngerInterval: 10f,
-                angerPerSpotted: 0,
-                aggressionDistanceWeight: 0f);
-            fixture.EnterShy();
-            ShyState shy = (ShyState)fixture.Brain.ShyState;
-            yield return fixture.WaitUntilHiddenAtCurrentTarget();
-
-            yield return fixture.HoldConfirmedGaze(holdAfterConfirmationSeconds: 0.05f);
-            StalkPoint replacement = shy.CurrentTarget;
-            Vector3 replacementDestination = fixture.Agent.destination;
-
-            Assert.That(replacement, Is.SameAs(fixture.SecondCorner));
-            Assert.That(fixture.Agent.isStopped, Is.True,
-                "The deterministic staredown must stop the immediate replacement retreat.");
-
-            yield return fixture.ReleaseGaze();
-
-            Assert.That(fixture.Brain.CurrentStateName, Is.EqualTo(nameof(ShyState)));
-            Assert.That(shy.CurrentTarget, Is.SameAs(replacement),
-                "A non-aggressive staredown release must resume, not select a third target.");
-            Assert.That(Vector3.Distance(fixture.Agent.destination, replacementDestination), Is.LessThan(0.001f));
-            Assert.That(fixture.Agent.isStopped, Is.False);
-        }
-
-        [UnityTest]
-        public IEnumerator ActiveStaredown_AccumulatesAngerThenAggressesAfterImmediateRelocation()
+        public IEnumerator MaximumAngerHeldGaze_NeverStopsOrAggressesAfterImmediateRelocation()
         {
             using var fixture = new RelocationFixture(
                 includeSecondCorner: true,
@@ -175,19 +258,24 @@ namespace Game.Gameplay.Tests
                 aggressionStaredownBonus: 1f,
                 staredownAngerInterval: 0.02f);
             fixture.EnterShy();
+            ShyState shy = (ShyState)fixture.Brain.ShyState;
+            yield return fixture.WaitUntilHiddenAtCurrentTarget();
+            fixture.Anger.AddAnger(fixture.Config.MaxAnger);
 
-            int angerBeforeGaze = fixture.Anger.Anger;
             yield return fixture.HoldConfirmedGaze(holdAfterConfirmationSeconds: 0.08f);
 
-            Assert.That(fixture.Agent.isStopped, Is.True,
-                "A successful Shy staredown must freeze the retreat.");
-            Assert.That(fixture.Anger.Anger, Is.GreaterThan(angerBeforeGaze + fixture.Config.AngerPerSpotted),
-                "Held staredown time must continue adding anger after the confirmed-gaze anger event.");
+            Assert.That(fixture.Brain.CurrentStateName, Is.EqualTo(nameof(ShyState)));
+            Assert.That(shy.CurrentTarget, Is.SameAs(fixture.SecondCorner));
+            Assert.That(fixture.Agent.isStopped, Is.False,
+                "Even a guaranteed legacy staredown roll at maximum anger must not stop the retreat.");
 
             yield return fixture.ReleaseGaze();
 
-            Assert.That(fixture.Brain.CurrentStateName, Is.EqualTo(nameof(AggressiveState)),
-                "The existing staredown aggression roll must still override the immediate Shy replacement on release.");
+            Assert.That(fixture.Brain.CurrentStateName, Is.EqualTo(nameof(ShyState)),
+                "Breaking gaze must never turn the gaze reaction into AggressiveState.");
+            Assert.That(shy.CurrentTarget, Is.SameAs(fixture.SecondCorner));
+            Assert.That(fixture.Agent.isStopped, Is.False,
+                "The replacement retreat must continue after gaze release without target churn.");
         }
 
         [UnityTest]
@@ -248,7 +336,8 @@ namespace Game.Gameplay.Tests
                 float shyFleeDuration = 24f,
                 float fakeRetreatChance = 0.25f,
                 int angerPerSpotted = 1,
-                float aggressionDistanceWeight = 0.15f)
+                float aggressionDistanceWeight = 0.15f,
+                float gazeConfirmDuration = 0.2f)
             {
                 root = new GameObject("ShyRelocationFixture");
 
@@ -319,6 +408,7 @@ namespace Game.Gameplay.Tests
                 SetConfig("fakeRetreatChance", fakeRetreatChance);
                 SetConfig("angerPerSpotted", angerPerSpotted);
                 SetConfig("aggressionDistanceWeight", aggressionDistanceWeight);
+                SetConfig("gazeConfirmDurationSeconds", gazeConfirmDuration);
                 Config.TuningFor(AngerStage.Calm).FakeRetreatChanceMultiplier = 1f;
                 safeZones = ScriptableObject.CreateInstance<SafeZoneRuntimeSet>();
                 stalkPoints = ScriptableObject.CreateInstance<StalkPointRuntimeSet>();
@@ -357,6 +447,9 @@ namespace Game.Gameplay.Tests
             public StalkPoint ThirdCorner { get; private set; }
             public Transform MonsterTransform => monster.transform;
             public Vector3 PlayerPosition => player.transform.position;
+            public float ShyFleeTimer => (float)typeof(ShyState).GetField(
+                "fleeTimer",
+                BindingFlags.Instance | BindingFlags.NonPublic).GetValue(Brain.ShyState);
 
             public void AddSecondHiddenCorner()
             {
@@ -375,11 +468,58 @@ namespace Game.Gameplay.Tests
                     new Vector3(1f, 3f, 0.25f));
             }
 
+            public void AddSafeZoneAroundPlayer()
+            {
+                GameObject zoneObject = new GameObject("PlayerSafeZone");
+                zoneObject.transform.SetParent(root.transform, false);
+                zoneObject.transform.position = player.transform.position + Vector3.up;
+                BoxCollider volume = zoneObject.AddComponent<BoxCollider>();
+                volume.size = new Vector3(4f, 3f, 4f);
+                SafeZone zone = zoneObject.AddComponent<SafeZone>();
+                zone.Bind(safeZones);
+                Physics.SyncTransforms();
+            }
+
             public void EnterShy()
             {
                 camera.transform.localRotation = Quaternion.Euler(0f, 180f, 0f);
                 Physics.SyncTransforms();
                 Brain.ChangeState(Brain.ShyState);
+            }
+
+            public void EnterInterested()
+            {
+                camera.transform.localRotation = Quaternion.Euler(0f, 180f, 0f);
+                Physics.SyncTransforms();
+                Brain.ChangeState(Brain.InterestedState);
+            }
+
+            public void EnterAggressive()
+            {
+                camera.transform.localRotation = Quaternion.Euler(0f, 180f, 0f);
+                Physics.SyncTransforms();
+                Anger.AddAnger(Config.MaxAnger);
+                Brain.ChangeState(Brain.AggressiveState);
+            }
+
+            public IEnumerator BeginRawGaze()
+            {
+                float deadline = Time.time + 0.25f;
+                while (!Brain.IsGazedAtNow && Time.time < deadline)
+                {
+                    camera.transform.LookAt(gazeTarget.position);
+                    Physics.SyncTransforms();
+                    yield return null;
+                }
+
+                Assert.That(Brain.IsGazedAtNow, Is.True,
+                    "The real gaze detector must acquire the monster.");
+
+                // Keep the ray locked for one more AI tick so the test does not depend on the
+                // relative Update order of PlayerGazeDetector and MonsterBrain.
+                camera.transform.LookAt(gazeTarget.position);
+                Physics.SyncTransforms();
+                yield return null;
             }
 
             public IEnumerator HoldConfirmedGaze()
@@ -417,6 +557,21 @@ namespace Game.Gameplay.Tests
                     yield return null;
                     Assert.That(Brain.IsGazeConfirmed, Is.True,
                         "The churn regression must keep one continuous confirmed gaze.");
+                }
+            }
+
+            public IEnumerator KeepHoldingRawGaze(float seconds)
+            {
+                float deadline = Time.time + seconds;
+                while (Time.time < deadline)
+                {
+                    camera.transform.LookAt(gazeTarget.position);
+                    Physics.SyncTransforms();
+                    yield return null;
+                    Assert.That(Brain.IsGazedAtNow, Is.True,
+                        "The lifetime regression must keep the raw gaze ray acquired.");
+                    Assert.That(Brain.IsGazeConfirmed, Is.False,
+                        "The raw gaze hold must remain below the configured confirmation duration.");
                 }
             }
 
