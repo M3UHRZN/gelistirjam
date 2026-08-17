@@ -44,8 +44,7 @@ namespace Game.Gameplay.Monster
                 return;
             }
 
-            if (!brain.IsFinalHunt
-                && !brain.Perception.IsPlayerWithinRadius(brain.Config.StalkAbandonRadius))
+            if (!brain.Perception.IsPlayerWithinRadius(brain.Config.StalkAbandonRadius))
             {
                 brain.ChangeState(brain.PatrolState);
                 return;
@@ -61,10 +60,7 @@ namespace Game.Gameplay.Monster
             }
 
             campTimer -= deltaTime;
-            if (campTimer <= 0f)
-            {
-                brain.ChangeState(brain.IsFinalHunt ? brain.RepositionState : brain.PatrolState);
-            }
+            if (campTimer <= 0f) brain.ChangeState(brain.PatrolState);
         }
 
         public void Exit() { }

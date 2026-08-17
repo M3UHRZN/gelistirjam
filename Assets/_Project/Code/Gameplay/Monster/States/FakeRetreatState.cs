@@ -51,7 +51,7 @@ namespace Game.Gameplay.Monster
             fleeTimer -= deltaTime;
             if (fleeTimer <= 0f)
             {
-                brain.ChangeState(brain.IsFinalHunt ? brain.RepositionState : brain.PatrolState);
+                brain.ChangeState(brain.PatrolState);
             }
         }
 

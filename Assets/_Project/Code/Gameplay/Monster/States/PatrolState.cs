@@ -24,12 +24,6 @@ namespace Game.Gameplay.Monster
 
         public void Tick(float deltaTime)
         {
-            if (brain.IsFinalHunt)
-            {
-                brain.ChangeState(brain.RepositionState);
-                return;
-            }
-
             if (brain.Perception.IsPlayerWithinRadius(brain.Config.DetectionRadius))
             {
                 brain.ChangeState(brain.InterestedState);

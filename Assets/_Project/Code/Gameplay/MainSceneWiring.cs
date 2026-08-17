@@ -141,7 +141,8 @@ namespace Game.Gameplay
                 return;
             }
 
-            brain.BeginFinalHunt();
+            brain.IsRelentless = true;
+            brain.ChangeState(brain.AggressiveState);
         }
 
         private void OnDestroy()
