@@ -45,6 +45,7 @@ namespace Game.Gameplay.Entrance
         private readonly EntranceMonsterTrialStateMachine stateMachine = new EntranceMonsterTrialStateMachine();
         private NavMeshPath cachedPath;
         private float nextPathRefreshTime;
+        private bool resetFailureHandled;
 
         public EntranceMonsterTrialState State => stateMachine.State;
 
@@ -172,14 +173,39 @@ namespace Game.Gameplay.Entrance
 
             StopAgentSafely();
             SetAnimatorTrigger(attackTrigger);
-            onCaught?.Invoke();
-            if (sceneResetter.BeginReset() || sceneResetter.IsResetting) return;
+            if (sceneResetter == null)
+            {
+                FailClosedAfterResetInterruption();
+                return;
+            }
 
+            EntranceResetStartResult resetResult = sceneResetter.TryBeginReset(player, HandleResetInterrupted);
+            if (resetResult != EntranceResetStartResult.Started
+                && resetResult != EntranceResetStartResult.AlreadyRunning)
+            {
+                FailClosedAfterResetInterruption();
+                return;
+            }
+
+            onCaught?.Invoke();
+        }
+
+        private void HandleResetInterrupted(EntranceResetInterruptionReason reason)
+        {
+            FailClosedAfterResetInterruption();
+        }
+
+        private void FailClosedAfterResetInterruption()
+        {
+            if (resetFailureHandled) return;
+
+            resetFailureHandled = true;
+            StopAgentSafely();
             if (CanDeactivateMonsterRoot()) monsterRoot.SetActive(false);
             corridorDoor?.SetOpen(false, true);
-            player.SetControlEnabled(true);
+            if (player != null) player.SetControlEnabled(true);
             Debug.LogError(
-                "Entrance monster trial caught reset could not start. The actor was hidden, the corridor was closed, and player control remains enabled. Ensure the scene resetter is active and enabled.",
+                "Entrance monster trial caught reset could not start. The actor was hidden, the corridor was closed, and player control remains enabled. Ensure the scene resetter is active, bound to this player, and able to run its reset routine.",
                 this);
         }
 
@@ -228,9 +254,9 @@ namespace Game.Gameplay.Entrance
             if (retreatPoint == null) return MissingReference(nameof(retreatPoint), out error);
             if (corridorDoor == null) return MissingReference(nameof(corridorDoor), out error);
             if (sceneResetter == null) return MissingReference(nameof(sceneResetter), out error);
-            if (!sceneResetter.isActiveAndEnabled)
+            if (!sceneResetter.CanReset(player))
             {
-                error = "The scene resetter must be active and enabled before the trial can start.";
+                error = "The scene resetter must be active and enabled, have a bound player, and be bound to the same player before the trial can start.";
                 return false;
             }
 
