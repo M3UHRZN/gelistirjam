@@ -230,7 +230,11 @@ namespace Gloomveil.MapGeneration
                 layout.WidthUnits,
                 layout.DepthUnits,
                 layout.FloorCount,
-                layout.CreateSignature());
+                layout.CreateSignature(),
+                layout.TraversalGraph,
+                new MinimapTopologyBuilder().Build(layout),
+                unitSize,
+                floorHeight);
         }
     }
 }

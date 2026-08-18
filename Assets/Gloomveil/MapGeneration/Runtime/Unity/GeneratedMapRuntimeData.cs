@@ -27,6 +27,10 @@ namespace Gloomveil.MapGeneration
         public int DepthUnits { get; }
         public int FloorCount { get; }
         public string TopologySignature { get; }
+        public MapTraversalGraph TraversalGraph { get; }
+        public MinimapTopology MinimapTopology { get; }
+        public float UnitSize { get; }
+        public float FloorHeight { get; }
 
         public GeneratedMapRuntimeData(
             GameObject root,
@@ -44,8 +48,22 @@ namespace Gloomveil.MapGeneration
             int widthUnits,
             int depthUnits,
             int floorCount,
-            string topologySignature)
+            string topologySignature,
+            MapTraversalGraph traversalGraph = null,
+            MinimapTopology minimapTopology = null,
+            float unitSize = 1f,
+            float floorHeight = 1f)
         {
+            if (unitSize <= 0f)
+            {
+                throw new ArgumentOutOfRangeException(nameof(unitSize));
+            }
+
+            if (floorHeight <= 0f)
+            {
+                throw new ArgumentOutOfRangeException(nameof(floorHeight));
+            }
+
             Root = root != null ? root : throw new ArgumentNullException(nameof(root));
             Modules = ReadOnly(modules, nameof(modules));
             RoomModules = Filter(Modules, MapModuleCategory.Room);
@@ -65,6 +83,10 @@ namespace Gloomveil.MapGeneration
             DepthUnits = depthUnits;
             FloorCount = floorCount;
             TopologySignature = topologySignature ?? throw new ArgumentNullException(nameof(topologySignature));
+            TraversalGraph = traversalGraph;
+            MinimapTopology = minimapTopology;
+            UnitSize = unitSize;
+            FloorHeight = floorHeight;
         }
 
         private static IReadOnlyList<T> ReadOnly<T>(IEnumerable<T> source, string argumentName) =>
