@@ -316,3 +316,48 @@ Confirm `Assets/Scenes/Enterance.unity`, every prefab, and `ProjectSettings/Edit
 - [ ] **Step 3: Report deferred runtime verification accurately**
 
 Report code compilation and focused EditMode evidence as verified. State that real fuse completion, authored door movement, `MainGame` transition, NavMesh approach/retreat, gaze success, caught reset, animation/audio, and one-shot runtime behavior remain unverified until the user says the map is ready and scene wiring is performed.
+
+### Task 6: Map-Ready Direct Scene Wiring
+
+**Authorization:** The user said `hazır` on 2026-08-18. The deferred scene/prefab/Build Settings fence is now open for this task only. Preserve the authored geometry and placement; add runtime bindings around it. During execution the user explicitly replaced the setup-script/TDD route with direct live Unity MCP wiring and said they will perform the Play Mode test themselves. Do not add a permanent editor builder or setup fixture, do not run automated tests, and do not enter Play Mode in this task.
+
+**Files:**
+- Create: `Assets/_Project/Code/Gameplay/Entrance/EntranceFuseRuntimeBinder.cs`
+- Modify: `Assets/Scenes/Enterance.unity`
+- Modify: `Assets/prefabs/MainMenuTablet.prefab`
+- Modify: `Assets/_Project/Prefabs/Exit.prefab`
+- Modify: `ProjectSettings/EditorBuildSettings.asset`
+- Modify: this plan and `.superpowers/sdd/2026-08-18-diegetic-entrance/progress.md`
+- Create: the baked `Enterance` NavMesh data asset and Unity-generated `.meta` files required by these scene references
+
+**Interfaces and scene contract:**
+- Consumes: the pinned live `gelistirjam@fcf7d29f` Editor with active scene exactly `Assets/Scenes/Enterance.unity`; mutations are performed directly through Unity Editor APIs, never by patching scene YAML.
+- Consumes: existing `Player`, `Player/CameraPivot/PlayerCamera`, `fusetabler-game`, `exitdoor`, `exitdoor/exitdoorv3`, `exitdoor/blocker`, `exitdoor/trigger`, `mechanicdoor`, and corridor anchor objects.
+- Produces: one real `FuseBox` plus fully bound `FuseMiniGameController`, `GameFlowController`, and `ObjectiveManager`; `EntranceFuseRuntimeBinder` restores the non-serialized `IFuseViewPresenter` composition in `Awake`; one fuse completion opens the authored exit and enables the guarded `MainGame` portal.
+- Produces: one lightweight corridor monster actor containing only the visual/Animator, `NavMeshAgent`, `MonsterGazeReceiver`, and colliders; never add or activate `MonsterBrain`, `MonsterRuntimeRig`, `MapMonsterGate`, or procedural-map dependencies.
+- Produces: one `DON'T` interactable, one corridor-door actuator, one reset fade/resetter, and one trial controller bound to authored start/retreat points.
+- Produces: `MainMenu -> Enterance -> MainGame` routing and an enabled Build Settings entry for `Enterance` before `MainGame`.
+
+- [x] **Step 1: Preserve and inspect the authored scene**
+
+Preserve the current user-authored `Enterance.unity` in the ignored SDD workspace before mutation. Inspect the live authored hierarchy and refuse mutation if the exact player/tablet/door/corridor anchors are missing. The preserved pre-wiring copy has SHA256 `7331135C1E8D0BDE5C73C93687348B7005A246DC5FB6A1E1DA0C2CC91696B02D`.
+
+- [x] **Step 2: Wire the authored scene directly through Unity MCP**
+
+With the exact Editor instance pinned, disable only the duplicate root camera. Add the one-round fuse/UI/core binding, persistent runtime binder, safe authored exit actuator and locked `MainGame` portal, corridor door, `DON'T` button, lightweight raw-model actor, dedicated eye-height gaze collider, far authored trial anchors, exact-player resetter, and screen fade. Save through Unity Editor APIs.
+
+- [x] **Step 3: Bake navigation and update routing**
+
+Build and save a scene-owned NavMesh asset without moving authored geometry. Require complete static paths from the far start anchor to both the player and retreat anchor. Retarget only the two serialized New Game routes that directly loaded `MainGame` to `Enterance`; keep the guarded portal destination `MainGame`. Order enabled Build Settings entries `MainMenu`, `Enterance`, `MainGame`, preserving all other entries afterward.
+
+- [x] **Step 4: Validate serialized result without tests or Play Mode**
+
+Save and reopen `Enterance`, inspect every required serialized reference and forbidden-component fence, recheck the scene-owned NavMesh and complete authored paths, validate all eight Entrance runtime scripts, and read a fresh Unity console. Do not run Unity Test Framework fixtures.
+
+- [x] **Step 5: Record user-deferred runtime acceptance**
+
+The user explicitly reserved gameplay testing for themselves. Do not simulate the fuse, trial, gaze, catch/reset, door animation, or portal. Report these runtime outcomes as not observed in this task.
+
+- [x] **Step 6: Validate assets, scope, and commit**
+
+Validate the scene and all eight Entrance runtime scripts, read a fresh Unity console, run `git diff --check`, and inspect every changed path. Remove the exact Codex-created screenshot artifact and all abandoned fixture/builder files from the superseded route. Commit only the runtime binder, required Unity `.meta` files, authored scene wiring, NavMesh data, the two New Game routing prefabs, Build Settings, and this plan/ledger update. Do not push or merge.
