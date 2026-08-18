@@ -19,6 +19,7 @@ namespace Game.Gameplay.Monster
         [SerializeField] private MonsterVisualDriver visualDriver;
         [SerializeField] private Renderer bodyRenderer;
         [SerializeField] private MonsterAnimationController animationController;
+        [SerializeField] private MonsterAudioController audioController;
         [SerializeField] private Animator animator;
 
         public MonsterBrain Brain => brain;
@@ -42,7 +43,7 @@ namespace Game.Gameplay.Monster
                 || safeZones == null || stalkPoints == null || visionModel == null
                 || brain == null || navigator == null || perception == null || anger == null
                 || gazeReceiver == null || visualDriver == null || bodyRenderer == null
-                || animationController == null || animator == null)
+                || animationController == null || audioController == null || animator == null)
             {
                 return false;
             }
@@ -56,9 +57,11 @@ namespace Game.Gameplay.Monster
             brain.BindStalkSystems(stalkPoints, visionModel);
             visionModel.Bind(player, perception);
             visualDriver.Bind(bodyRenderer, brain);
-            animationController.Bind(animator, brain, navigator.GetComponent<UnityEngine.AI.NavMeshAgent>());
+            var agent = navigator.GetComponent<UnityEngine.AI.NavMeshAgent>();
+            animationController.Bind(animator, brain, agent);
+            audioController.Bind(brain, agent);
 
-            if (!animationController.IsBound) return false;
+            if (!animationController.IsBound || !audioController.IsBound) return false;
 
             IsInitialized = true;
             return true;
@@ -74,6 +77,7 @@ namespace Game.Gameplay.Monster
             if (visualDriver == null) visualDriver = GetComponent<MonsterVisualDriver>();
             if (bodyRenderer == null) bodyRenderer = GetComponentInChildren<Renderer>(true);
             if (animationController == null) animationController = GetComponent<MonsterAnimationController>();
+            if (audioController == null) audioController = GetComponent<MonsterAudioController>();
             if (animator == null) animator = GetComponentInChildren<Animator>(true);
         }
     }

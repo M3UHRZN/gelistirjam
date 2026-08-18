@@ -4,6 +4,7 @@ using System.Linq;
 using System.Reflection;
 using System.Text.RegularExpressions;
 using Game.Core;
+using Game.Gameplay.Audio;
 using Game.Gameplay.Monster;
 using Game.Gameplay.Objectives;
 using Game.Gameplay.Player;
@@ -472,6 +473,11 @@ namespace Game.Gameplay.Tests
 #endif
                 root.AddComponent<MonsterAnimationController>();
                 root.AddComponent<MonsterVisualDriver>();
+                AudioSource footstepSource = root.AddComponent<AudioSource>();
+                AudioSource voiceSource = root.AddComponent<AudioSource>();
+                CharacterAudioEmitter emitter = root.AddComponent<CharacterAudioEmitter>();
+                emitter.Bind(footstepSource, voiceSource);
+                root.AddComponent<MonsterAudioController>();
                 rig = root.AddComponent<MonsterRuntimeRig>();
 
                 var body = GameObject.CreatePrimitive(PrimitiveType.Capsule);

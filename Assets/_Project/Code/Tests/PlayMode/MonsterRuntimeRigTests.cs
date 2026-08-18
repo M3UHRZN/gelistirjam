@@ -1,3 +1,4 @@
+using Game.Gameplay.Audio;
 using Game.Gameplay.Monster;
 using Game.Gameplay.Player;
 using Game.Gameplay.World;
@@ -41,6 +42,7 @@ namespace Game.Gameplay.Tests
             Assert.That(fixture.Rig.Perception.HasVelocitySource, Is.True);
             Assert.That(fixture.GazeReceiver.Owner, Is.SameAs(fixture.Rig.Brain));
             Assert.That(fixture.Root.GetComponent<MonsterAnimationController>().IsBound, Is.True);
+            Assert.That(fixture.Root.GetComponent<MonsterAudioController>().IsBound, Is.True);
             Assert.That(fixture.Root.activeSelf, Is.False);
         }
 
@@ -63,9 +65,30 @@ namespace Game.Gameplay.Tests
             Assert.That(fixture.Root.activeSelf, Is.False);
         }
 
+        [Test]
+        public void Initialize_MissingAudioControllerFailsAndKeepsRootInactive()
+        {
+            using var fixture = new RigFixture(
+                includeGazeReceiver: true,
+                includeAudioController: false);
+
+            bool initialized = fixture.Rig.Initialize(
+                fixture.Config,
+                fixture.Player.transform,
+                fixture.VelocitySource,
+                fixture.GazeDetector,
+                fixture.SafeZones,
+                fixture.StalkPoints,
+                fixture.VisionModel);
+
+            Assert.That(initialized, Is.False);
+            Assert.That(fixture.Rig.IsInitialized, Is.False);
+            Assert.That(fixture.Root.activeSelf, Is.False);
+        }
+
         private sealed class RigFixture : System.IDisposable
         {
-            public RigFixture(bool includeGazeReceiver)
+            public RigFixture(bool includeGazeReceiver, bool includeAudioController = true)
             {
                 Root = new GameObject("Monster");
                 Root.SetActive(false);
@@ -78,6 +101,14 @@ namespace Game.Gameplay.Tests
                 Root.AddComponent<Animator>();
                 Root.AddComponent<MonsterAnimationController>();
                 Root.AddComponent<MonsterVisualDriver>();
+                if (includeAudioController)
+                {
+                    AudioSource footstepSource = Root.AddComponent<AudioSource>();
+                    AudioSource voiceSource = Root.AddComponent<AudioSource>();
+                    CharacterAudioEmitter emitter = Root.AddComponent<CharacterAudioEmitter>();
+                    emitter.Bind(footstepSource, voiceSource);
+                    Root.AddComponent<MonsterAudioController>();
+                }
                 Rig = Root.AddComponent<MonsterRuntimeRig>();
 
                 var body = GameObject.CreatePrimitive(PrimitiveType.Capsule);

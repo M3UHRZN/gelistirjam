@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Reflection;
+using Game.Gameplay.Audio;
 using Game.Gameplay.Monster;
 using Game.Gameplay.Player;
 using Game.Gameplay.World;
@@ -94,6 +95,11 @@ namespace Game.Gameplay.Tests
                     AssetDatabase.LoadAssetAtPath<RuntimeAnimatorController>(ControllerPath);
                 Root.AddComponent<MonsterAnimationController>();
                 Root.AddComponent<MonsterVisualDriver>();
+                AudioSource footstepSource = Root.AddComponent<AudioSource>();
+                AudioSource voiceSource = Root.AddComponent<AudioSource>();
+                CharacterAudioEmitter emitter = Root.AddComponent<CharacterAudioEmitter>();
+                emitter.Bind(footstepSource, voiceSource);
+                Root.AddComponent<MonsterAudioController>();
                 rig = Root.AddComponent<MonsterRuntimeRig>();
 
                 GameObject body = GameObject.CreatePrimitive(PrimitiveType.Capsule);
