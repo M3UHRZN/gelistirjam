@@ -10,6 +10,7 @@ namespace Game.Gameplay.Monster
         [SerializeField] private MonsterBrain brain;
         [SerializeField] private NavMeshAgent agent;
         [SerializeField] private CharacterAudioEmitter emitter;
+        [SerializeField] private bool lightweightMode;
 
         [Header("Footsteps")]
         [SerializeField] private AudioCueSet footsteps = new();
@@ -23,17 +24,31 @@ namespace Game.Gameplay.Monster
         private readonly DistanceStepCadence footstepCadence = new();
         private bool subscribed;
 
-        public bool IsBound => brain != null && agent != null
-            && emitter != null && emitter.IsBound;
+        public bool IsBound => agent != null && emitter != null && emitter.IsBound
+            && (lightweightMode || brain != null);
 
         public void Bind(MonsterBrain monsterBrain, NavMeshAgent navMeshAgent)
         {
             Unsubscribe();
             brain = monsterBrain;
             agent = navMeshAgent;
+            lightweightMode = false;
             ResolveComponents();
             Subscribe();
         }
+
+        public void BindLightweight(NavMeshAgent navMeshAgent, CharacterAudioEmitter audioEmitter)
+        {
+            Unsubscribe();
+            brain = null;
+            agent = navMeshAgent;
+            emitter = audioEmitter;
+            lightweightMode = true;
+            ResetAudioState();
+        }
+
+        public bool PlayYell() => emitter != null && emitter.PlayVoice(yell);
+        public bool PlayAttack() => emitter != null && emitter.PlayVoice(attack);
 
         private void Awake() => ResolveComponents();
 
@@ -52,7 +67,7 @@ namespace Game.Gameplay.Monster
             if (!IsBound)
             {
                 Debug.LogError(
-                    "MonsterAudioController requires MonsterBrain, NavMeshAgent, and a bound CharacterAudioEmitter.",
+                    "MonsterAudioController requires a NavMeshAgent and bound CharacterAudioEmitter; full monster mode also requires MonsterBrain.",
                     this);
                 enabled = false;
                 return;
@@ -106,8 +121,8 @@ namespace Game.Gameplay.Monster
             }
         }
 
-        private void HandleConfirmedGazeStarted() => emitter.PlayVoice(yell);
-        private void HandleKill() => emitter.PlayVoice(attack);
+        private void HandleConfirmedGazeStarted() => PlayYell();
+        private void HandleKill() => PlayAttack();
 
         private void ResetAudioState()
         {

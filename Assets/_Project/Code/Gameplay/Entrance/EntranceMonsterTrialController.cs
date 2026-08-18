@@ -13,6 +13,11 @@ namespace Game.Gameplay.Entrance
     [DisallowMultipleComponent]
     public sealed class EntranceMonsterTrialController : MonoBehaviour, IEntranceMonsterTrialStarter
     {
+        private static readonly int MovingId = Animator.StringToHash("Moving");
+        private static readonly int AggressiveId = Animator.StringToHash("Aggressive");
+        private static readonly int RetreatingId = Animator.StringToHash("Retreating");
+        private static readonly int AttackId = Animator.StringToHash("Attack");
+
         [Header("Scene References")]
         [SerializeField] private PlayerController player;
         [SerializeField] private PlayerGazeDetector gazeDetector;
@@ -31,12 +36,11 @@ namespace Game.Gameplay.Entrance
         [SerializeField, Min(0f)] private float contactDistance = 1.2f;
         [SerializeField, Min(0.01f)] private float navMeshSampleRadius = 2f;
         [SerializeField, Min(0f)] private float retreatArrivalEpsilon = 0.05f;
+        [SerializeField, Min(0f)] private float retreatFacingTurnSpeed = 360f;
 
         [Header("Optional Presentation")]
         [SerializeField] private Animator animator;
-        [SerializeField] private string approachTrigger = "Approach";
-        [SerializeField] private string retreatTrigger = "Retreat";
-        [SerializeField] private string attackTrigger = "Attack";
+        [SerializeField] private MonsterAudioController audioController;
         [SerializeField] private UnityEvent onApproach;
         [SerializeField] private UnityEvent onRetreat;
         [SerializeField] private UnityEvent onCompleted;
@@ -89,12 +93,13 @@ namespace Game.Gameplay.Entrance
 
             corridorDoor.SetOpen(true);
             agent.speed = Mathf.Max(0f, approachSpeed);
+            agent.updateRotation = true;
             agent.isStopped = false;
             if (!agent.SetPath(cachedPath))
                 return AbortSetup("The lightweight actor rejected the complete approach path.");
 
             nextPathRefreshTime = Time.time + Mathf.Max(0f, pathRefreshInterval);
-            SetAnimatorTrigger(approachTrigger);
+            SetAnimatorMovement(aggressive: false, retreating: false);
             onApproach?.Invoke();
             return true;
         }
@@ -135,10 +140,12 @@ namespace Game.Gameplay.Entrance
         {
             if (!stateMachine.TryRepel()) return;
 
-            SetAnimatorTrigger(retreatTrigger);
+            SetAnimatorMovement(aggressive: false, retreating: true);
+            audioController?.PlayYell();
             onRetreat?.Invoke();
 
             agent.speed = Mathf.Max(0f, retreatSpeed);
+            agent.updateRotation = false;
             agent.isStopped = false;
             if (!TryCalculateCompletePath(retreatPoint.position, out string retreatPathError) || !agent.SetPath(cachedPath))
             {
@@ -151,6 +158,7 @@ namespace Game.Gameplay.Entrance
 
         private void UpdateRetreat()
         {
+            FacePlayerDuringRetreat();
             if (!agent.isOnNavMesh || agent.pathPending) return;
             if (agent.remainingDistance > agent.stoppingDistance + Mathf.Max(0f, retreatArrivalEpsilon)) return;
 
@@ -162,6 +170,7 @@ namespace Game.Gameplay.Entrance
             if (!stateMachine.TryCompleteRetreat()) return;
 
             StopAgentSafely();
+            SetAnimatorMovement(aggressive: false, retreating: false, moving: false);
             monsterRoot.SetActive(false);
             corridorDoor.SetOpen(false);
             onCompleted?.Invoke();
@@ -172,7 +181,12 @@ namespace Game.Gameplay.Entrance
             if (!stateMachine.TryCatchPlayer()) return;
 
             StopAgentSafely();
-            SetAnimatorTrigger(attackTrigger);
+            if (AnimatorReady)
+            {
+                animator.ResetTrigger(AttackId);
+                animator.SetTrigger(AttackId);
+            }
+            audioController?.PlayAttack();
             if (sceneResetter == null)
             {
                 FailClosedAfterResetInterruption();
@@ -287,15 +301,41 @@ namespace Game.Gameplay.Entrance
 
         private void StopAgentSafely()
         {
-            if (agent == null || !agent.enabled || !agent.gameObject.activeInHierarchy || !agent.isOnNavMesh) return;
+            if (agent == null) return;
+
+            agent.updateRotation = true;
+            if (!agent.enabled || !agent.gameObject.activeInHierarchy || !agent.isOnNavMesh) return;
 
             agent.isStopped = true;
             agent.ResetPath();
         }
 
-        private void SetAnimatorTrigger(string triggerName)
+        private void FacePlayerDuringRetreat()
         {
-            if (animator != null && !string.IsNullOrWhiteSpace(triggerName)) animator.SetTrigger(triggerName);
+            if (player == null || monsterRoot == null) return;
+
+            Vector3 lookDirection = player.transform.position - monsterRoot.transform.position;
+            lookDirection.y = 0f;
+            if (lookDirection.sqrMagnitude < 0.0001f) return;
+
+            Quaternion targetRotation = Quaternion.LookRotation(lookDirection.normalized, Vector3.up);
+            monsterRoot.transform.rotation = Quaternion.RotateTowards(
+                monsterRoot.transform.rotation,
+                targetRotation,
+                Mathf.Max(0f, retreatFacingTurnSpeed) * Time.deltaTime);
+        }
+
+        private bool AnimatorReady => animator != null
+            && animator.isActiveAndEnabled
+            && animator.runtimeAnimatorController != null;
+
+        private void SetAnimatorMovement(bool aggressive, bool retreating, bool moving = true)
+        {
+            if (!AnimatorReady) return;
+
+            animator.SetBool(MovingId, moving);
+            animator.SetBool(AggressiveId, aggressive);
+            animator.SetBool(RetreatingId, retreating);
         }
     }
 }
