@@ -39,6 +39,7 @@ namespace Game.Gameplay.Entrance
         private IEntranceResetRoutineRunner routineRunner;
         private PlayerController transactionPlayer;
         private Action<EntranceResetInterruptionReason> interruptionCallbacks;
+        private object activeTransactionToken;
         private bool isResetting;
         private bool insideSceneLoad;
 
@@ -89,7 +90,9 @@ namespace Game.Gameplay.Entrance
                 return EntranceResetStartResult.AlreadyRunning;
             }
 
+            object transactionToken = new object();
             isResetting = true;
+            activeTransactionToken = transactionToken;
             transactionPlayer = requiredPlayer;
             interruptionCallbacks = onInterrupted;
             requiredPlayer.SetControlEnabled(false);
@@ -99,21 +102,26 @@ namespace Game.Gameplay.Entrance
             bool started;
             try
             {
-                started = routineRunner.TryStart(ResetScene());
+                started = routineRunner.TryStart(ResetScene(transactionToken));
             }
             catch
             {
                 started = false;
             }
 
-            if (started) return EntranceResetStartResult.Started;
+            if (started && IsCurrentTransaction(transactionToken)) return EntranceResetStartResult.Started;
 
-            Interrupt(EntranceResetInterruptionReason.RoutineStartFailed);
+            if (!started) Interrupt(EntranceResetInterruptionReason.RoutineStartFailed, transactionToken);
             return EntranceResetStartResult.Unavailable;
         }
 
-        private IEnumerator ResetScene()
+        private IEnumerator ResetScene(object transactionToken)
         {
+            if (!IsCurrentTransaction(transactionToken)) yield break;
+
+            yield return null;
+            if (!IsCurrentTransaction(transactionToken)) yield break;
+
             if (fadeGroup != null)
             {
                 float startAlpha = fadeGroup.alpha;
@@ -123,6 +131,7 @@ namespace Game.Gameplay.Entrance
                     elapsed += Time.unscaledDeltaTime;
                     fadeGroup.alpha = Mathf.Lerp(startAlpha, 1f, Mathf.Clamp01(elapsed / fadeDuration));
                     yield return null;
+                    if (!IsCurrentTransaction(transactionToken)) yield break;
                 }
 
                 fadeGroup.alpha = 1f;
@@ -133,7 +142,10 @@ namespace Game.Gameplay.Entrance
             {
                 delayElapsed += Time.unscaledDeltaTime;
                 yield return null;
+                if (!IsCurrentTransaction(transactionToken)) yield break;
             }
+
+            if (!IsCurrentTransaction(transactionToken)) yield break;
 
             insideSceneLoad = true;
             try
@@ -143,42 +155,49 @@ namespace Game.Gameplay.Entrance
             catch
             {
                 insideSceneLoad = false;
-                Interrupt(EntranceResetInterruptionReason.SceneLoadFailed);
+                Interrupt(EntranceResetInterruptionReason.SceneLoadFailed, transactionToken);
                 yield break;
             }
 
             insideSceneLoad = false;
-            CompleteSuccessfulLoad();
+            CompleteSuccessfulLoad(transactionToken);
         }
 
         private void OnDisable()
         {
             if (insideSceneLoad) return;
-            Interrupt(EntranceResetInterruptionReason.Disabled);
+            Interrupt(EntranceResetInterruptionReason.Disabled, activeTransactionToken);
         }
 
         private void OnDestroy()
         {
             if (insideSceneLoad) return;
-            Interrupt(EntranceResetInterruptionReason.Destroyed);
+            Interrupt(EntranceResetInterruptionReason.Destroyed, activeTransactionToken);
         }
 
-        private void CompleteSuccessfulLoad()
+        private bool IsCurrentTransaction(object transactionToken)
         {
-            if (!isResetting) return;
+            return isResetting && ReferenceEquals(activeTransactionToken, transactionToken);
+        }
+
+        private void CompleteSuccessfulLoad(object transactionToken)
+        {
+            if (!IsCurrentTransaction(transactionToken)) return;
 
             isResetting = false;
+            activeTransactionToken = null;
             transactionPlayer = null;
             interruptionCallbacks = null;
         }
 
-        private void Interrupt(EntranceResetInterruptionReason reason)
+        private void Interrupt(EntranceResetInterruptionReason reason, object transactionToken)
         {
-            if (!isResetting) return;
+            if (!IsCurrentTransaction(transactionToken)) return;
 
             PlayerController interruptedPlayer = transactionPlayer;
             Action<EntranceResetInterruptionReason> callbacks = interruptionCallbacks;
             isResetting = false;
+            activeTransactionToken = null;
             transactionPlayer = null;
             interruptionCallbacks = null;
             insideSceneLoad = false;

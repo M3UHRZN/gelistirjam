@@ -339,6 +339,82 @@ namespace Game.Gameplay.Tests
         }
 
         [Test]
+        public void SceneResetter_InterruptedRoutineCannotLoadOrCompleteNewTransaction()
+        {
+            trialSetupRoot = new GameObject("Stale Reset Routine Root");
+            PlayerController player = CreatePlayer(trialSetupRoot.transform);
+            var runner = new RecordingRoutineRunner();
+            var loader = new RecordingSceneLoader();
+            EntranceSceneResetter resetter = CreateResetter(player, loader, runner);
+            var firstInterruptions = new List<EntranceResetInterruptionReason>();
+            var secondInterruptions = new List<EntranceResetInterruptionReason>();
+            Assert.That(
+                resetter.TryBeginReset(player, firstInterruptions.Add),
+                Is.EqualTo(EntranceResetStartResult.Started));
+            IEnumerator staleRoutine = runner.CapturedRoutine;
+
+            resetter.enabled = false;
+            InvokePrivateMethod(resetter, "OnDisable");
+            resetter.enabled = true;
+            Assert.That(
+                resetter.TryBeginReset(player, secondInterruptions.Add),
+                Is.EqualTo(EntranceResetStartResult.Started));
+
+            runner.RunToCompletion(staleRoutine);
+
+            Assert.That(loader.LoadedScenes, Is.Empty);
+            Assert.That(resetter.IsResetting, Is.True);
+            Assert.That(player.enabled, Is.False);
+            Assert.That(firstInterruptions, Is.EqualTo(new[] { EntranceResetInterruptionReason.Disabled }));
+            Assert.That(secondInterruptions, Is.Empty);
+        }
+
+        [Test]
+        public void SceneResetter_EagerFirstMoveNext_DefersLoadUntilAfterStartReturns()
+        {
+            trialSetupRoot = new GameObject("Eager Reset Routine Root");
+            PlayerController player = CreatePlayer(trialSetupRoot.transform);
+            var runner = new RecordingRoutineRunner { AdvanceOnceBeforeReturning = true };
+            var loader = new RecordingSceneLoader();
+            EntranceSceneResetter resetter = CreateResetter(player, loader, runner);
+
+            EntranceResetStartResult result = resetter.TryBeginReset(player, null);
+
+            Assert.That(result, Is.EqualTo(EntranceResetStartResult.Started));
+            Assert.That(loader.LoadedScenes, Is.Empty);
+            Assert.That(resetter.IsResetting, Is.True);
+            Assert.That(player.enabled, Is.False);
+
+            runner.RunToCompletion();
+
+            Assert.That(loader.LoadedScenes, Has.Count.EqualTo(1));
+            Assert.That(resetter.IsResetting, Is.False);
+            Assert.That(player.enabled, Is.False);
+        }
+
+        [Test]
+        public void SceneResetter_InterruptedBeforeRunnerReturns_DoesNotReportStarted()
+        {
+            trialSetupRoot = new GameObject("Synchronous Reset Interruption Root");
+            PlayerController player = CreatePlayer(trialSetupRoot.transform);
+            var runner = new RecordingRoutineRunner();
+            EntranceSceneResetter resetter = CreateResetter(player, new RecordingSceneLoader(), runner);
+            var interruptions = new List<EntranceResetInterruptionReason>();
+            runner.OnTryStart = () =>
+            {
+                resetter.enabled = false;
+                InvokePrivateMethod(resetter, "OnDisable");
+            };
+
+            EntranceResetStartResult result = resetter.TryBeginReset(player, interruptions.Add);
+
+            Assert.That(result, Is.EqualTo(EntranceResetStartResult.Unavailable));
+            Assert.That(resetter.IsResetting, Is.False);
+            Assert.That(player.enabled, Is.True);
+            Assert.That(interruptions, Is.EqualTo(new[] { EntranceResetInterruptionReason.Disabled }));
+        }
+
+        [Test]
         public void SceneResetter_DestroyedAfterStart_InterruptionIsIdempotent()
         {
             trialSetupRoot = new GameObject("Destroyed Live Reset Root");
@@ -596,6 +672,39 @@ namespace Game.Gameplay.Tests
             Assert.That(corridorDoor.IsOpen, Is.False);
         }
 
+        [Test]
+        public void TrialController_SynchronousInterruptionBeforeRunnerReturns_DoesNotInvokeCaughtEvent()
+        {
+            var runner = new RecordingRoutineRunner();
+            EntranceMonsterTrialController controller = CreateTrialControllerRig(
+                out PlayerController player,
+                out GameObject monsterRoot,
+                out EntranceDoorActuator corridorDoor,
+                out EntranceSceneResetter resetter,
+                runner);
+            PrepareControllerForCatch(controller, monsterRoot, corridorDoor);
+            int caughtCalls = 0;
+            var caughtEvent = new UnityEvent();
+            caughtEvent.AddListener(() => caughtCalls++);
+            SetPrivateField(controller, "onCaught", caughtEvent);
+            runner.OnTryStart = () =>
+            {
+                resetter.enabled = false;
+                InvokePrivateMethod(resetter, "OnDisable");
+            };
+            LogAssert.Expect(
+                LogType.Error,
+                new Regex("Entrance monster trial caught reset could not start.*player control remains enabled"));
+
+            InvokePrivateMethod(controller, "CatchPlayer");
+
+            Assert.That(runner.StartCalls, Is.EqualTo(1));
+            Assert.That(caughtCalls, Is.Zero);
+            Assert.That(player.enabled, Is.True);
+            Assert.That(monsterRoot.activeSelf, Is.False);
+            Assert.That(corridorDoor.IsOpen, Is.False);
+        }
+
         private sealed class RecordingSceneLoader : IEntranceSceneLoader
         {
             public List<string> LoadedScenes { get; } = new List<string>();
@@ -632,6 +741,7 @@ namespace Game.Gameplay.Tests
         private sealed class RecordingRoutineRunner : IEntranceResetRoutineRunner
         {
             public bool ShouldStart { get; set; } = true;
+            public bool AdvanceOnceBeforeReturning { get; set; }
             public System.Action OnTryStart { get; set; }
             public int StartCalls { get; private set; }
             public IEnumerator CapturedRoutine { get; private set; }
@@ -641,15 +751,21 @@ namespace Game.Gameplay.Tests
                 StartCalls++;
                 CapturedRoutine = routine;
                 OnTryStart?.Invoke();
+                if (AdvanceOnceBeforeReturning) CapturedRoutine.MoveNext();
                 return ShouldStart;
             }
 
             public void RunToCompletion()
             {
-                Assert.That(CapturedRoutine, Is.Not.Null, "Expected a captured reset routine.");
+                RunToCompletion(CapturedRoutine);
+            }
+
+            public void RunToCompletion(IEnumerator routine)
+            {
+                Assert.That(routine, Is.Not.Null, "Expected a captured reset routine.");
                 for (int step = 0; step < 16; step++)
                 {
-                    if (!CapturedRoutine.MoveNext()) return;
+                    if (!routine.MoveNext()) return;
                 }
 
                 Assert.Fail("Reset routine did not complete within 16 synchronous steps.");
