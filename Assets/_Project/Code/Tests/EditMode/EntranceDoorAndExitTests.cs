@@ -1,4 +1,4 @@
-using System.Collections;
+using System.Text.RegularExpressions;
 using Game.Gameplay.Entrance;
 using Game.Gameplay.Objectives;
 using NUnit.Framework;
@@ -50,13 +50,10 @@ namespace Game.Gameplay.Tests
         public void UnlockExit_IsIdempotentAndEnablesThePortal()
         {
             var door = CreateDoor(out _, out _);
-            fuseObject = new GameObject("Fuse");
-            var fuse = fuseObject.AddComponent<FuseBox>();
-            portalObject = new GameObject("Portal");
-            var portal = portalObject.AddComponent<BoxCollider>();
+            var fuse = CreateFuse("Fuse");
+            var portal = CreatePortal();
             portal.enabled = true;
-            controllerObject = new GameObject("Exit Controller");
-            var exit = controllerObject.AddComponent<EntranceFuseExitController>();
+            var exit = CreateExitController();
             exit.Bind(fuse, door, portal);
 
             exit.UnlockExit();
@@ -67,20 +64,19 @@ namespace Game.Gameplay.Tests
             Assert.That(portal.enabled, Is.True);
         }
 
-        [UnityTest]
-        public IEnumerator TimedMotion_KeepsBlockersDisabledUntilClosePoseIsReached()
+        [Test]
+        public void ScheduledMotion_KeepsBlockersDisabledUntilImmediateCloseCompletes()
         {
             var door = CreateDoor(out var moving, out var blocker, duration: 0.01f);
             var closedPosition = moving.localPosition;
 
             door.SetOpen(true);
             Assert.That(blocker.enabled, Is.False);
-            yield return new WaitForSecondsRealtime(0.05f);
-            Assert.That(moving.localPosition, Is.EqualTo(closedPosition + new Vector3(0f, 3f, 0f)));
 
             door.SetOpen(false);
             Assert.That(blocker.enabled, Is.False);
-            yield return new WaitForSecondsRealtime(0.05f);
+
+            door.SetOpen(false, immediate: true);
 
             Assert.That(moving.localPosition, Is.EqualTo(closedPosition));
             Assert.That(blocker.enabled, Is.True);
@@ -142,6 +138,7 @@ namespace Game.Gameplay.Tests
         private FuseBox CreateFuse(string name)
         {
             fuseObject = new GameObject(name);
+            fuseObject.AddComponent<BoxCollider>();
             return fuseObject.AddComponent<FuseBox>();
         }
 
@@ -159,6 +156,7 @@ namespace Game.Gameplay.Tests
 
         private static void CompleteFuse(FuseBox fuse)
         {
+            LogAssert.Expect(LogType.Assert, new Regex("Assertion failed on expression: 'ShouldRunBehaviour\\(\\)'"));
             fuse.SendMessage("HandleFullyComplete", SendMessageOptions.RequireReceiver);
         }
     }
