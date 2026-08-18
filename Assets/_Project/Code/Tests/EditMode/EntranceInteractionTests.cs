@@ -1,8 +1,11 @@
 using System.Collections.Generic;
+using System.Reflection;
+using System.Text.RegularExpressions;
 using Game.Gameplay.Entrance;
 using Gloomveil.MapGeneration;
 using NUnit.Framework;
 using UnityEngine;
+using UnityEngine.TestTools;
 
 namespace Game.Gameplay.Tests
 {
@@ -10,12 +13,16 @@ namespace Game.Gameplay.Tests
     {
         private GameObject portalObject;
         private GameObject trialButtonObject;
+        private GameObject fallbackTrialControllerObject;
+        private GameObject injectedTrialControllerObject;
 
         [TearDown]
         public void TearDown()
         {
             Object.DestroyImmediate(portalObject);
             Object.DestroyImmediate(trialButtonObject);
+            Object.DestroyImmediate(fallbackTrialControllerObject);
+            Object.DestroyImmediate(injectedTrialControllerObject);
             MapGenerationBootstrap.NextRunSeed = null;
         }
 
@@ -72,6 +79,59 @@ namespace Game.Gameplay.Tests
             Assert.That(starter.StartCalls, Is.Zero);
         }
 
+        [Test]
+        public void TrialButton_DestroyedInjectedUnityStarter_DoesNotFallBackToController()
+        {
+            trialButtonObject = new GameObject("Trial Button With Fallback");
+            trialButtonObject.AddComponent<BoxCollider>();
+            var button = trialButtonObject.AddComponent<EntranceMonsterTrialButton>();
+
+            fallbackTrialControllerObject = new GameObject("Fallback Trial Controller");
+            var fallback = fallbackTrialControllerObject.AddComponent<EntranceMonsterTrialController>();
+            SetPrivateField(button, "controller", fallback);
+            button.Bind(null);
+            Assert.That(button.CanInteract, Is.True);
+
+            injectedTrialControllerObject = new GameObject("Injected Trial Controller");
+            var injected = injectedTrialControllerObject.AddComponent<EntranceMonsterTrialController>();
+            button.Bind(injected);
+            Object.DestroyImmediate(injectedTrialControllerObject);
+
+            Assert.That(button.CanInteract, Is.False);
+            button.BeginInteract();
+            Assert.That(fallback.State, Is.EqualTo(EntranceMonsterTrialState.Ready));
+        }
+
+        [Test]
+        public void TrialButton_DestroyedSerializedController_CannotInteract()
+        {
+            trialButtonObject = new GameObject("Trial Button With Destroyed Controller");
+            trialButtonObject.AddComponent<BoxCollider>();
+            var button = trialButtonObject.AddComponent<EntranceMonsterTrialButton>();
+
+            fallbackTrialControllerObject = new GameObject("Serialized Trial Controller");
+            var controller = fallbackTrialControllerObject.AddComponent<EntranceMonsterTrialController>();
+            SetPrivateField(button, "controller", controller);
+            Object.DestroyImmediate(fallbackTrialControllerObject);
+
+            Assert.That(button.CanInteract, Is.False);
+            button.BeginInteract();
+        }
+
+        [Test]
+        public void TrialController_InactiveCoordinator_TryStartAbortsToReady()
+        {
+            fallbackTrialControllerObject = new GameObject("Inactive Trial Coordinator");
+            var controller = fallbackTrialControllerObject.AddComponent<EntranceMonsterTrialController>();
+            fallbackTrialControllerObject.SetActive(false);
+            LogAssert.Expect(
+                LogType.Error,
+                new Regex("Entrance monster trial setup failed and returned to Ready.*coordinator must be active and enabled"));
+
+            Assert.That(controller.TryStart(), Is.False);
+            Assert.That(controller.State, Is.EqualTo(EntranceMonsterTrialState.Ready));
+        }
+
         private sealed class RecordingSceneLoader : IEntranceSceneLoader
         {
             public List<string> LoadedScenes { get; } = new List<string>();
@@ -100,6 +160,13 @@ namespace Game.Gameplay.Tests
                 State = EntranceMonsterTrialState.Approaching;
                 return true;
             }
+        }
+
+        private static void SetPrivateField<T>(object target, string fieldName, T value)
+        {
+            FieldInfo field = target.GetType().GetField(fieldName, BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(field, Is.Not.Null, $"Expected private field '{fieldName}' on {target.GetType().Name}.");
+            field.SetValue(target, value);
         }
     }
 }

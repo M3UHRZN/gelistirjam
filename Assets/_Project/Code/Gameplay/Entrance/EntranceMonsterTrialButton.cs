@@ -48,7 +48,13 @@ namespace Game.Gameplay.Entrance
 
         private IEntranceMonsterTrialStarter ResolveStarter()
         {
-            return injectedStarter ?? controller;
+            if (injectedStarter != null)
+            {
+                if (injectedStarter is Object unityStarter && unityStarter == null) return null;
+                return injectedStarter;
+            }
+
+            return controller != null ? controller : null;
         }
     }
 }

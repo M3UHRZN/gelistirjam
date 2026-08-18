@@ -30,6 +30,7 @@ namespace Game.Gameplay.Entrance
         [SerializeField, Min(0f)] private float pathRefreshInterval = 0.25f;
         [SerializeField, Min(0f)] private float contactDistance = 1.2f;
         [SerializeField, Min(0.01f)] private float navMeshSampleRadius = 2f;
+        [SerializeField, Min(0f)] private float retreatArrivalEpsilon = 0.05f;
 
         [Header("Optional Presentation")]
         [SerializeField] private Animator animator;
@@ -42,14 +43,15 @@ namespace Game.Gameplay.Entrance
         [SerializeField] private UnityEvent onCaught;
 
         private readonly EntranceMonsterTrialStateMachine stateMachine = new EntranceMonsterTrialStateMachine();
-        private readonly NavMeshPath cachedPath = new NavMeshPath();
+        private NavMeshPath cachedPath;
         private float nextPathRefreshTime;
 
         public EntranceMonsterTrialState State => stateMachine.State;
 
         private void Awake()
         {
-            if (monsterRoot != null && monsterRoot != gameObject) monsterRoot.SetActive(false);
+            cachedPath = new NavMeshPath();
+            if (CanDeactivateMonsterRoot()) monsterRoot.SetActive(false);
             corridorDoor?.SetOpen(false, true);
         }
 
@@ -77,8 +79,8 @@ namespace Game.Gameplay.Entrance
                 return AbortSetup($"No NavMesh position was found near start point '{startPoint.name}'.");
 
             monsterRoot.SetActive(true);
-            if (!agent.enabled)
-                return AbortSetup("The lightweight actor's NavMeshAgent is disabled.");
+            if (!agent.isActiveAndEnabled)
+                return AbortSetup("The lightweight actor's NavMeshAgent is not active and enabled after actor activation.");
             if (!agent.Warp(startHit.position) || !agent.isOnNavMesh)
                 return AbortSetup($"The lightweight actor could not warp onto NavMesh near '{startPoint.name}'.");
             if (!TryCalculateCompletePath(player.transform.position, out string approachPathError))
@@ -137,7 +139,7 @@ namespace Game.Gameplay.Entrance
         private void UpdateRetreat()
         {
             if (!agent.isOnNavMesh || agent.pathPending) return;
-            if (agent.remainingDistance > agent.stoppingDistance) return;
+            if (agent.remainingDistance > agent.stoppingDistance + Mathf.Max(0f, retreatArrivalEpsilon)) return;
 
             CompleteRetreat();
         }
@@ -184,14 +186,24 @@ namespace Game.Gameplay.Entrance
 
         private bool ValidateRequiredReferences(out string error)
         {
+            if (!isActiveAndEnabled)
+            {
+                error = "The coordinator must be active and enabled before the trial can start.";
+                return false;
+            }
             if (player == null) return MissingReference(nameof(player), out error);
             if (gazeDetector == null) return MissingReference(nameof(gazeDetector), out error);
             if (gazeReceiver == null) return MissingReference(nameof(gazeReceiver), out error);
             if (agent == null) return MissingReference(nameof(agent), out error);
             if (monsterRoot == null) return MissingReference(nameof(monsterRoot), out error);
-            if (monsterRoot == gameObject)
+            if (monsterRoot == gameObject || transform.IsChildOf(monsterRoot.transform))
             {
                 error = "The controller must live on a separate coordinator object, not on the lightweight actor root.";
+                return false;
+            }
+            if (agent.transform != monsterRoot.transform && !agent.transform.IsChildOf(monsterRoot.transform))
+            {
+                error = "The NavMeshAgent must belong to the lightweight actor root hierarchy.";
                 return false;
             }
             if (startPoint == null) return MissingReference(nameof(startPoint), out error);
@@ -212,11 +224,16 @@ namespace Game.Gameplay.Entrance
         private bool AbortSetup(string reason)
         {
             StopAgentSafely();
-            if (monsterRoot != null && monsterRoot != gameObject) monsterRoot.SetActive(false);
+            if (CanDeactivateMonsterRoot()) monsterRoot.SetActive(false);
             corridorDoor?.SetOpen(false, true);
             stateMachine.TryAbortSetup();
             Debug.LogError($"Entrance monster trial setup failed and returned to Ready. {reason}", this);
             return false;
+        }
+
+        private bool CanDeactivateMonsterRoot()
+        {
+            return monsterRoot != null && monsterRoot != gameObject && !transform.IsChildOf(monsterRoot.transform);
         }
 
         private void StopAgentSafely()
