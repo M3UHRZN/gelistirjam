@@ -74,7 +74,7 @@ AudioSource:
   m_GameObject: {fileID: 2631644072487069562}
   m_Enabled: 1
   serializedVersion: 4
-  OutputAudioMixerGroup: {fileID: 0}
+  OutputAudioMixerGroup: {fileID: 2147742813748913955, guid: 2c90436c4fc6f31428cf96cce2fd01da, type: 2}
   m_audioClip: {fileID: 0}
   m_Resource: {fileID: 0}
   m_PlayOnAwake: 0
@@ -206,10 +206,10 @@ Light:
   serializedVersion: 12
   m_Type: 0
   m_Color: {r: 1, g: 1, b: 1, a: 1}
-  m_Intensity: 3
+  m_Intensity: 8
   m_Range: 12
-  m_SpotAngle: 40
-  m_InnerSpotAngle: 21.80208
+  m_SpotAngle: 51.57551
+  m_InnerSpotAngle: 17.00849
   m_CookieSize2D: {x: 0.5, y: 0.5}
   m_Shadows:
     m_Type: 0
@@ -248,7 +248,7 @@ Light:
   m_Lightmapping: 4
   m_LightShadowCasterMode: 0
   m_AreaSize: {x: 1, y: 1}
-  m_BounceIntensity: 1
+  m_BounceIntensity: 0
   m_ColorTemperature: 6570
   m_UseColorTemperature: 0
   m_BoundingSphereOverride: {x: 0, y: 0, z: 0, w: 0}
@@ -345,7 +345,7 @@ MonoBehaviour:
     LookAtTarget: {fileID: 0}
     CustomLookAtTarget: 0
   Lens:
-    FieldOfView: 40
+    FieldOfView: 60
     OrthographicSize: 10
     NearClipPlane: 0.1
     FarClipPlane: 5000
@@ -405,7 +405,7 @@ AudioSource:
   m_GameObject: {fileID: 4432825437181041719}
   m_Enabled: 1
   serializedVersion: 4
-  OutputAudioMixerGroup: {fileID: 0}
+  OutputAudioMixerGroup: {fileID: 2147742813748913955, guid: 2c90436c4fc6f31428cf96cce2fd01da, type: 2}
   m_audioClip: {fileID: 0}
   m_Resource: {fileID: 0}
   m_PlayOnAwake: 0
@@ -684,9 +684,9 @@ AudioSource:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 7110461859708860221}
-  m_Enabled: 1
+  m_Enabled: 0
   serializedVersion: 4
-  OutputAudioMixerGroup: {fileID: 0}
+  OutputAudioMixerGroup: {fileID: 2147742813748913955, guid: 2c90436c4fc6f31428cf96cce2fd01da, type: 2}
   m_audioClip: {fileID: 0}
   m_Resource: {fileID: 0}
   m_PlayOnAwake: 0
@@ -803,22 +803,33 @@ MonoBehaviour:
   player: {fileID: 6640509160967288797}
   emitter: {fileID: 4349888564509632764}
   walkFootsteps:
-    clips: []
-    minimumVolume: 1
-    maximumVolume: 1
-    minimumPitch: 1
+    clips:
+    - {fileID: 8300000, guid: 2cb71d1e790ec8c46bffed2565151927, type: 3}
+    - {fileID: 8300000, guid: bf41c8fc6351a69448bcca96d4c33eff, type: 3}
+    - {fileID: 8300000, guid: 068e1b5075607304282b70b8be416117, type: 3}
+    - {fileID: 8300000, guid: 2d7d988af49cc5b46bda8b921fbd7354, type: 3}
+    minimumVolume: 0.5
+    maximumVolume: 0.8
+    minimumPitch: 0.95
     maximumPitch: 1
   sprintFootsteps:
-    clips: []
+    clips:
+    - {fileID: 8300000, guid: aa2f25e5fb8510b4985d7ed039063a02, type: 3}
+    - {fileID: 8300000, guid: 6049940f40691f540a4c4edf8e96966f, type: 3}
+    - {fileID: 8300000, guid: 25958f619772ff840997382d471100ed, type: 3}
+    - {fileID: 8300000, guid: 4bf1283a42c3c2445991ab5091460be9, type: 3}
+    - {fileID: 8300000, guid: 497666be6e2fcc44d9ce1615d8338c05, type: 3}
+    - {fileID: 8300000, guid: 2f2048c2b0f0f2f47b102a3f76f32ba9, type: 3}
     minimumVolume: 1
     maximumVolume: 1
     minimumPitch: 1
     maximumPitch: 1
-  walkDistancePerStep: 1.7
+  walkDistancePerStep: 2.1
   sprintDistancePerStep: 2
   minimumMovementSpeed: 0.05
   sprintBreathing:
-    clips: []
+    clips:
+    - {fileID: 8300000, guid: 0fbff7fe7a8d84003ada8eb8ab779e42, type: 3}
     minimumVolume: 1
     maximumVolume: 1
     minimumPitch: 1
@@ -935,7 +946,7 @@ Camera:
     height: 1
   near clip plane: 0.1
   far clip plane: 5000
-  field of view: 40
+  field of view: 60
   orthographic: 0
   orthographic size: 10
   m_Depth: 0
@@ -984,8 +995,8 @@ MonoBehaviour:
     m_Bits: 1
   m_VolumeTrigger: {fileID: 0}
   m_VolumeFrameworkUpdateModeOption: 2
-  m_RenderPostProcessing: 0
-  m_Antialiasing: 0
+  m_RenderPostProcessing: 1
+  m_Antialiasing: 1
   m_AntialiasingQuality: 2
   m_StopNaN: 0
   m_Dithering: 0
