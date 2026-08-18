@@ -55,7 +55,7 @@ namespace Game.Gameplay.Entrance
             corridorDoor?.SetOpen(false, true);
         }
 
-        private void Update()
+        private void LateUpdate()
         {
             switch (State)
             {
@@ -100,7 +100,14 @@ namespace Game.Gameplay.Entrance
 
         private void UpdateApproach()
         {
-            if (gazeDetector.CurrentTarget == gazeReceiver)
+            Vector3 toPlayer = player.transform.position - agent.transform.position;
+            toPlayer.y = 0f;
+            float planarCatchDistance = Mathf.Max(0f, contactDistance);
+            EntranceMonsterTrialState approachDecision = ArbitrateApproach(
+                gazeDetector.CurrentTarget == gazeReceiver,
+                toPlayer.sqrMagnitude <= planarCatchDistance * planarCatchDistance);
+
+            if (approachDecision == EntranceMonsterTrialState.Retreating)
             {
                 BeginRetreat();
                 return;
@@ -112,10 +119,15 @@ namespace Game.Gameplay.Entrance
                 if (TryCalculateCompletePath(player.transform.position, out _)) agent.SetPath(cachedPath);
             }
 
-            Vector3 toPlayer = player.transform.position - agent.transform.position;
-            toPlayer.y = 0f;
-            float planarCatchDistance = Mathf.Max(0f, contactDistance);
-            if (toPlayer.sqrMagnitude <= planarCatchDistance * planarCatchDistance) CatchPlayer();
+            if (approachDecision == EntranceMonsterTrialState.PlayerCaught) CatchPlayer();
+        }
+
+        private static EntranceMonsterTrialState ArbitrateApproach(bool isGazedAt, bool isWithinContactDistance)
+        {
+            if (isGazedAt) return EntranceMonsterTrialState.Retreating;
+            return isWithinContactDistance
+                ? EntranceMonsterTrialState.PlayerCaught
+                : EntranceMonsterTrialState.Approaching;
         }
 
         private void BeginRetreat()
@@ -161,8 +173,14 @@ namespace Game.Gameplay.Entrance
             StopAgentSafely();
             SetAnimatorTrigger(attackTrigger);
             onCaught?.Invoke();
-            player.SetControlEnabled(false);
-            sceneResetter.BeginReset();
+            if (sceneResetter.BeginReset() || sceneResetter.IsResetting) return;
+
+            if (CanDeactivateMonsterRoot()) monsterRoot.SetActive(false);
+            corridorDoor?.SetOpen(false, true);
+            player.SetControlEnabled(true);
+            Debug.LogError(
+                "Entrance monster trial caught reset could not start. The actor was hidden, the corridor was closed, and player control remains enabled. Ensure the scene resetter is active and enabled.",
+                this);
         }
 
         private bool TryCalculateCompletePath(Vector3 target, out string error)
@@ -210,6 +228,11 @@ namespace Game.Gameplay.Entrance
             if (retreatPoint == null) return MissingReference(nameof(retreatPoint), out error);
             if (corridorDoor == null) return MissingReference(nameof(corridorDoor), out error);
             if (sceneResetter == null) return MissingReference(nameof(sceneResetter), out error);
+            if (!sceneResetter.isActiveAndEnabled)
+            {
+                error = "The scene resetter must be active and enabled before the trial can start.";
+                return false;
+            }
 
             error = null;
             return true;

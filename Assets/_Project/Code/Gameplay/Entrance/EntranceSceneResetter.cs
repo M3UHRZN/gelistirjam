@@ -15,6 +15,8 @@ namespace Game.Gameplay.Entrance
         private IEntranceSceneLoader sceneLoader;
         private bool isResetting;
 
+        public bool IsResetting => isResetting;
+
         private void Awake()
         {
             sceneLoader ??= new UnityEntranceSceneLoader();
@@ -29,7 +31,7 @@ namespace Game.Gameplay.Entrance
 
         public bool BeginReset()
         {
-            if (isResetting) return false;
+            if (!isActiveAndEnabled || isResetting) return false;
 
             isResetting = true;
             playerController?.SetControlEnabled(false);
