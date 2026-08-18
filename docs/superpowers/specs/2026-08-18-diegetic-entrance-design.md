@@ -52,7 +52,7 @@ Implements the existing `IInteractable` contract. Its prompt is serialized with 
 
 Owns runtime side effects for the optional encounter. Serialized references provide the player, gaze detector, gaze receiver, NavMeshAgent, monster root, start/retreat points, corridor door, and scene resetter. Inspector fields control approach speed, retreat speed, path refresh interval, contact distance, NavMesh sample radius, and optional presentation events.
 
-The controller activates and warps the lightweight actor onto the corridor NavMesh only after the button is pressed. During `Approaching`, it refreshes the destination toward the player, gives gaze priority over contact in the same frame, and transitions to retreat when `PlayerGazeDetector.CurrentTarget` equals the configured receiver. During `Retreating`, arrival at the configured retreat point completes the one-shot trial.
+The controller activates and warps the lightweight actor onto the corridor NavMesh only after the button is pressed. It samples targets and accepts only complete `NavMeshPath` results; partial paths never become destinations. During `Approaching`, it refreshes the destination toward the player at a serialized interval, gives gaze priority over contact in the same frame, and transitions to retreat when `PlayerGazeDetector.CurrentTarget` equals the configured receiver. During `Retreating`, arrival at the configured retreat point completes the one-shot trial.
 
 The controller must fail safely. Missing references or failure to sample/warp onto NavMesh logs one clear error, restores the door/actor to idle, and returns the state to `Ready` so the player is not permanently locked out by authoring error.
 
@@ -68,7 +68,7 @@ The production `Assets/_Project/Prefabs/Monster.prefab` is a full inactive `Mons
 
 When the user says the map is ready:
 
-- Place/bind the existing Player prefab and its camera gaze detector.
+- Place/bind the existing Player prefab and its camera gaze detector, including the required `MonsterConfig` used by the ray cluster.
 - Place/bind the real fuse prefab, minigame UI, `GameFlowController`, and `ObjectiveManager` required by `FuseBox`.
 - Bind the authored main exit door and its trigger portal.
 - Bind the side button, corridor door, lightweight monster actor, start point, retreat point, and reset fade if present.
