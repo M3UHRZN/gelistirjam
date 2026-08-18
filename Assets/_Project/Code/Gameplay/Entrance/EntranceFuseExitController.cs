@@ -53,8 +53,8 @@ namespace Game.Gameplay.Entrance
 
         private void Unsubscribe()
         {
-            if (!subscribed || fuseBox == null) return;
-            fuseBox.OnCompleted -= UnlockExit;
+            if (!subscribed) return;
+            if (fuseBox != null) fuseBox.OnCompleted -= UnlockExit;
             subscribed = false;
         }
 
