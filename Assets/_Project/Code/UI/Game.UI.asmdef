@@ -4,6 +4,7 @@
     "references": [
         "Game.Core",
         "Game.Gameplay",
+        "Gloomveil.MapGeneration",
         "UnityEngine.UI",
         "Unity.TextMeshPro",
         "Unity.InputSystem"
