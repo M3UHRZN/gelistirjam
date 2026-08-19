@@ -1796,6 +1796,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Game.Gameplay::Game.Gameplay.World.MapLightGate
   registry: {fileID: 492977305}
+  safeZoneLightPrefab: {fileID: 7407142791890458407, guid: dc6bc1c7bc4c061418438f3635bf8963, type: 3}
   fallbackLightRange: 8
   fallbackLightIntensity: 1.2
   wiring: {fileID: 39345707}
@@ -2361,6 +2362,18 @@ PrefabInstance:
     - target: {fileID: 7110461859708860221, guid: 8e403a80a1d67c14a8ffb97807993a5f, type: 3}
       propertyPath: m_Name
       value: Player
+      objectReference: {fileID: 0}
+    - target: {fileID: 7372454407294755877, guid: 8e403a80a1d67c14a8ffb97807993a5f, type: 3}
+      propertyPath: m_Range
+      value: 35
+      objectReference: {fileID: 0}
+    - target: {fileID: 7372454407294755877, guid: 8e403a80a1d67c14a8ffb97807993a5f, type: 3}
+      propertyPath: m_SpotAngle
+      value: 93.560295
+      objectReference: {fileID: 0}
+    - target: {fileID: 7372454407294755877, guid: 8e403a80a1d67c14a8ffb97807993a5f, type: 3}
+      propertyPath: m_InnerSpotAngle
+      value: 32.890255
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
