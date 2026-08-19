@@ -12,21 +12,21 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4ffe2b3f569e545a2bc9c1db94da271e, type: 3}
   m_Name: MonsterConfig_Default
   m_EditorClassIdentifier: Game.MonsterAI::Game.MonsterAI.MonsterConfig
-  patrolSpeed: 6
-  patrolRadius: 40
-  detectionRadius: 10
-  interestedSpeed: 6
+  patrolSpeed: 7
+  patrolRadius: 60
+  detectionRadius: 20
+  interestedSpeed: 7
   stalkBehindDistance: 3
   stalkRepathInterval: 0.45
-  loseInterestRadius: 10
+  loseInterestRadius: 20
   shySpeed: 10
   shyFleeRadius: 14
   shyFleeDuration: 45
   staredownAngerInterval: 1
   staredownCheckInterval: 1
   staredownChance: 0.103
-  aggressiveSpeed: 8
-  loseAggroRadius: 8
+  aggressiveSpeed: 10
+  loseAggroRadius: 15
   aggressiveAngerDecayPerSecond: 1
   contactKillRange: 1
   gazeRayCount: 7
@@ -54,7 +54,7 @@ MonoBehaviour:
   commitDistance: 3
   commitLoseRadius: 12
   safeZoneCampDistance: 20
-  safeZoneCampDuration: 20
+  safeZoneCampDuration: 17
   safeZoneCampRepositionInterval: 3
   fakeRetreatChance: 0.14
   aggressionDistanceWeight: 0.15
@@ -70,20 +70,20 @@ MonoBehaviour:
   - StalkDistanceMultiplier: 1
     RepositionChanceMultiplier: 1
     RepositionIntervalMultiplier: 1
-    CutOffPreference: 0.15
+    CutOffPreference: 0.105
     FakeRetreatChanceMultiplier: 1
-    VisibilityRiskTolerance: 0.226
+    VisibilityRiskTolerance: 0.168
   - StalkDistanceMultiplier: 1.07
     RepositionChanceMultiplier: 1.4
     RepositionIntervalMultiplier: 0.8
-    CutOffPreference: 0.169
+    CutOffPreference: 0.209
     FakeRetreatChanceMultiplier: 1.3
-    VisibilityRiskTolerance: 0.218
+    VisibilityRiskTolerance: 0.277
   - StalkDistanceMultiplier: 1.08
     RepositionChanceMultiplier: 1.8
     RepositionIntervalMultiplier: 0.6
-    CutOffPreference: 0.258
+    CutOffPreference: 0.323
     FakeRetreatChanceMultiplier: 1.8
-    VisibilityRiskTolerance: 0.323
+    VisibilityRiskTolerance: 0.405
   fuseApproachRadius: 15
   fuseAwarenessAngerPerSecond: 0

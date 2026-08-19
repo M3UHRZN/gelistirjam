@@ -1,7 +1,14 @@
 fileFormatVersion: 2
 guid: 76ba83fd1e90bf74787dd6d5c80f87ef
+AssetOrigin:
+  serializedVersion: 1
+  productId: 283665
+  packageName: Low Poly ShotGun Weapon Pack 1
+  packageVersion: 1.0
+  assetPath: Assets/Low Poly ShotGun Weapon Pack 1/Models/Weapons/ShotGun_C.fbx
+  uploadId: 724253
 ModelImporter:
-  serializedVersion: 22200
+  serializedVersion: 24200
   internalIDToNameTable: []
   externalObjects: {}
   materials:
@@ -56,6 +63,9 @@ ModelImporter:
     maxBonesPerVertex: 4
     minBoneWeight: 0.001
     optimizeBones: 1
+    generateMeshLods: 0
+    meshLodGenerationFlags: 0
+    maximumMeshLod: -1
     meshOptimizationFlags: -1
     indexFormat: 0
     secondaryUVAngleDistortion: 8
@@ -105,10 +115,3 @@ ModelImporter:
   userData: 
   assetBundleName: 
   assetBundleVariant: 
-AssetOrigin:
-  serializedVersion: 1
-  productId: 283665
-  packageName: Low Poly ShotGun Weapon Pack 1
-  packageVersion: 1.0
-  assetPath: Assets/Low Poly ShotGun Weapon Pack 1/Models/Weapons/ShotGun_C.fbx
-  uploadId: 724253

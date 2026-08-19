@@ -685,7 +685,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Game.Gameplay::Game.Gameplay.Monster.MapMonsterGate
   registry: {fileID: 492977305}
   monsterPrefab: {fileID: 5838682943548676187, guid: 5bb086f9c257867479fe6ae30ea3d2a2, type: 3}
-  config: {fileID: 11400000, guid: c8c589a0670a67b448e187696f898aa5, type: 2}
+  config: {fileID: 11400000, guid: fc93806ba8ece46d691ef5678c721266, type: 2}
   player: {fileID: 6640509160569199351}
   gazeDetector: {fileID: 5067782070981702053}
   visionModel: {fileID: 8159718745024408853}
@@ -2359,6 +2359,10 @@ PrefabInstance:
       propertyPath: exitController
       value: 
       objectReference: {fileID: 1344303870}
+    - target: {fileID: 6640509160967288797, guid: 8e403a80a1d67c14a8ffb97807993a5f, type: 3}
+      propertyPath: sprintSpeed
+      value: 11
+      objectReference: {fileID: 0}
     - target: {fileID: 7110461859708860221, guid: 8e403a80a1d67c14a8ffb97807993a5f, type: 3}
       propertyPath: m_Name
       value: Player
