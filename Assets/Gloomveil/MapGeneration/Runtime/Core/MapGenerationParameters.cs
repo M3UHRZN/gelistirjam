@@ -118,13 +118,7 @@ namespace Gloomveil.MapGeneration
                 throw Invalid(nameof(ExtraRoomLinksPerFloor), ExtraRoomLinksPerFloor, "must not be negative");
             }
 
-            if (VerticalLinksPerFloorPair != 2)
-            {
-                throw Invalid(
-                    nameof(VerticalLinksPerFloorPair),
-                    VerticalLinksPerFloorPair,
-                    "must be exactly 2 for the P0 two-stair floor-pair contract");
-            }
+            RequireAtLeast(nameof(VerticalLinksPerFloorPair), VerticalLinksPerFloorPair, 2);
             if (MinimumStairCenterSeparationUnits < 0)
             {
                 throw Invalid(
@@ -155,7 +149,7 @@ namespace Gloomveil.MapGeneration
 
             ValidateFootprintsFitBounds(nameof(RoomFootprints), RoomFootprints);
             ValidateFootprintsFitBounds(nameof(StairFootprints), StairFootprints);
-            ValidateTwoStairFeasibility();
+            ValidateStairPairFeasibility();
 
             string[] requiredIds = { "1x2", "2x2", "2x3" };
             foreach (string requiredId in requiredIds)
@@ -217,7 +211,7 @@ namespace Gloomveil.MapGeneration
             }
         }
 
-        private void ValidateTwoStairFeasibility()
+        private void ValidateStairPairFeasibility()
         {
             GridSize2[] possibleSizes = StairFootprints
                 .SelectMany(spec => new[]

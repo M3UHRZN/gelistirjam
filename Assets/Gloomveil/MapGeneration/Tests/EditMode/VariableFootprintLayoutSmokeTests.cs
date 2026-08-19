@@ -94,6 +94,42 @@ namespace Gloomveil.MapGeneration.Tests
             }
         }
 
+        [Test]
+        public void Pack_FourVerticalLinks_CreatesFourSeparatedStairsForTheFloorPair()
+        {
+            MapGenerationParameters parameters = CreateParametersWithVerticalLinks(4);
+
+            PackedAreaLayout packed = PackFirstValidAreas(parameters, 99999);
+            PlacedStair[] stairs = packed.Stairs
+                .Where(stair => stair.LowerFloor == 0)
+                .ToArray();
+
+            Assert.That(stairs, Has.Length.EqualTo(4));
+            for (int left = 0; left < stairs.Length; left++)
+            {
+                for (int right = left + 1; right < stairs.Length; right++)
+                {
+                    Assert.That(
+                        CentreManhattanUnits(stairs[left], stairs[right]),
+                        Is.GreaterThanOrEqualTo(parameters.MinimumStairCenterSeparationUnits));
+                }
+            }
+        }
+
+        [Test]
+        public void Generate_FourVerticalLinks_CreatesAConnectedLayoutWithFourStairs()
+        {
+            MapGenerationParameters parameters = CreateParametersWithVerticalLinks(4);
+
+            MapLayout layout = new VariableFootprintLayoutGenerator()
+                .Generate(parameters, 99999);
+
+            Assert.That(layout.TraversalGraph.IsFullyConnected, Is.True);
+            Assert.That(
+                layout.Stairs.Count(stair => stair.LowerFloor == 0),
+                Is.EqualTo(4));
+        }
+
         [TestCase(2)]
         [TestCase(3)]
         [TestCase(4)]
@@ -206,6 +242,30 @@ namespace Gloomveil.MapGeneration.Tests
 
             Assert.Fail($"Seed {seed} could not pack: {lastFailure}");
             return null;
+        }
+
+        private static MapGenerationParameters CreateParametersWithVerticalLinks(int verticalLinks)
+        {
+            MapGenerationParameters defaults =
+                MapGenerationParameters.CreateProductionDefaults(2);
+            return new MapGenerationParameters(
+                widthUnits: 20,
+                depthUnits: 20,
+                floorCount: defaults.FloorCount,
+                minRoomsPerFloor: defaults.MinRoomsPerFloor,
+                maxRoomsPerFloor: defaults.MaxRoomsPerFloor,
+                roomClearanceUnits: defaults.RoomClearanceUnits,
+                extraRoomLinksPerFloor: defaults.ExtraRoomLinksPerFloor,
+                verticalLinksPerFloorPair: verticalLinks,
+                minimumStairCenterSeparationUnits: defaults.MinimumStairCenterSeparationUnits,
+                verticalTraversalCostUnits: defaults.VerticalTraversalCostUnits,
+                fuseCount: defaults.FuseCount,
+                safeZoneCount: defaults.SafeZoneCount,
+                maxLayoutAttempts: defaults.MaxLayoutAttempts,
+                maxPlacementAttemptsPerArea: defaults.MaxPlacementAttemptsPerArea,
+                roomFootprints: defaults.RoomFootprints,
+                stairFootprints: defaults.StairFootprints,
+                corridorRunLengths: defaults.CorridorRunLengths);
         }
 
         private static void AssertNoOverlaps(IReadOnlyList<GridRect> rectangles)

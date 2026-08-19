@@ -18,15 +18,15 @@ MonoBehaviour:
   widthUnits: 20
   depthUnits: 20
   floorCount: 2
-  minRoomsPerFloor: 8
-  maxRoomsPerFloor: 15
+  minRoomsPerFloor: 18
+  maxRoomsPerFloor: 32
   roomClearanceUnits: 1
-  extraRoomLinksPerFloor: 2
-  verticalLinksPerFloorPair: 2
+  extraRoomLinksPerFloor: 4
+  verticalLinksPerFloorPair: 4
   minimumStairCenterSeparationUnits: 5
   verticalTraversalCostUnits: 4
   fuseCount: 2
-  safeZoneCount: 2
+  safeZoneCount: 8
   maxLayoutAttempts: 12
   maxPlacementAttemptsPerArea: 64
   roomFootprints:
