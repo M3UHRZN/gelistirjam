@@ -2838,6 +2838,22 @@ PrefabInstance:
       propertyPath: gameFlow
       value: 
       objectReference: {fileID: 2127513059}
+    - target: {fileID: 8002540713391678044, guid: f7b3868d2ef3e7141b85082f959bf0ab, type: 3}
+      propertyPath: m_LocalScale.x
+      value: 1.506751
+      objectReference: {fileID: 0}
+    - target: {fileID: 8002540713391678044, guid: f7b3868d2ef3e7141b85082f959bf0ab, type: 3}
+      propertyPath: m_LocalScale.y
+      value: 1.506751
+      objectReference: {fileID: 0}
+    - target: {fileID: 8002540713391678044, guid: f7b3868d2ef3e7141b85082f959bf0ab, type: 3}
+      propertyPath: m_LocalScale.z
+      value: 1.506751
+      objectReference: {fileID: 0}
+    - target: {fileID: 8002540713391678044, guid: f7b3868d2ef3e7141b85082f959bf0ab, type: 3}
+      propertyPath: m_AnchoredPosition.y
+      value: 176.82
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
