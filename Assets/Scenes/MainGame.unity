@@ -1283,7 +1283,7 @@ MonoBehaviour:
   navMeshController: {fileID: 492977308}
   registry: {fileID: 492977305}
   generateOnStart: 1
-  startupSeed: 1041
+  startupSeed: 99999
 --- !u!114 &492977308
 MonoBehaviour:
   m_ObjectHideFlags: 0
