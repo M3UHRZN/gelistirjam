@@ -576,14 +576,14 @@ MonoBehaviour:
   lever: {fileID: 2299693531806686359}
   activePriority: 20
   idlePriority: 0
-  blendInDuration: 0.5
-  blendOutDuration: 0.25
+  blendInDuration: 0.1
+  blendOutDuration: 0.1
   lookSensitivity: 0.08
   maxYawDegrees: 15
   maxPitchDegrees: 10
   leverClosedEuler: {x: 90, y: 90, z: 90}
   leverOpenEuler: {x: -35, y: 90, z: 90}
-  leverTweenDuration: 1
+  leverTweenDuration: 0.5
 --- !u!1 &7974633016852631397
 GameObject:
   m_ObjectHideFlags: 0

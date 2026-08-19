@@ -43,6 +43,13 @@ namespace Game.Gameplay.Objectives
         [SerializeField, Tooltip("Resolves which button the crosshair is on. Bound to the world canvas's GraphicRaycaster.")]
         private FuseScreenPointer pointer;
 
+        [Header("UI Text")]
+        [SerializeField, TextArea(2, 3)] private string progressFormat = "{0}\nRound {1} / {2}";
+        [SerializeField] private string penaltyResetText = "HATA — SIFIRLANIYOR";
+        [SerializeField] private string penaltyCountdownFormat = "HATA — {0}";
+        [SerializeField] private string roundCompleteText = "ROUND TAMAM";
+        [SerializeField] private string fuseCompleteText = "FUSE AKTİF";
+
         [Header("Audio")]
         [SerializeField, Tooltip("Optional. Played once on a wrong input, and again when the fuse fully completes.")]
         private AudioSource audioSource;
@@ -332,12 +339,12 @@ namespace Game.Gameplay.Objectives
 
         private IEnumerator PenaltyRoutine()
         {
-            SetStatusText("HATA — SIFIRLANIYOR");
+            SetStatusText(penaltyResetText);
             float remaining = penaltyDuration;
             while (remaining > 0f)
             {
                 if (cancelRequested) yield break;
-                SetStatusText($"HATA — {Mathf.CeilToInt(remaining)}");
+                SetStatusText(string.Format(penaltyCountdownFormat, Mathf.CeilToInt(remaining)));
                 yield return WaitSecondsOrCancel(Mathf.Min(1f, remaining));
                 remaining -= 1f;
             }
@@ -346,14 +353,14 @@ namespace Game.Gameplay.Objectives
 
         private IEnumerator RoundCompleteFeedback()
         {
-            SetStatusText("ROUND TAMAM");
+            SetStatusText(roundCompleteText);
             yield return WaitSecondsOrCancel(roundCompleteFeedbackDuration);
             SetStatusText(string.Empty);
         }
 
         private IEnumerator FuseCompleteFeedback()
         {
-            SetStatusText("FUSE AKTİF");
+            SetStatusText(fuseCompleteText);
             PlayElectricitySound();
             for (int i = 0; i < ButtonCount; i++) SetButtonColor(i, buttonColors[i] * highlightBrightness);
             yield return WaitSecondsOrCancel(fuseCompleteFeedbackDuration);
@@ -509,7 +516,10 @@ namespace Game.Gameplay.Objectives
 
         private void SetProgressText(string label, int currentRound, int totalRounds)
         {
-            if (progressText != null) progressText.text = $"{label}\nRound {currentRound} / {totalRounds}";
+            if (progressText != null)
+            {
+                progressText.text = string.Format(progressFormat, label, currentRound, totalRounds);
+            }
         }
 
         private void SetStatusText(string text)

@@ -244,6 +244,11 @@ MonoBehaviour:
   - {fileID: 300379711}
   - {fileID: 161490624}
   pointer: {fileID: 1677920362}
+  progressFormat: 
+  penaltyResetText: WARNING
+  penaltyCountdownFormat: WARNING!
+  roundCompleteText: ACTIVE....
+  fuseCompleteText: ACTIVE
   audioSource: {fileID: 68278358}
   electricitySound: {fileID: 8300000, guid: 2a1fb182d2d6a4fca8b86f6a852b897e, type: 3}
   clickSound: {fileID: 8300000, guid: 6fee4579d0029418c85fff0ad2b1f334, type: 3}
@@ -259,7 +264,7 @@ MonoBehaviour:
   sequenceHighlightDuration: 0.5
   sequenceGapDuration: 0.25
   buttonPressFeedbackDuration: 0.18
-  penaltyDuration: 3
+  penaltyDuration: 1
   fadeDuration: 0.25
   roundCompleteFeedbackDuration: 0.5
   fuseCompleteFeedbackDuration: 0.9

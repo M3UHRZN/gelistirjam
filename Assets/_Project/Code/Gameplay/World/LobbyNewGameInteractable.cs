@@ -16,9 +16,10 @@ namespace Game.Gameplay.World
     public class LobbyNewGameInteractable : MonoBehaviour, IInteractable
     {
         [SerializeField] private string mainGameSceneName = "MainGame";
+        [SerializeField] private string interactionPrompt;
 
         public bool CanInteract => true;
-        public string InteractionPrompt => "E - YENİ OYUN";
+        public string InteractionPrompt => interactionPrompt;
 
         public void BeginInteract()
         {
