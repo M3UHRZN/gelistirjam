@@ -2741,7 +2741,7 @@ PrefabInstance:
     - target: {fileID: 2897510264517386234, guid: f7b3868d2ef3e7141b85082f959bf0ab, type: 3}
       propertyPath: cameraTransform
       value: 
-      objectReference: {fileID: 0}
+      objectReference: {fileID: 1671054899}
     - target: {fileID: 3087367297055294813, guid: f7b3868d2ef3e7141b85082f959bf0ab, type: 3}
       propertyPath: m_Name
       value: HudCanvas
@@ -9756,6 +9756,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c9522ed3ab59b460993ebfe13748b4a1, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Game.Gameplay::Game.Gameplay.Interaction.PlayerInteraction
+--- !u!4 &1671054899 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 6467296240992747883, guid: 8e403a80a1d67c14a8ffb97807993a5f, type: 3}
+  m_PrefabInstance: {fileID: 1553740070}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1001 &1682162586
 PrefabInstance:
   m_ObjectHideFlags: 0
