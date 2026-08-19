@@ -14,11 +14,11 @@ MonoBehaviour:
   m_EditorClassIdentifier: Game.MonsterAI::Game.MonsterAI.MonsterConfig
   patrolSpeed: 7
   patrolRadius: 50
-  detectionRadius: 15
+  detectionRadius: 25
   interestedSpeed: 7.5
   stalkBehindDistance: 2.5
   stalkRepathInterval: 0.35
-  loseInterestRadius: 18
+  loseInterestRadius: 28
   shySpeed: 11
   shyFleeRadius: 12
   shyFleeDuration: 25
@@ -49,7 +49,7 @@ MonoBehaviour:
   flankOffsetDistance: 6
   ambushTriggerRadius: 7
   ambushMaxDurationSeconds: 16
-  stalkAbandonRadius: 162
+  stalkAbandonRadius: 2530
   commitSpeed: 9.5
   commitDistance: 4
   commitLoseRadius: 16
