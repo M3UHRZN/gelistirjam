@@ -1796,7 +1796,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Game.Gameplay::Game.Gameplay.World.MapLightGate
   registry: {fileID: 492977305}
-  safeZoneLightPrefab: {fileID: 7407142791890458407, guid: dc6bc1c7bc4c061418438f3635bf8963, type: 3}
+  safeZoneLightPrefab: {fileID: 4923238778419105729, guid: 59d00d807915f964f84ae05b547af98e, type: 3}
   fallbackLightRange: 8
   fallbackLightIntensity: 1.2
   wiring: {fileID: 39345707}
