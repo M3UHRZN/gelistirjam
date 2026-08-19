@@ -2347,6 +2347,30 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 3485312556871818755, guid: 8e403a80a1d67c14a8ffb97807993a5f, type: 3}
+      propertyPath: chargeGraphic
+      value: 
+      objectReference: {fileID: 2112838718}
+    - target: {fileID: 3485312556871818755, guid: 8e403a80a1d67c14a8ffb97807993a5f, type: 3}
+      propertyPath: objectiveManager
+      value: 
+      objectReference: {fileID: 946764323}
+    - target: {fileID: 3485312556871818755, guid: 8e403a80a1d67c14a8ffb97807993a5f, type: 3}
+      propertyPath: chargePerFuseSeconds
+      value: 10
+      objectReference: {fileID: 0}
+    - target: {fileID: 3485312556871818755, guid: 8e403a80a1d67c14a8ffb97807993a5f, type: 3}
+      propertyPath: initialChargeSeconds
+      value: 9
+      objectReference: {fileID: 0}
+    - target: {fileID: 3485312556871818755, guid: 8e403a80a1d67c14a8ffb97807993a5f, type: 3}
+      propertyPath: maximumChargeSeconds
+      value: 20
+      objectReference: {fileID: 0}
+    - target: {fileID: 3485312556871818755, guid: 8e403a80a1d67c14a8ffb97807993a5f, type: 3}
+      propertyPath: lowChargeThresholdSeconds
+      value: 3
+      objectReference: {fileID: 0}
     - target: {fileID: 3981824972422522157, guid: 8e403a80a1d67c14a8ffb97807993a5f, type: 3}
       propertyPath: fuseGate
       value: 
@@ -2547,7 +2571,7 @@ MonoBehaviour:
   wallClearance: 0.02
   wallOffset: {x: 0, y: 0, z: 0}
   rotationOffsetEuler: {x: 0, y: 90, z: 0}
-  roundsPattern: 010000000100000001000000
+  roundsPattern: 02000000020000000200000003000000
 --- !u!4 &2106527332
 Transform:
   m_ObjectHideFlags: 0
@@ -2563,6 +2587,17 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &2112838718 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 2304953994140539646, guid: 8e403a80a1d67c14a8ffb97807993a5f, type: 3}
+  m_PrefabInstance: {fileID: 1879076612}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3a3b567d0f3679448bce08ad71fb02fb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Game.UI::Game.UI.Minimap.MinimapTabletGraphic
 --- !u!1 &35756315600278664
 GameObject:
   m_ObjectHideFlags: 0

@@ -30,6 +30,9 @@ namespace Game.UI.Minimap
         [SerializeField] private Color stairColor = DefaultStair;
 
         private MinimapRuntimeSnapshot snapshot = MinimapRuntimeSnapshot.Empty;
+        private float chargeNormalized = 1f;
+        private float signalAlpha = 1f;
+        private bool chargeLow;
 
         public override bool raycastTarget
         {
@@ -48,6 +51,13 @@ namespace Game.UI.Minimap
             visibleDiameterUnits = MinimapViewportProjection.EffectiveVisibleDiameter(
                 visibleMapUnits,
                 zoomLevel);
+            SetVerticesDirty();
+        }
+
+        public void SetChargeState(float normalized, bool isLow)
+        {
+            chargeNormalized = Mathf.Clamp01(normalized);
+            chargeLow = isLow;
             SetVerticesDirty();
         }
 
@@ -72,10 +82,14 @@ namespace Game.UI.Minimap
                 return;
             }
 
+            signalAlpha = chargeLow
+                ? Mathf.Lerp(0.52f, 1f, Mathf.PerlinNoise(Time.unscaledTime * 22f, 0.37f))
+                : 1f;
             AddQuad(vertexHelper, rect, Tint(backgroundColor));
             AddFrame(vertexHelper, rect);
             if (!snapshot.IsReady)
             {
+                DrawChargeIndicator(vertexHelper, rect);
                 return;
             }
 
@@ -85,6 +99,39 @@ namespace Game.UI.Minimap
             DrawWalls(vertexHelper, rect, wallThickness);
             DrawExitRoute(vertexHelper, rect, routeThickness);
             DrawStairs(vertexHelper, rect, shortSide * 0.022f, wallThickness);
+            DrawChargeIndicator(vertexHelper, rect);
+        }
+
+        private void DrawChargeIndicator(VertexHelper vertexHelper, Rect rect)
+        {
+            const int segmentCount = 3;
+            float shortSide = Mathf.Min(rect.width, rect.height);
+            float margin = shortSide * 0.035f;
+            float segmentWidth = shortSide * 0.038f;
+            float segmentHeight = shortSide * 0.018f;
+            float gap = shortSide * 0.012f;
+            float totalWidth = segmentCount * segmentWidth + (segmentCount - 1) * gap;
+            float x = rect.xMax - margin - totalWidth;
+            float y = rect.yMax - margin - segmentHeight;
+            int activeSegments = chargeNormalized <= 0f
+                ? 0
+                : Mathf.CeilToInt(chargeNormalized * segmentCount);
+            Color activeColor = chargeLow ? routeColor : wallColor;
+            Color inactiveColor = wallGlowColor;
+            inactiveColor.a = Mathf.Min(inactiveColor.a, 0.16f);
+
+            for (int index = 0; index < segmentCount; index++)
+            {
+                var segment = new Rect(
+                    x + index * (segmentWidth + gap),
+                    y,
+                    segmentWidth,
+                    segmentHeight);
+                AddQuad(
+                    vertexHelper,
+                    segment,
+                    Tint(index < activeSegments ? activeColor : inactiveColor));
+            }
         }
 
         private void DrawWalls(VertexHelper vertexHelper, Rect rect, float thickness)
@@ -227,7 +274,12 @@ namespace Game.UI.Minimap
             return vertex;
         }
 
-        private Color32 Tint(Color source) => source * color;
+        private Color32 Tint(Color source)
+        {
+            Color tinted = source * color;
+            tinted.a *= signalAlpha;
+            return tinted;
+        }
 
 #if UNITY_EDITOR
         protected override void OnValidate()

@@ -25,7 +25,7 @@ MonoBehaviour:
   verticalLinksPerFloorPair: 4
   minimumStairCenterSeparationUnits: 5
   verticalTraversalCostUnits: 4
-  fuseCount: 2
+  fuseCount: 3
   safeZoneCount: 8
   maxLayoutAttempts: 12
   maxPlacementAttemptsPerArea: 64

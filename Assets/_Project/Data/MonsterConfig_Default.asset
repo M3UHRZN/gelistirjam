@@ -12,16 +12,16 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4ffe2b3f569e545a2bc9c1db94da271e, type: 3}
   m_Name: MonsterConfig_Default
   m_EditorClassIdentifier: Game.MonsterAI::Game.MonsterAI.MonsterConfig
-  patrolSpeed: 7
-  patrolRadius: 60
-  detectionRadius: 20
+  patrolSpeed: 10
+  patrolRadius: 40
+  detectionRadius: 100
   interestedSpeed: 7
   stalkBehindDistance: 3
   stalkRepathInterval: 0.45
-  loseInterestRadius: 20
-  shySpeed: 10
+  loseInterestRadius: 300.1
+  shySpeed: 15
   shyFleeRadius: 14
-  shyFleeDuration: 45
+  shyFleeDuration: 10
   staredownAngerInterval: 1
   staredownCheckInterval: 1
   staredownChance: 0.103
@@ -49,7 +49,7 @@ MonoBehaviour:
   flankOffsetDistance: 5
   ambushTriggerRadius: 6
   ambushMaxDurationSeconds: 12
-  stalkAbandonRadius: 162
+  stalkAbandonRadius: 300.1
   commitSpeed: 7.5
   commitDistance: 3
   commitLoseRadius: 12
