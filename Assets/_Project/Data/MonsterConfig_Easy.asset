@@ -1,0 +1,89 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4ffe2b3f569e545a2bc9c1db94da271e, type: 3}
+  m_Name: MonsterConfig_Easy
+  m_EditorClassIdentifier: Game.MonsterAI::Game.MonsterAI.MonsterConfig
+  patrolSpeed: 5
+  patrolRadius: 30
+  detectionRadius: 8
+  interestedSpeed: 5
+  stalkBehindDistance: 4
+  stalkRepathInterval: 0.6
+  loseInterestRadius: 10
+  shySpeed: 8
+  shyFleeRadius: 16
+  shyFleeDuration: 50
+  staredownAngerInterval: 2
+  staredownCheckInterval: 1.5
+  staredownChance: 0
+  aggressiveSpeed: 7
+  loseAggroRadius: 6
+  aggressiveAngerDecayPerSecond: 2
+  contactKillRange: 0.8
+  gazeRayCount: 7
+  gazeRequiredHits: 1
+  gazeRayOriginSpread: 0.15
+  gazeMaxDistance: 25
+  gazeAggroHardCap: 8
+  angerPerSpotted: 1
+  maxAnger: 20
+  angerSpeedMultiplierMax: 1
+  criticalDistance: 1
+  gazeConfirmDurationSeconds: 0.2
+  repositionSpeed: 4
+  repositionChance: 0.12
+  predictionSeconds: 1
+  repositionInterval: 0.8
+  repositionStickyBonus: 1.5
+  finalChaseRepositionIntervalMultiplier: 0.75
+  finalChaseDistanceWeightMultiplier: 1.5
+  flankOffsetDistance: 4
+  ambushTriggerRadius: 5
+  ambushMaxDurationSeconds: 8
+  stalkAbandonRadius: 40
+  commitSpeed: 7
+  commitDistance: 2
+  commitLoseRadius: 8
+  safeZoneCampDistance: 20
+  safeZoneCampDuration: 12
+  safeZoneCampRepositionInterval: 4
+  fakeRetreatChance: 0
+  aggressionDistanceWeight: 0.05
+  aggressionStaredownBonus: 0
+  aggressionFinalChaseBonus: 0.15
+  angerStageTuning:
+  - StalkDistanceMultiplier: 1.05
+    RepositionChanceMultiplier: 0.5
+    RepositionIntervalMultiplier: 1.5
+    CutOffPreference: 0.121
+    FakeRetreatChanceMultiplier: 0.5
+    VisibilityRiskTolerance: 0.097
+  - StalkDistanceMultiplier: 1
+    RepositionChanceMultiplier: 1
+    RepositionIntervalMultiplier: 1
+    CutOffPreference: 0.15
+    FakeRetreatChanceMultiplier: 1
+    VisibilityRiskTolerance: 0.226
+  - StalkDistanceMultiplier: 1.07
+    RepositionChanceMultiplier: 1.4
+    RepositionIntervalMultiplier: 0.8
+    CutOffPreference: 0.169
+    FakeRetreatChanceMultiplier: 1.3
+    VisibilityRiskTolerance: 0.218
+  - StalkDistanceMultiplier: 1.08
+    RepositionChanceMultiplier: 1.8
+    RepositionIntervalMultiplier: 0.6
+    CutOffPreference: 0.258
+    FakeRetreatChanceMultiplier: 1.8
+    VisibilityRiskTolerance: 0.323
+  fuseApproachRadius: 12
+  fuseAwarenessAngerPerSecond: 0
