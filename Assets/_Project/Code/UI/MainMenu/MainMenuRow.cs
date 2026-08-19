@@ -1,6 +1,8 @@
+using System;
 using DG.Tweening;
 using TMPro;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.Events;
 using UnityEngine.UI;
 
@@ -14,7 +16,7 @@ namespace Game.UI.MainMenu
     /// so adding/reordering/removing rows never touches MainMenuPresenter's code.
     /// </summary>
     [DisallowMultipleComponent]
-    public class MainMenuRow : MonoBehaviour
+    public class MainMenuRow : MonoBehaviour, IPointerEnterHandler, IPointerClickHandler
     {
         [Header("Wiring")]
         [SerializeField] private Image highlightBorder;
@@ -43,6 +45,8 @@ namespace Game.UI.MainMenu
 
         /// <summary>False for rows like CONTINUE that render but never respond to selection/confirm.</summary>
         public bool Interactable => interactable;
+
+        internal event Action<MainMenuRow> PointerEntered;
 
 #if UNITY_EDITOR
         /// <summary>Editor-only escape hatch so MainMenuSceneBuilder (Task 6) can wire this row's
@@ -110,6 +114,17 @@ namespace Game.UI.MainMenu
                     returnTo, confirmPulseDuration * 0.7f))
                 .SetUpdate(true)
                 .OnComplete(() => onConfirmed?.Invoke());
+        }
+
+        public void OnPointerEnter(PointerEventData eventData)
+        {
+            if (interactable) PointerEntered?.Invoke(this);
+        }
+
+        public void OnPointerClick(PointerEventData eventData)
+        {
+            if (eventData == null || eventData.button != PointerEventData.InputButton.Left) return;
+            Confirm();
         }
 
         private void PlayOneShot(AudioClip clip)

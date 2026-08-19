@@ -35,6 +35,8 @@ namespace Game.UI.MainMenu
 
         private void OnEnable()
         {
+            BindPointerEvents();
+
             if (screenGroup != null) StartCoroutine(BootFlicker());
 
             if (rows == null || rows.Length == 0) return;
@@ -60,6 +62,7 @@ namespace Game.UI.MainMenu
 
         private void OnDisable()
         {
+            UnbindPointerEvents();
             CancelInvoke(nameof(RefreshClock));
         }
 
@@ -99,6 +102,33 @@ namespace Game.UI.MainMenu
             rows[selectedIndex].Deselect();
             selectedIndex = index;
             RefreshSelection();
+        }
+
+        private void BindPointerEvents()
+        {
+            if (rows == null) return;
+
+            foreach (MainMenuRow row in rows)
+            {
+                if (row == null) continue;
+                row.PointerEntered -= OnRowPointerEntered;
+                row.PointerEntered += OnRowPointerEntered;
+            }
+        }
+
+        private void UnbindPointerEvents()
+        {
+            if (rows == null) return;
+
+            foreach (MainMenuRow row in rows)
+            {
+                if (row != null) row.PointerEntered -= OnRowPointerEntered;
+            }
+        }
+
+        private void OnRowPointerEntered(MainMenuRow row)
+        {
+            SelectRow(Array.IndexOf(rows, row));
         }
 
         /// <summary>Wired to the OPTIONS row's onConfirmed in the Inspector.</summary>
