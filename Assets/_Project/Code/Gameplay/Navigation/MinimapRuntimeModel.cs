@@ -70,10 +70,15 @@ namespace Game.Gameplay.Navigation
             Vector2 playerPosition = WorldToMap(data, player.position);
             int playerFloor = WorldToFloor(data, player.position);
             float playerYaw = PlayerYawInMapSpace(data);
-            MapTraversalNode? playerNode = FindNearestNode(
-                data.TraversalGraph,
-                playerPosition,
-                playerFloor);
+            MapTraversalNode? playerNode = FindContainingNode(
+                    data.TraversalGraph,
+                    data.Modules,
+                    playerPosition,
+                    playerFloor)
+                ?? FindNearestNode(
+                    data.TraversalGraph,
+                    playerPosition,
+                    playerFloor);
 
             bool hasFuseDirection = false;
             Vector2 fuseDirection = Vector2.zero;
@@ -173,10 +178,15 @@ namespace Game.Gameplay.Navigation
 
                 Vector2 fusePosition = WorldToMap(data, fuse.transform.position);
                 int fuseFloor = WorldToFloor(data, fuse.transform.position);
-                MapTraversalNode? fuseNode = FindNearestNode(
-                    data.TraversalGraph,
-                    fusePosition,
-                    fuseFloor);
+                MapTraversalNode? fuseNode = FindContainingNode(
+                        data.TraversalGraph,
+                        data.Modules,
+                        fusePosition,
+                        fuseFloor)
+                    ?? FindNearestNode(
+                        data.TraversalGraph,
+                        fusePosition,
+                        fuseFloor);
                 if (fuseNode == null ||
                     !distances.TryGetValue(fuseNode.Value.Id, out int graphDistance) ||
                     graphDistance == int.MaxValue)
@@ -205,10 +215,68 @@ namespace Game.Gameplay.Navigation
                 playerNode.Value.Id,
                 selectedNode.Value.Id);
             Vector2 target = path.Count > 1
-                ? NodePosition(path[1])
+                ? ResolveRoomDoorwayWaypoint(data.Modules, path[0], path[1])
                 : WorldToMap(data, selectedFuse.transform.position);
             direction = target - playerPosition;
             return direction.sqrMagnitude > 0.0001f;
+        }
+
+        private static Vector2 ResolveRoomDoorwayWaypoint(
+            IReadOnlyList<GeneratedMapModule> modules,
+            MapTraversalNode current,
+            MapTraversalNode next)
+        {
+            MapTraversalNode roomNode;
+            MapTraversalNode outsideNode;
+            if (current.Kind == MapTraversalNodeKind.Room)
+            {
+                roomNode = current;
+                outsideNode = next;
+            }
+            else if (next.Kind == MapTraversalNodeKind.Room)
+            {
+                roomNode = next;
+                outsideNode = current;
+            }
+            else
+            {
+                return NodePosition(next);
+            }
+
+            GeneratedMapModule room = modules.FirstOrDefault(module =>
+                module != null && module.PlacementId == roomNode.OwnerPlacementId);
+            if (room == null || outsideNode.Coord.Floor != roomNode.Coord.Floor)
+            {
+                return NodePosition(next);
+            }
+
+            GridCoord3 origin = room.Origin;
+            GridSize2 size = room.RotatedFootprintUnits;
+            int maxX = origin.X + size.Width;
+            int maxZ = origin.Z + size.Depth;
+            Vector2 outsideCenter = NodePosition(outsideNode);
+
+            if (outsideNode.Coord.X < origin.X)
+            {
+                return new Vector2(origin.X, outsideCenter.y);
+            }
+
+            if (outsideNode.Coord.X >= maxX)
+            {
+                return new Vector2(maxX, outsideCenter.y);
+            }
+
+            if (outsideNode.Coord.Z < origin.Z)
+            {
+                return new Vector2(outsideCenter.x, origin.Z);
+            }
+
+            if (outsideNode.Coord.Z >= maxZ)
+            {
+                return new Vector2(outsideCenter.x, maxZ);
+            }
+
+            return NodePosition(next);
         }
 
         private IReadOnlyList<MinimapRoutePoint> BuildExitRoute(
@@ -269,6 +337,51 @@ namespace Game.Gameplay.Navigation
             }
 
             return route;
+        }
+
+        private static MapTraversalNode? FindContainingNode(
+            MapTraversalGraph graph,
+            IReadOnlyList<GeneratedMapModule> modules,
+            Vector2 mapPosition,
+            int floor)
+        {
+            foreach (GeneratedMapModule module in modules)
+            {
+                if (module == null || module.Category == MapModuleCategory.Corridor ||
+                    floor < module.MinFloor || floor > module.MaxFloor)
+                {
+                    continue;
+                }
+
+                GridCoord3 origin = module.Origin;
+                GridSize2 size = module.RotatedFootprintUnits;
+                bool contains = mapPosition.x >= origin.X && mapPosition.x < origin.X + size.Width &&
+                    mapPosition.y >= origin.Z && mapPosition.y < origin.Z + size.Depth;
+                if (!contains)
+                {
+                    continue;
+                }
+
+                MapTraversalNode? moduleNode = graph.Nodes
+                    .Where(node => node.OwnerPlacementId == module.PlacementId &&
+                                   node.Coord.Floor == floor)
+                    .Cast<MapTraversalNode?>()
+                    .FirstOrDefault();
+                if (moduleNode != null)
+                {
+                    return moduleNode;
+                }
+            }
+
+            int cellX = Mathf.FloorToInt(mapPosition.x);
+            int cellZ = Mathf.FloorToInt(mapPosition.y);
+            return graph.Nodes
+                .Where(node => node.Kind == MapTraversalNodeKind.Corridor &&
+                               node.Coord.Floor == floor &&
+                               node.Coord.X == cellX &&
+                               node.Coord.Z == cellZ)
+                .Cast<MapTraversalNode?>()
+                .FirstOrDefault();
         }
 
         private static MapTraversalNode? FindNearestNode(
